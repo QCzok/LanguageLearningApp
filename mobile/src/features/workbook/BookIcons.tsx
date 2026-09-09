@@ -141,6 +141,15 @@ export function ChevronRightIcon({ color, size }: IconProps) {
   );
 }
 
+/** Auf-/Zuklappen einer Gruppe – dreht sich per `transform` beim Öffnen. */
+export function ChevronDownIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Path d="M5.5 9.5 L12 16 L18.5 9.5" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+    </Frame>
+  );
+}
+
 /**
  * Hörtext-Marke: das gedruckte Tonzeichen eines Lehrwerks – ein Quadrat mit
  * Abspieldreieck, wie es neben Hörübungen im Buch steht.
