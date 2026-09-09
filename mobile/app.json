@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Lingua",
+    "slug": "lingua",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "lingua",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#2563EB",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.lingua.mobile"
+    },
+    "android": {
+      "package": "app.lingua.mobile",
+      "adaptiveIcon": { "backgroundColor": "#2563EB" }
+    },
+    "web": { "bundler": "metro" },
+    "plugins": ["expo-secure-store"],
+    "extra": {
+      "apiUrl": "http://localhost:3000/api/v1"
+    }
+  }
+}

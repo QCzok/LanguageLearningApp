@@ -1,0 +1,635 @@
+// Lingua – Datenmodell
+// Konventionen: cuid()-IDs, UTC-Timestamps, @@map auf snake_case Tabellennamen.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================ Enums
+
+enum CefrLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum UserRole {
+  USER
+  EDITOR
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  PREMIUM
+}
+
+enum LevelSource {
+  SELF_SELECTED
+  PLACEMENT_TEST
+}
+
+enum CardStatus {
+  NEW
+  LEARNING
+  REVIEW
+  MASTERED
+}
+
+enum VocabMode {
+  FLASHCARD
+  MULTIPLE_CHOICE
+  TYPING
+  LISTENING
+  MATCHING
+}
+
+enum LibraryType {
+  ARTICLE
+  STORY
+}
+
+enum ExerciseType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  OPEN
+}
+
+enum MediaType {
+  PODCAST
+  AUDIO_LESSON
+  DIALOGUE
+}
+
+enum AiMode {
+  CHAT
+  DISCUSSION
+  GRAMMAR
+  CORRECTION
+}
+
+enum AiFeature {
+  NOTEBOOK_ANALYSIS
+  CHAT
+  GRAMMAR_EXPLANATION
+  RECOMMENDATIONS
+}
+
+enum PageBackground {
+  BLANK
+  LINED
+  GRID
+  DOTTED
+}
+
+enum UnitSection {
+  KURSBUCH
+  ARBEITSBUCH
+}
+
+enum UnitStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ============================================================ Nutzer & Auth
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  displayName         String
+  avatarUrl           String?
+  role                UserRole  @default(USER)
+  plan                Plan      @default(FREE)
+  premiumUntil        DateTime?
+  /// Muttersprache als ISO-639-1 Code – steuert Übersetzungen und KI-Erklärungen.
+  nativeLanguage      String    @default("de")
+  xp                  Int       @default(0)
+  streakDays          Int       @default(0)
+  lastActivityDate    DateTime?
+  onboardingCompleted Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  refreshTokens     RefreshToken[]
+  profiles          LearningProfile[]
+  placementAttempts PlacementAttempt[]
+  vocabProgress     VocabProgress[]
+  reviewLogs        ReviewLog[]
+  decks             VocabDeck[]
+  notebooks         Notebook[]
+  notebookAnalyses  NotebookAnalysis[]
+  libraryAttempts   LibraryAttempt[]
+  readingProgress   ReadingProgress[]
+  mediaProgress     MediaProgress[]
+  aiConversations   AiConversation[]
+  aiUsage           AiUsage[]
+  dailyActivities   DailyActivity[]
+  unitProgress      UnitProgress[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Nur der Hash wird gespeichert – ein DB-Leak gibt keine gültigen Tokens preis.
+  tokenHash String
+  userAgent String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ============================================================ Sprachen & Profil
+
+model Language {
+  id         String  @id @default(cuid())
+  code       String  @unique // ISO-639-1, z. B. "en"
+  name       String // deutscher Name, z. B. "Englisch"
+  nativeName String // "English"
+  flagEmoji  String
+  isActive   Boolean @default(true)
+  sortOrder  Int     @default(0)
+
+  profiles           LearningProfile[]
+  placementQuestions PlacementQuestion[]
+  placementAttempts  PlacementAttempt[]
+  decks              VocabDeck[]
+  libraryContents    LibraryContent[]
+  mediaItems         MediaItem[]
+  notebooks          Notebook[]
+  aiConversations    AiConversation[]
+  chapters           Chapter[]
+
+  @@map("languages")
+}
+
+model LearningProfile {
+  id               String      @id @default(cuid())
+  userId           String
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId       String
+  language         Language    @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level            CefrLevel
+  levelSource      LevelSource @default(SELF_SELECTED)
+  dailyGoalMinutes Int         @default(15)
+  /// Genau ein Profil pro Nutzer ist aktiv; die App lernt in dieser Sprache.
+  isActive         Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([userId, languageId])
+  @@index([userId, isActive])
+  @@map("learning_profiles")
+}
+
+// ============================================================ Einstufungstest
+
+model PlacementQuestion {
+  id           String    @id @default(cuid())
+  languageId   String
+  language     Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level        CefrLevel
+  prompt       String
+  helperText   String?
+  options      String[]
+  correctIndex Int
+  points       Int       @default(1)
+  sortOrder    Int       @default(0)
+  isActive     Boolean   @default(true)
+
+  @@index([languageId, level])
+  @@map("placement_questions")
+}
+
+model PlacementAttempt {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId   String
+  language     Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  /// [{ questionId, selectedIndex, correct }]
+  answers      Json
+  correct      Int
+  total        Int
+  scorePercent Int
+  resultLevel  CefrLevel
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, languageId])
+  @@map("placement_attempts")
+}
+
+// ============================================================ Vokabeltrainer
+
+model VocabDeck {
+  id          String    @id @default(cuid())
+  languageId  String
+  language    Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level       CefrLevel
+  title       String
+  description String?
+  iconEmoji   String    @default("📘")
+  /// Systemdecks werden ausgeliefert, Nutzerdecks gehören ownerId.
+  isSystem    Boolean   @default(true)
+  ownerId     String?
+  owner       User?     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items VocabItem[]
+
+  @@index([languageId, level])
+  @@index([ownerId])
+  @@map("vocab_decks")
+}
+
+model VocabItem {
+  id                 String    @id @default(cuid())
+  deckId             String
+  deck               VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  term               String
+  translation        String
+  phonetic           String?
+  partOfSpeech       String?
+  exampleSentence    String?
+  exampleTranslation String?
+  audioUrl           String?
+  imageUrl           String?
+  tags               String[]
+  sortOrder          Int       @default(0)
+
+  progress   VocabProgress[]
+  reviewLogs ReviewLog[]
+
+  @@index([deckId])
+  @@map("vocab_items")
+}
+
+/// SRS-Karte: Zustand einer Vokabel für genau einen Nutzer.
+model VocabProgress {
+  id             String     @id @default(cuid())
+  userId         String
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabItemId    String
+  vocabItem      VocabItem  @relation(fields: [vocabItemId], references: [id], onDelete: Cascade)
+  status         CardStatus @default(NEW)
+  easeFactor     Float      @default(2.5)
+  intervalDays   Int        @default(0)
+  repetitions    Int        @default(0)
+  lapses         Int        @default(0)
+  dueAt          DateTime   @default(now())
+  lastReviewedAt DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([userId, vocabItemId])
+  @@index([userId, dueAt])
+  @@index([userId, status])
+  @@map("vocab_progress")
+}
+
+model ReviewLog {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vocabItemId String
+  vocabItem   VocabItem @relation(fields: [vocabItemId], references: [id], onDelete: Cascade)
+  grade       Int
+  correct     Boolean
+  mode        VocabMode
+  durationMs  Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("review_logs")
+}
+
+// ============================================================ Lernheft
+
+model Notebook {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId String?
+  language   Language? @relation(fields: [languageId], references: [id], onDelete: SetNull)
+  title      String
+  coverColor String    @default("#2563EB")
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  pages NotebookPage[]
+
+  @@index([userId, updatedAt])
+  @@map("notebooks")
+}
+
+model NotebookPage {
+  id           String         @id @default(cuid())
+  notebookId   String
+  notebook     Notebook       @relation(fields: [notebookId], references: [id], onDelete: Cascade)
+  index        Int
+  background   PageBackground @default(LINED)
+  /// NotebookPageContent aus @lingua/shared – versioniertes Element-Array.
+  content      Json
+  thumbnailUrl String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  analyses NotebookAnalysis[]
+
+  @@unique([notebookId, index])
+  @@map("notebook_pages")
+}
+
+/// Ergebnis einer KI-Korrektur (Premium).
+model NotebookAnalysis {
+  id             String       @id @default(cuid())
+  pageId         String
+  page           NotebookPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recognizedText String
+  summary        String
+  scorePercent   Int
+  /// [{ original, corrected, explanation, category, severity }]
+  corrections    Json
+  suggestions    String[]
+  model          String
+  createdAt      DateTime     @default(now())
+
+  @@index([pageId, createdAt])
+  @@map("notebook_analyses")
+}
+
+// ============================================================ Arbeitsbuch
+
+/// Ein Kapitel des Lehrwerks. Pro Sprache und Niveau sechs Stück, über
+/// `order` (1–6) sortiert.
+model Chapter {
+  id               String    @id @default(cuid())
+  languageId       String
+  language         Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level            CefrLevel
+  order            Int
+  title            String
+  subtitle         String
+  description      String
+  coverEmoji       String    @default("📗")
+  /// Kann-Beschreibungen im Sinne des GER.
+  goals            String[]
+  estimatedMinutes Int       @default(0)
+  isPublished      Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  units ChapterUnit[]
+
+  @@unique([languageId, level, order])
+  @@index([languageId, level])
+  @@map("chapters")
+}
+
+/// Eine Lerneinheit innerhalb eines Kapitels – entweder Kursbuchteil
+/// (neue Inhalte) oder Arbeitsbuchteil (Übungen dazu).
+model ChapterUnit {
+  id               String      @id @default(cuid())
+  chapterId        String
+  chapter          Chapter     @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  section          UnitSection
+  order            Int
+  title            String
+  subtitle         String?
+  estimatedMinutes Int         @default(10)
+  /// UnitContent aus @lingua/shared – versioniertes Block-Array inkl. Lösungen.
+  content          Json
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  progress UnitProgress[]
+
+  @@unique([chapterId, section, order])
+  @@index([chapterId])
+  @@map("chapter_units")
+}
+
+/// Bearbeitungsstand einer Lerneinheit für genau einen Nutzer.
+model UnitProgress {
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId       String
+  unit         ChapterUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  status       UnitStatus  @default(NOT_STARTED)
+  /// UnitAnswers – Antworten je Block-ID, überleben das Verlassen der Einheit.
+  answers      Json        @default("{}")
+  /// Freihand-Notizebene über den Blöcken (NotebookPageContent).
+  annotations  Json?
+  scorePercent Int?
+  completedAt  DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([userId, unitId])
+  @@index([userId, status])
+  @@map("unit_progress")
+}
+
+// ============================================================ Bibliothek
+
+model LibraryContent {
+  id               String      @id @default(cuid())
+  languageId       String
+  language         Language    @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level            CefrLevel
+  type             LibraryType
+  title            String
+  summary          String
+  /// Markdown-Fließtext.
+  body             String
+  author           String?
+  imageUrl         String?
+  wordCount        Int         @default(0)
+  estimatedMinutes Int         @default(0)
+  tags             String[]
+  isPremium        Boolean     @default(false)
+  publishedAt      DateTime    @default(now())
+
+  exercises LibraryExercise[]
+  attempts  LibraryAttempt[]
+  progress  ReadingProgress[]
+
+  @@index([languageId, level, type])
+  @@map("library_contents")
+}
+
+model LibraryExercise {
+  id           String         @id @default(cuid())
+  contentId    String
+  content      LibraryContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  order        Int
+  type         ExerciseType
+  question     String
+  options      String[]
+  /// -1 bei offenen Fragen (Bewertung durch KI oder Selbstkontrolle).
+  correctIndex Int            @default(-1)
+  explanation  String?
+
+  @@index([contentId, order])
+  @@map("library_exercises")
+}
+
+model LibraryAttempt {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentId    String
+  content      LibraryContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  answers      Json
+  score        Int
+  total        Int
+  scorePercent Int
+  createdAt    DateTime       @default(now())
+
+  @@index([userId, contentId])
+  @@map("library_attempts")
+}
+
+model ReadingProgress {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contentId       String
+  content         LibraryContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  progressPercent Int            @default(0)
+  completedAt     DateTime?
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([userId, contentId])
+  @@map("reading_progress")
+}
+
+// ============================================================ Mediathek
+
+model MediaItem {
+  id          String    @id @default(cuid())
+  languageId  String
+  language    Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  level       CefrLevel
+  type        MediaType
+  title       String
+  description String
+  audioUrl    String
+  coverUrl    String?
+  durationSec Int
+  transcript  String?
+  tags        String[]
+  isPremium   Boolean   @default(false)
+  publishedAt DateTime  @default(now())
+
+  progress MediaProgress[]
+
+  @@index([languageId, level, type])
+  @@map("media_items")
+}
+
+model MediaProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mediaItemId String
+  mediaItem   MediaItem @relation(fields: [mediaItemId], references: [id], onDelete: Cascade)
+  positionSec Int       @default(0)
+  completed   Boolean   @default(false)
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, mediaItemId])
+  @@map("media_progress")
+}
+
+// ============================================================ KI
+
+model AiConversation {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  languageId String
+  language   Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  mode       AiMode    @default(CHAT)
+  level      CefrLevel
+  title      String
+  topic      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  messages AiMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("ai_conversations")
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // "user" | "assistant"
+  content        String
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("ai_messages")
+}
+
+/// Verbrauchszähler für Kontingente und Kostenkontrolle.
+model AiUsage {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature      AiFeature
+  model        String
+  inputTokens  Int       @default(0)
+  outputTokens Int       @default(0)
+  cachedTokens Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ai_usage")
+}
+
+// ============================================================ Fortschritt
+
+model DailyActivity {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Auf Mitternacht UTC normalisiert.
+  date           DateTime @db.Date
+  minutes        Int      @default(0)
+  xp             Int      @default(0)
+  reviews        Int      @default(0)
+  correctReviews Int      @default(0)
+  readingCount   Int      @default(0)
+  listeningCount Int      @default(0)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("daily_activities")
+}

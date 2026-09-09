@@ -1,0 +1,41 @@
+{
+  "name": "lingua-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lingua – modulare Lernplattform für Sprachlernende (React Native + NestJS)",
+  "workspaces": [
+    "packages/*",
+    "backend",
+    "mobile"
+  ],
+  "scripts": {
+    "shared:build": "npm run build -w @lingua/shared",
+    "backend:dev": "npm run start:dev -w @lingua/backend",
+    "backend:build": "npm run build -w @lingua/backend",
+    "backend:seed": "npm run seed -w @lingua/backend",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run prisma:migrate -w @lingua/backend",
+    "mobile:start": "npm run start -w @lingua/mobile",
+    "bootstrap": "npm install && npm run shared:build && npm run db:init && npm run db:migrate && npm run backend:seed",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "db:init": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 init",
+    "db:start": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 start",
+    "db:stop": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 stop",
+    "db:status": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 status",
+    "db:psql": "powershell -ExecutionPolicy Bypass -File scripts/db.ps1 psql"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~4.0.1",
+    "react-dom": "18.3.1",
+    "react-native-web": "~0.19.13"
+  }
+}
