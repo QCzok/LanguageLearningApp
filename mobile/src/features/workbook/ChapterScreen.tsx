@@ -19,11 +19,14 @@ import {
   Title,
 } from '../../components';
 import { workbookApi } from '../../api/endpoints';
-import { bookFont, colors, radius, spacing, typography } from '../../theme';
+import { bookFont, bookSans, colors, radius, spacing } from '../../theme';
 import { CheckMark } from './BookIcons';
+import { SECTION_THEME } from './BookPage';
 import type { NotebookStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotebookStackParamList, 'Chapter'>;
+
+const SECTIONS: UnitSection[] = ['KURSBUCH', 'ARBEITSBUCH'];
 
 export default function ChapterScreen({ route, navigation }: Props) {
   const { chapterId } = route.params;
@@ -45,7 +48,9 @@ export default function ChapterScreen({ route, navigation }: Props) {
     return <ErrorState message="Das Kapitel konnte nicht geladen werden." onRetry={refetch} />;
   }
 
-  const sections: UnitSection[] = ['KURSBUCH', 'ARBEITSBUCH'];
+  function openUnit(unit: UnitSummaryDto) {
+    navigation.navigate('Unit', { unitId: unit.id, title: unit.title });
+  }
 
   return (
     <Screen scroll>
@@ -96,92 +101,88 @@ export default function ChapterScreen({ route, navigation }: Props) {
         </View>
       </Card>
 
-      {sections.map((section) => {
-        const units = data.units.filter((unit) => unit.section === section);
-        if (units.length === 0) return null;
-
-        return (
-          <View key={section} style={{ gap: spacing.md }}>
-            {/* Buchteil-Trenner wie im Inhaltsverzeichnis: Name, Linie, Erklärung. */}
-            <View style={{ gap: spacing.xs }}>
-              <Row gap={spacing.sm}>
-                <Text style={sectionLabel}>{SECTION_LABELS[section].label.toUpperCase()}</Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-              </Row>
-              <Caption>{SECTION_LABELS[section].description}</Caption>
-            </View>
-
-            {units.map((unit) => (
-              <UnitRow
-                key={unit.id}
-                unit={unit}
-                onPress={() =>
-                  navigation.navigate('Unit', { unitId: unit.id, title: unit.title })
-                }
-              />
-            ))}
-          </View>
-        );
-      })}
+      {/*
+        Zwei Karten statt einer Liste aller Seiten: Kursbuch und Arbeitsbuch
+        sind die beiden Bücher, die ein Nutzer tatsächlich aufschlägt – welche
+        Einheit dahinter als Nächstes drankommt, entscheidet die App selbst.
+        Innerhalb einer Einheit führt ohnehin schon die Blätterleiste weiter
+        (siehe UnitScreen), eine zusätzliche Liste hier wäre eine zweite,
+        redundante Navigationsebene.
+      */}
+      <View style={{ gap: spacing.md }}>
+        {SECTIONS.map((section) => {
+          const units = data.units.filter((unit) => unit.section === section);
+          if (units.length === 0) return null;
+          return (
+            <SectionCard key={section} section={section} units={units} onPress={openUnit} />
+          );
+        })}
+      </View>
     </Screen>
   );
 }
 
-function UnitRow({ unit, onPress }: { unit: UnitSummaryDto; onPress: () => void }) {
-  const done = unit.status === 'COMPLETED';
-  const started = unit.status === 'IN_PROGRESS';
+function SectionCard({
+  section,
+  units,
+  onPress,
+}: {
+  section: UnitSection;
+  units: UnitSummaryDto[];
+  onPress: (unit: UnitSummaryDto) => void;
+}) {
+  const theme = SECTION_THEME[section];
+  const total = units.length;
+  const completed = units.filter((unit) => unit.status === 'COMPLETED').length;
+  const started = units.some((unit) => unit.status !== 'NOT_STARTED');
+  const allDone = completed === total;
+  // Die erste noch offene Seite ist die Anschlussstelle – „weitermachen, wo
+  // man aufgehört hat“. Sind alle Seiten fertig, öffnet die Karte wieder bei
+  // Seite eins, zum Wiederholen.
+  const resumeUnit = units.find((unit) => unit.status !== 'COMPLETED') ?? units[0];
 
   return (
-    <Card onPress={onPress} style={done ? { borderColor: colors.success } : undefined}>
-      <Row gap={spacing.md}>
-        <View
-          style={[
-            statusCircle,
-            done
-              ? { backgroundColor: colors.success, borderColor: colors.success }
-              : started
-                ? { borderColor: colors.warning, borderWidth: 3 }
-                : null,
-          ]}
-        >
-          {done ? (
-            <CheckMark color={colors.textInverse} size={15} />
-          ) : (
-            <Text style={[typography.label, { color: colors.textMuted }]}>{unit.order}</Text>
-          )}
+    <Card onPress={() => onPress(resumeUnit)} style={{ borderLeftWidth: 4, borderLeftColor: theme.accent }}>
+      <Row gap={spacing.sm} style={{ alignItems: 'center' }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[sectionCardLabel, { color: theme.accent }]}>
+            {SECTION_LABELS[section].label.toUpperCase()}
+          </Text>
+          <Caption>{SECTION_LABELS[section].description}</Caption>
         </View>
-
-        <View style={{ flex: 1 }}>
-          <Text style={typography.bodyStrong}>{unit.title}</Text>
-          {unit.subtitle ? <Caption>{unit.subtitle}</Caption> : null}
-          <Row gap={spacing.xs}>
-            <Caption>{unit.estimatedMinutes} Min</Caption>
-            {unit.exerciseCount > 0 ? <Caption>· {unit.exerciseCount} Aufgaben</Caption> : null}
-            {unit.scorePercent !== null ? (
-              <Caption>
-                · <Text style={{ color: scoreColor(unit.scorePercent) }}>{unit.scorePercent} %</Text>
-              </Caption>
-            ) : null}
-          </Row>
-        </View>
-
-        <Text style={{ fontSize: 18, color: colors.textMuted }}>›</Text>
+        <Text style={{ fontSize: 22, color: colors.textMuted }}>›</Text>
       </Row>
+
+      <View style={{ gap: spacing.xs, paddingTop: spacing.sm }}>
+        <ProgressBar
+          value={total > 0 ? Math.round((completed / total) * 100) : 0}
+          color={allDone ? colors.success : theme.accent}
+        />
+        <Caption>
+          {completed} von {total} {total === 1 ? 'Seite' : 'Seiten'} erledigt
+        </Caption>
+      </View>
+
+      <Text style={[resumeLabel, { color: allDone ? colors.success : colors.text }]}>
+        {allDone
+          ? 'Alle Seiten abgeschlossen · zum Wiederholen öffnen'
+          : `${started ? 'Weiter' : 'Beginnen'} mit „${resumeUnit.title}“`}
+      </Text>
     </Card>
   );
 }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return colors.success;
-  if (score >= 50) return colors.warning;
-  return colors.danger;
-}
-
-const sectionLabel = {
-  fontSize: 14,
+const sectionCardLabel = {
+  fontFamily: bookSans,
+  fontSize: 15,
   fontWeight: '700' as const,
   letterSpacing: 1.6,
-  color: colors.text,
+};
+
+const resumeLabel = {
+  fontSize: 15,
+  fontWeight: '600' as const,
+  paddingTop: spacing.sm,
 };
 
 const chapterNumeral = {
@@ -200,14 +201,4 @@ const chapterNumeralText = {
   lineHeight: 29,
   fontWeight: '700' as const,
   color: colors.primaryDark,
-};
-
-const statusCircle = {
-  width: 32,
-  height: 32,
-  borderRadius: 16,
-  borderWidth: 2,
-  borderColor: colors.border,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
 };
