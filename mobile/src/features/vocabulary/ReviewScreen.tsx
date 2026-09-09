@@ -1,17 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { GRADE_BUTTONS } from '@lingua/shared';
 import type { ReviewCardDto, VocabMode } from '@lingua/shared';
 import {
-  Body,
   Button,
   Caption,
   Card,
   EmptyState,
   ErrorState,
-  Heading,
   Loading,
   ProgressBar,
   Row,
@@ -19,7 +17,8 @@ import {
   Title,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, flashcard, radius, spacing, typography } from '../../theme';
+import { Flashcard } from './Flashcard';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'Review'>;
@@ -36,6 +35,9 @@ interface SessionSummary {
  * Die Warteschlange kommt einmal vom Server und wird lokal abgearbeitet; jede
  * Bewertung geht sofort ans Backend, damit ein Abbruch keinen Fortschritt kostet.
  * Die eigentliche SM-2-Rechnung passiert serverseitig – hier zählt nur die Note.
+ *
+ * Dargestellt wird die Karte als echte Karteikarte (siehe `Flashcard`), und der
+ * Reststapel liegt sichtbar darunter: Man sieht beim Lernen, wie er abnimmt.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
   const { deckId, level, queueType } = route.params;
@@ -133,10 +135,15 @@ export default function ReviewScreen({ route, navigation }: Props) {
     return (
       <Screen>
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
-          <View style={{ alignItems: 'center', gap: spacing.sm }}>
-            <Text style={{ fontSize: 60 }}>{accuracy >= 80 ? '🏆' : '💪'}</Text>
-            <Title>Sitzung abgeschlossen</Title>
-          </View>
+          <Flashcard stackSize={2} style={{ marginBottom: spacing.md }}>
+            <View style={{ alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.md }}>
+              <Text style={cardEyebrow}>Sitzung abgeschlossen</Text>
+              <Text style={summaryScore}>{accuracy} %</Text>
+              <Text style={cardMeta}>
+                {summary.correct} von {summary.reviewed} richtig
+              </Text>
+            </View>
+          </Flashcard>
 
           <Row gap={spacing.md}>
             <Card style={{ flex: 1, alignItems: 'center' }}>
@@ -167,12 +174,15 @@ export default function ReviewScreen({ route, navigation }: Props) {
     );
   }
 
+  // Wie viele Karten noch unter dieser liegen – der Stapel schrumpft sichtbar.
+  const remaining = cards.length - index - 1;
+
   return (
     <Screen>
       <View style={{ gap: spacing.sm }}>
         <Row>
           <Caption>
-            {index + 1} / {cards.length}
+            Karte {index + 1} von {cards.length}
           </Caption>
           <View style={{ flex: 1 }} />
           <Caption>{modeLabel(card.mode)}</Caption>
@@ -181,12 +191,19 @@ export default function ReviewScreen({ route, navigation }: Props) {
       </View>
 
       {card.mode === 'FLASHCARD' ? (
-        <FlashcardMode card={card} revealed={revealed} onReveal={() => setRevealed(true)} onGrade={grade} />
+        <FlashcardMode
+          card={card}
+          remaining={remaining}
+          revealed={revealed}
+          onReveal={() => setRevealed(true)}
+          onGrade={grade}
+        />
       ) : null}
 
       {card.mode === 'MULTIPLE_CHOICE' || card.mode === 'LISTENING' ? (
         <ChoiceMode
           card={card}
+          remaining={remaining}
           selected={choiceIndex}
           onSelect={setChoiceIndex}
           onGrade={grade}
@@ -196,6 +213,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
       {card.mode === 'TYPING' || card.mode === 'MATCHING' ? (
         <TypingMode
           card={card}
+          remaining={remaining}
           value={typedAnswer}
           onChange={setTypedAnswer}
           revealed={revealed}
@@ -209,42 +227,65 @@ export default function ReviewScreen({ route, navigation }: Props) {
 
 // ------------------------------------------------------------- Lernmodi
 
+/** Vorderseite jeder Karte: das abgefragte Wort, gesetzt wie von Hand notiert. */
+function CardFace({ card, hint }: { card: ReviewCardDto; hint?: string }) {
+  return (
+    <View style={{ alignItems: 'center', gap: 6 }}>
+      {hint ? <Text style={cardEyebrow}>{hint}</Text> : null}
+      <Text style={termText}>{card.item.term}</Text>
+      {card.item.phonetic ? <Text style={cardMeta}>{card.item.phonetic}</Text> : null}
+      {card.item.partOfSpeech ? (
+        <View style={posChip}>
+          <Text style={posChipText}>{card.item.partOfSpeech}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function FlashcardMode({
   card,
+  remaining,
   revealed,
   onReveal,
   onGrade,
 }: {
   card: ReviewCardDto;
+  remaining: number;
   revealed: boolean;
   onReveal: () => void;
   onGrade: (grade: number, mode: VocabMode) => void;
 }) {
   return (
     <View style={{ flex: 1, gap: spacing.lg }}>
-      <Pressable onPress={onReveal} style={{ flex: 1 }} accessibilityRole="button">
-        <Card style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md }}>
-          <Text style={typography.display}>{card.item.term}</Text>
-          {card.item.phonetic ? <Caption>{card.item.phonetic}</Caption> : null}
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing.md }} showsVerticalScrollIndicator={false}>
+        <Pressable onPress={onReveal} accessibilityRole="button">
+          <Flashcard stackSize={remaining} variant={revealed ? 'back' : 'front'}>
+            <View style={{ minHeight: 210, justifyContent: 'center' }}>
+              <CardFace card={card} hint={revealed ? undefined : 'Was bedeutet das?'} />
 
-          {revealed ? (
-            <View style={{ alignItems: 'center', gap: spacing.sm, marginTop: spacing.md }}>
-              <View style={dividerStyle} />
-              <Text style={[typography.title, { color: colors.primary }]}>
-                {card.item.translation}
-              </Text>
-              {card.item.exampleSentence ? (
-                <View style={{ alignItems: 'center', gap: 2, marginTop: spacing.sm }}>
-                  <Body>{card.item.exampleSentence}</Body>
-                  <Caption>{card.item.exampleTranslation ?? ''}</Caption>
+              {revealed ? (
+                <View style={{ alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg }}>
+                  <View style={faceDivider} />
+                  <Text style={answerText}>{card.item.translation}</Text>
+                  {card.item.exampleSentence ? (
+                    <View style={{ alignItems: 'center', gap: 2, marginTop: spacing.xs }}>
+                      <Text style={exampleText}>{card.item.exampleSentence}</Text>
+                      {card.item.exampleTranslation ? (
+                        <Text style={cardMeta}>{card.item.exampleTranslation}</Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
-              ) : null}
+              ) : (
+                <Text style={[cardMeta, { textAlign: 'center', marginTop: spacing.lg }]}>
+                  Zum Umdrehen tippen
+                </Text>
+              )}
             </View>
-          ) : (
-            <Caption>Zum Aufdecken tippen</Caption>
-          )}
-        </Card>
-      </Pressable>
+          </Flashcard>
+        </Pressable>
+      </ScrollView>
 
       {revealed ? (
         <Row gap={spacing.sm}>
@@ -259,19 +300,23 @@ function FlashcardMode({
           ))}
         </Row>
       ) : (
-        <Button label="Aufdecken" onPress={onReveal} />
+        <Button label="Umdrehen" onPress={onReveal} />
       )}
     </View>
   );
 }
 
+const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E'];
+
 function ChoiceMode({
   card,
+  remaining,
   selected,
   onSelect,
   onGrade,
 }: {
   card: ReviewCardDto;
+  remaining: number;
   selected: number | null;
   onSelect: (index: number) => void;
   onGrade: (grade: number, mode: VocabMode) => void;
@@ -280,52 +325,77 @@ function ChoiceMode({
   const isCorrect = selected === card.correctChoiceIndex;
 
   return (
-    <View style={{ flex: 1, gap: spacing.lg }}>
-      <Card style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl }}>
-        {card.mode === 'LISTENING' ? (
-          <Text style={{ fontSize: 40 }}>🔊</Text>
-        ) : (
-          <Caption>Was bedeutet das?</Caption>
-        )}
-        <Text style={typography.display}>{card.item.term}</Text>
-        {card.item.phonetic ? <Caption>{card.item.phonetic}</Caption> : null}
-      </Card>
+    <View style={{ flex: 1, gap: spacing.md }}>
+      <ScrollView
+        contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Flashcard stackSize={remaining}>
+          <View style={{ minHeight: 120, justifyContent: 'center' }}>
+            {card.mode === 'LISTENING' ? (
+              <Text style={{ fontSize: 34, textAlign: 'center', marginBottom: spacing.xs }}>🔊</Text>
+            ) : null}
+            <CardFace card={card} hint="Was bedeutet das?" />
+          </View>
+        </Flashcard>
 
-      <View style={{ gap: spacing.sm }}>
-        {(card.choices ?? []).map((choice, choiceIndex) => {
-          const state = !answered
-            ? 'idle'
-            : choiceIndex === card.correctChoiceIndex
-              ? 'correct'
-              : choiceIndex === selected
-                ? 'wrong'
-                : 'idle';
+        {/* Genau eine der fünf Bedeutungen stimmt. Die Buchstaben helfen beim
+            Blick zurück auf die Karte – man merkt sich „C“, nicht die Position. */}
+        <View style={{ gap: spacing.sm }}>
+          {(card.choices ?? []).map((choice, choiceIndex) => {
+            const state = !answered
+              ? 'idle'
+              : choiceIndex === card.correctChoiceIndex
+                ? 'correct'
+                : choiceIndex === selected
+                  ? 'wrong'
+                  : 'muted';
 
-          return (
-            <Pressable
-              key={`${choice}-${choiceIndex}`}
-              disabled={answered}
-              onPress={() => onSelect(choiceIndex)}
-              style={[choiceStyles.base, choiceStyles[state]]}
-            >
-              <Text style={[typography.body, { flex: 1 }]}>{choice}</Text>
-              {state === 'correct' ? <Text>✓</Text> : null}
-              {state === 'wrong' ? <Text>✗</Text> : null}
-            </Pressable>
-          );
-        })}
-      </View>
+            return (
+              <Pressable
+                key={`${choice}-${choiceIndex}`}
+                accessibilityRole="button"
+                disabled={answered}
+                onPress={() => onSelect(choiceIndex)}
+                style={({ pressed }) => [
+                  choiceRow,
+                  choiceStates[state],
+                  pressed && !answered && { opacity: 0.8 },
+                ]}
+              >
+                <View style={[choiceLetter, choiceLetterStates[state]]}>
+                  <Text style={[choiceLetterText, state !== 'idle' && { color: colors.textInverse }]}>
+                    {CHOICE_LETTERS[choiceIndex] ?? choiceIndex + 1}
+                  </Text>
+                </View>
+                <Text style={[choiceText, state === 'muted' && { color: colors.textMuted }]}>
+                  {choice}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      <View style={{ flex: 1 }} />
+        {answered && card.item.exampleSentence ? (
+          <Flashcard variant="back">
+            <View style={{ gap: 4 }}>
+              <Text style={cardEyebrow}>Im Satz</Text>
+              <Text style={exampleText}>{card.item.exampleSentence}</Text>
+              {card.item.exampleTranslation ? (
+                <Text style={cardMeta}>{card.item.exampleTranslation}</Text>
+              ) : null}
+            </View>
+          </Flashcard>
+        ) : null}
+      </ScrollView>
 
       {answered ? (
         <View style={{ gap: spacing.sm }}>
-          {card.item.exampleSentence ? (
-            <Card>
-              <Body>{card.item.exampleSentence}</Body>
-              <Caption>{card.item.exampleTranslation ?? ''}</Caption>
-            </Card>
-          ) : null}
+          <Text style={[verdictText, { color: isCorrect ? colors.success : colors.danger }]}>
+            {isCorrect
+              ? 'Richtig'
+              : `Falsch – kommt auf den Wiederholen-Stapel`}
+          </Text>
           {/* Auswahlfragen liefern nur richtig/falsch – daraus werden 4 bzw. 1. */}
           <Button
             label="Weiter"
@@ -340,6 +410,7 @@ function ChoiceMode({
 
 function TypingMode({
   card,
+  remaining,
   value,
   onChange,
   revealed,
@@ -347,6 +418,7 @@ function TypingMode({
   onGrade,
 }: {
   card: ReviewCardDto;
+  remaining: number;
   value: string;
   onChange: (value: string) => void;
   revealed: boolean;
@@ -359,39 +431,37 @@ function TypingMode({
   );
 
   return (
-    <View style={{ flex: 1, gap: spacing.lg }}>
-      <Card style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl }}>
-        <Caption>Wie heißt das auf Deutsch?</Caption>
-        <Text style={typography.display}>{card.item.term}</Text>
-      </Card>
+    <View style={{ flex: 1, gap: spacing.md }}>
+      <ScrollView
+        contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Flashcard stackSize={remaining}>
+          <View style={{ minHeight: 150, justifyContent: 'center', gap: spacing.lg }}>
+            <CardFace card={card} hint="Wie heißt das?" />
 
-      <TextInput
-        value={value}
-        onChangeText={onChange}
-        editable={!revealed}
-        placeholder="Deine Antwort"
-        placeholderTextColor={colors.textMuted}
-        autoCapitalize="none"
-        autoCorrect={false}
-        onSubmitEditing={onCheck}
-        style={[
-          typingInputStyle,
-          revealed && {
-            borderColor: isCorrect ? colors.success : colors.danger,
-            backgroundColor: isCorrect ? colors.successSoft : colors.dangerSoft,
-          },
-        ]}
-      />
+            {/* Die Antwort wird auf die Schreiblinie der Karte geschrieben. */}
+            <TextInput
+              value={value}
+              onChangeText={onChange}
+              editable={!revealed}
+              placeholder="Antwort eintragen"
+              placeholderTextColor={flashcard.inkSoft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              onSubmitEditing={onCheck}
+              style={[
+                answerLine,
+                revealed && { color: isCorrect ? colors.success : colors.danger },
+              ]}
+            />
 
-      {revealed ? (
-        <Card>
-          <Heading>{isCorrect ? 'Richtig!' : 'Richtige Antwort'}</Heading>
-          <Text style={[typography.title, { color: colors.primary }]}>{card.item.translation}</Text>
-          {card.item.exampleSentence ? <Caption>{card.item.exampleSentence}</Caption> : null}
-        </Card>
-      ) : null}
-
-      <View style={{ flex: 1 }} />
+            {revealed && !isCorrect ? (
+              <Text style={[answerText, { textAlign: 'center' }]}>{card.item.translation}</Text>
+            ) : null}
+          </View>
+        </Flashcard>
+      </ScrollView>
 
       {revealed ? (
         // Auch bei korrekt getippter Antwort darf der Lernende „schwer" wählen.
@@ -435,7 +505,86 @@ function modeLabel(mode: VocabMode): string {
   return labels[mode];
 }
 
-const dividerStyle = { height: 1, width: 120, backgroundColor: colors.border };
+// ------------------------------------------------------------------ Styles
+
+const cardEyebrow = {
+  ...typography.label,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
+  color: flashcard.inkSoft,
+  textAlign: 'center' as const,
+};
+
+const termText = {
+  fontSize: 34,
+  lineHeight: 42,
+  fontWeight: '700' as const,
+  color: flashcard.ink,
+  textAlign: 'center' as const,
+};
+
+const cardMeta = {
+  fontSize: 14,
+  lineHeight: 20,
+  color: flashcard.inkSoft,
+  textAlign: 'center' as const,
+};
+
+const posChip = {
+  alignSelf: 'center' as const,
+  borderWidth: 1,
+  borderColor: flashcard.edge,
+  borderRadius: radius.full,
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 2,
+  marginTop: 2,
+};
+
+const posChipText = {
+  fontSize: 11,
+  letterSpacing: 0.6,
+  color: flashcard.inkSoft,
+};
+
+const faceDivider = {
+  height: 1,
+  width: 120,
+  backgroundColor: flashcard.edge,
+};
+
+const answerText = {
+  fontSize: 24,
+  lineHeight: 32,
+  fontWeight: '700' as const,
+  color: colors.primaryDark,
+  textAlign: 'center' as const,
+};
+
+const exampleText = {
+  fontSize: 16,
+  lineHeight: 24,
+  color: flashcard.ink,
+  textAlign: 'center' as const,
+};
+
+const summaryScore = {
+  fontSize: 46,
+  lineHeight: 54,
+  fontWeight: '700' as const,
+  color: colors.primaryDark,
+};
+
+/** Die Antwortzeile sitzt wie handschriftlich auf einer Schreiblinie. */
+const answerLine = {
+  alignSelf: 'stretch' as const,
+  marginHorizontal: spacing.md,
+  borderBottomWidth: 1.5,
+  borderBottomColor: flashcard.inkSoft,
+  paddingBottom: 6,
+  fontSize: 20,
+  textAlign: 'center' as const,
+  color: flashcard.ink,
+};
 
 const gradeButtonStyle = {
   flex: 1,
@@ -445,29 +594,56 @@ const gradeButtonStyle = {
   justifyContent: 'center' as const,
 };
 
-const typingInputStyle = {
-  minHeight: 56,
-  borderRadius: radius.md,
-  borderWidth: 2,
-  borderColor: colors.border,
-  backgroundColor: colors.surface,
-  paddingHorizontal: spacing.lg,
-  fontSize: 18,
-  color: colors.text,
+const verdictText = {
+  ...typography.bodyStrong,
+  textAlign: 'center' as const,
 };
 
-const choiceStyles = {
-  base: {
-    minHeight: 54,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    paddingHorizontal: spacing.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
+const choiceRow = {
+  minHeight: 54,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.md,
+  paddingHorizontal: spacing.md,
+  paddingVertical: spacing.sm,
+  borderRadius: radius.md,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.surface,
+};
+
+const choiceStates = {
   idle: {},
+  muted: { opacity: 0.55 },
   correct: { borderColor: colors.success, borderWidth: 2, backgroundColor: colors.successSoft },
   wrong: { borderColor: colors.danger, borderWidth: 2, backgroundColor: colors.dangerSoft },
+};
+
+const choiceLetter = {
+  width: 30,
+  height: 30,
+  borderRadius: 15,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.surfaceAlt,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const choiceLetterStates = {
+  idle: {},
+  muted: {},
+  correct: { backgroundColor: colors.success, borderColor: colors.success },
+  wrong: { backgroundColor: colors.danger, borderColor: colors.danger },
+};
+
+const choiceLetterText = {
+  ...typography.label,
+  color: colors.textMuted,
+};
+
+const choiceText = {
+  ...typography.body,
+  flex: 1,
+  color: colors.text,
 };

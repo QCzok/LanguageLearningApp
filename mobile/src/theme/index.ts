@@ -98,6 +98,28 @@ export const book = {
   attention: '#8A5A1E',
 } as const;
 
+/**
+ * Karteikarten des Vokabeltrainers.
+ *
+ * Eine echte Karteikarte ist kein weißes Rechteck: leicht cremefarbener
+ * Karton, oben eine rote Kopflinie, darunter blasse blaue Schreiblinien, ein
+ * scharfer Rand und ein kurzer Schatten, weil sie auf einem Stapel liegt.
+ * Genau diese fünf Merkmale bilden die Tokens hier ab.
+ */
+export const flashcard = {
+  paper: '#FDFBF5',
+  paperBack: '#F7F3E8',
+  edge: '#E3DCCA',
+  /** Rote Kopflinie – das Erkennungszeichen der Karteikarte. */
+  headRule: '#C2564B',
+  /** Blasse Schreiblinien. */
+  rule: '#D6DEE8',
+  ink: '#221F1A',
+  inkSoft: '#5E574B',
+  /** Farbe der Stapel-Schichten hinter der obersten Karte. */
+  stack: '#EFE9DA',
+} as const;
+
 /** Serifenschrift für Fließtext – der stärkste Hebel für den Buchcharakter. */
 export const bookFont = Platform.select({
   ios: 'Georgia',

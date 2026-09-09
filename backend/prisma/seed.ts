@@ -671,42 +671,219 @@ What is clear is that noise, long treated as an unavoidable by-product of urban 
     },
   ];
 
-  for (const seed of librarySeeds) {
-    const existing = await prisma.libraryContent.findFirst({
-      where: { languageId: en, title: seed.title },
-    });
+  /**
+   * Wie bei Vokabeldecks und Mediathek: ohne deutschsprachige Texte bleibt
+   * die Bibliothek für ein aktives Deutsch-Profil leer. Gleiche drei Formate,
+   * Niveaus und Aufgabentypen wie beim Englisch-Set, inhaltlich eigenständige
+   * deutsche Texte (keine Wort-für-Wort-Übersetzung).
+   */
+  const librarySeedsDe = [
+    {
+      type: LibraryType.ARTICLE,
+      level: CefrLevel.A2,
+      title: 'Ein Morgen auf dem Wochenmarkt',
+      summary: 'Ein kurzer Text über einen Samstagmorgen auf dem Wochenmarkt.',
+      author: 'Lingua Redaktion',
+      tags: ['alltag', 'einkaufen'],
+      body: `Jeden Samstagmorgen geht Mara zu dem Wochenmarkt in der Nähe ihrer Wohnung. Sie nimmt eine Stofftasche und einen kleinen Einkaufszettel mit.
 
-    const wordCount = seed.body.split(/\s+/).length;
-    const data = {
-      languageId: en,
-      level: seed.level,
-      type: seed.type,
-      title: seed.title,
-      summary: seed.summary,
-      body: seed.body,
-      author: seed.author,
-      tags: seed.tags,
-      wordCount,
-      estimatedMinutes: estimateReadingMinutes(wordCount, seed.level),
-    };
+Der Markt öffnet um acht Uhr. Zu dieser Zeit ist das Brot noch warm und die Schlange ist kurz. Mara kauft zwei Brote, ein Stück Käse und eine Schale Erdbeeren. Die Frau am Käsestand gibt ihr immer ein kleines Stück zum Probieren.
 
-    const content = existing
-      ? await prisma.libraryContent.update({ where: { id: existing.id }, data })
-      : await prisma.libraryContent.create({ data });
+„Was kostet der Käse?", fragt Mara.
+„Sechs Euro", sagt die Frau. „Er kommt von einem Bauernhof am See."
 
-    await prisma.libraryExercise.deleteMany({ where: { contentId: content.id } });
-    await prisma.libraryExercise.createMany({
-      data: seed.exercises.map((exercise, index) => ({
-        contentId: content.id,
-        order: index,
-        type: exercise.type,
-        question: exercise.question,
-        options: exercise.options,
-        correctIndex: exercise.correctIndex,
-        explanation: exercise.explanation,
-      })),
-    });
+Mara bezahlt bar. Dann setzt sie sich mit einem Kaffee auf eine Bank und beobachtet die Leute. Manche kommen mit Kindern, manche mit Hunden. Ein Mann spielt Gitarre neben dem Blumenstand.
+
+Um zehn Uhr ist der Markt voll. Mara geht langsam nach Hause. Ihre Tasche ist schwer, aber sie ist glücklich. Der Samstagmorgen ist ihre liebste Zeit der Woche.`,
+      exercises: [
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Wann öffnet der Markt?',
+          options: ['Um sieben Uhr', 'Um acht Uhr', 'Um neun Uhr', 'Um zehn Uhr'],
+          correctIndex: 1,
+          explanation: 'Im Text steht: „Der Markt öffnet um acht Uhr."',
+        },
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Wie bezahlt Mara den Käse?',
+          options: ['Mit Karte', 'Bar', 'Mit einem Gutschein', 'Sie bezahlt nicht'],
+          correctIndex: 1,
+          explanation: '„Mara bezahlt bar."',
+        },
+        {
+          type: ExerciseType.TRUE_FALSE,
+          question: 'Mara geht jeden Sonntag auf den Markt.',
+          options: ['Richtig', 'Falsch'],
+          correctIndex: 1,
+          explanation: 'Sie geht jeden Samstagmorgen dorthin.',
+        },
+        {
+          type: ExerciseType.OPEN,
+          question: 'Beschreibe in drei Sätzen deinen eigenen Samstagmorgen auf Deutsch.',
+          options: [],
+          correctIndex: -1,
+          explanation: 'Nutze das Präsens und Zeitangaben wie „um acht Uhr", „am Morgen".',
+        },
+      ],
+    },
+    {
+      type: LibraryType.STORY,
+      level: CefrLevel.B1,
+      title: 'Der Leuchtturmwärter',
+      summary: 'Eine kurze Geschichte über Einsamkeit, Gewohnheit und eine unerwartete Begegnung.',
+      author: 'Lingua Redaktion',
+      tags: ['geschichte', 'natur'],
+      body: `Neunzehn Jahre lang kümmerte sich Tomas um das Licht am Sker Point. Er kannte den Klang jeder Welle an den Felsen, und er konnte am Flug der Möwen das Wetter erkennen.
+
+Die Routine änderte sich nie. In der Dämmerung stieg er die zweiundneunzig Stufen hinauf, prüfte die Lampe, trug das Datum ins Logbuch ein und stieg wieder hinunter. Einmal im Monat brachte ein Boot Vorräte und Briefe, die selten für ihn waren.
+
+Dann, an einem grauen Dienstag im November, fand er ein Mädchen schlafend auf dem Landesteg.
+
+Sie sagte, sie heiße Ines und ihr Boot habe eine Panne gehabt. Sie war vielleicht zwanzig. Tomas gab ihr trockene Kleidung und Suppe und erwartete, dass sie mit der nächsten Flut abreisen würde.
+
+Sie blieb elf Tage. Sie stellte Fragen, die ihm seit Jahren niemand gestellt hatte: warum er hierher gekommen sei, ob er das Festland vermisse, was er jeden Abend ins Logbuch schreibe. Er stellte fest, dass er Antworten hatte, und dass es sie ein wenig veränderte, sie laut auszusprechen.
+
+Als das Reparaturboot endlich kam, schüttelte Ines ihm auf dem Landesteg die Hand.
+„Du solltest mehr schreiben als nur das Datum", sagte sie.
+
+An diesem Abend stieg Tomas die zweiundneunzig Stufen hinauf, prüfte die Lampe und öffnete das Logbuch. Unter das Datum schrieb er zum ersten Mal einen vollständigen Satz.`,
+      exercises: [
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Wie lange arbeitete Tomas schon am Leuchtturm?',
+          options: ['Neun Jahre', 'Elf Jahre', 'Neunzehn Jahre', 'Zweiundneunzig Jahre'],
+          correctIndex: 2,
+          explanation: '„Neunzehn Jahre lang kümmerte sich Tomas um das Licht am Sker Point."',
+        },
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Was meint Ines mit „Du solltest mehr schreiben als nur das Datum"?',
+          options: [
+            'Er soll für seinen Arbeitgeber ein besseres Logbuch führen.',
+            'Er soll seine eigenen Gedanken und sein Leben festhalten, nicht nur Fakten.',
+            'Er soll Briefe ans Festland schreiben.',
+            'Er soll schneller schreiben lernen.',
+          ],
+          correctIndex: 1,
+          explanation:
+            'Der letzte Absatz zeigt die Wirkung: Er schreibt zum ersten Mal einen ganzen Satz über sich.',
+        },
+        {
+          type: ExerciseType.TRUE_FALSE,
+          question: 'Ines reiste mit der nächsten Flut ab.',
+          options: ['Richtig', 'Falsch'],
+          correctIndex: 1,
+          explanation: 'Sie blieb elf Tage.',
+        },
+        {
+          type: ExerciseType.OPEN,
+          question: 'Was verändert sich für Tomas durch die Begegnung? Antworte in 3–4 Sätzen.',
+          options: [],
+          correctIndex: -1,
+          explanation: 'Achte auf Präteritum und Plusquamperfekt zur Unterscheidung der Zeitebenen.',
+        },
+      ],
+    },
+    {
+      type: LibraryType.ARTICLE,
+      level: CefrLevel.B2,
+      title: 'Warum Städte leiser werden',
+      summary: 'Ein Sachtext über Elektromobilität, Stadtplanung und die Folgen für den Alltag.',
+      author: 'Lingua Redaktion',
+      tags: ['gesellschaft', 'umwelt'],
+      body: `Wer nach einem Jahrzehnt im Ausland in eine europäische Innenstadt zurückkehrt, bemerkt meist zuerst eines: Es ist leiser geworden.
+
+Ein Teil der Erklärung liegt auf der Hand. Elektrofahrzeuge erzeugen bei niedriger Geschwindigkeit nur einen Bruchteil des Lärms von Verbrennungsmotoren, und Städte haben ihre Busflotten schneller umgerüstet, als private Fahrer ihre Autos ersetzt haben. Ingenieure weisen jedoch darauf hin, dass der Effekt ungleich verteilt ist. Oberhalb von etwa 30 km/h dominieren Reifen- und Windgeräusche, sodass eine Autobahn mit Elektroautos ganz ähnlich klingt wie eine mit Benzinern.
+
+Der größere Wandel ist wohl weniger technischer als regulatorischer Natur. Umweltzonen, reduzierte Tempolimits und die Umwandlung von Durchgangsstraßen in Wohnstraßen haben verändert, wie sich der Verkehr bewegt, nicht nur, womit er fährt. Forscher in Barcelona maßen in Straßen, die im Rahmen des städtischen Superblock-Programms umgestaltet wurden, einen Rückgang von mehreren Dezibel – ein Unterschied, groß genug, um als etwa halb so laut wahrgenommen zu werden.
+
+Nicht alle begrüßen die Veränderung. Verbände für blinde und sehbehinderte Fußgänger warnten früh davor, dass nahezu geräuschlose Fahrzeuge schwerer wahrzunehmen sind, und Vorschriften in der EU und anderswo schreiben inzwischen künstliche Geräusche bei niedriger Geschwindigkeit vor. Andere argumentieren, dass leisere Straßen die Gentrifizierung beschleunigen und ohnehin begehrte Viertel noch teurer machen.
+
+Klar ist: Lärm, lange als unvermeidliches Nebenprodukt des Stadtlebens hingenommen, ist zu etwas geworden, worüber Städte glauben, entscheiden zu können.`,
+      exercises: [
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Warum werden laut dem Text Autobahnen durch Elektroautos nicht leiser?',
+          options: [
+            'Elektroautos sind bei hoher Geschwindigkeit lauter.',
+            'Oberhalb von etwa 30 km/h dominieren Reifen- und Windgeräusche.',
+            'Auf Autobahnen gibt es noch keine Elektroautos.',
+            'Autobahnbeläge verstärken Motorengeräusche.',
+          ],
+          correctIndex: 1,
+          explanation: 'Der zweite Absatz nennt genau diese Schwelle.',
+        },
+        {
+          type: ExerciseType.MULTIPLE_CHOICE,
+          question: 'Was hatte laut Text die größere Wirkung?',
+          options: [
+            'Die Technik der Fahrzeuge',
+            'Regulierung und Straßengestaltung',
+            'Das Verhalten einzelner Fahrer',
+            'Die Wetterbedingungen in Innenstädten',
+          ],
+          correctIndex: 1,
+          explanation: '„Der größere Wandel ist wohl weniger technischer als regulatorischer Natur."',
+        },
+        {
+          type: ExerciseType.TRUE_FALSE,
+          question: 'Der Text stellt leisere Straßen als durchweg positiv dar.',
+          options: ['Richtig', 'Falsch'],
+          correctIndex: 1,
+          explanation: 'Es werden Einwände genannt: Sicherheit für blinde Menschen und Gentrifizierung.',
+        },
+        {
+          type: ExerciseType.OPEN,
+          question: 'Fasse das Hauptargument des Textes in zwei Sätzen zusammen und nenne einen Gegeneinwand.',
+          options: [],
+          correctIndex: -1,
+          explanation: 'Nützliche Wendungen: „Das Hauptargument ist, dass …", „Kritiker weisen jedoch darauf hin, dass …"',
+        },
+      ],
+    },
+  ];
+
+  async function seedLibraryContent(languageId: string, seeds: typeof librarySeeds): Promise<void> {
+    for (const seed of seeds) {
+      const existing = await prisma.libraryContent.findFirst({
+        where: { languageId, title: seed.title },
+      });
+
+      const wordCount = seed.body.split(/\s+/).length;
+      const data = {
+        languageId,
+        level: seed.level,
+        type: seed.type,
+        title: seed.title,
+        summary: seed.summary,
+        body: seed.body,
+        author: seed.author,
+        tags: seed.tags,
+        wordCount,
+        estimatedMinutes: estimateReadingMinutes(wordCount, seed.level),
+      };
+
+      const content = existing
+        ? await prisma.libraryContent.update({ where: { id: existing.id }, data })
+        : await prisma.libraryContent.create({ data });
+
+      await prisma.libraryExercise.deleteMany({ where: { contentId: content.id } });
+      await prisma.libraryExercise.createMany({
+        data: seed.exercises.map((exercise, index) => ({
+          contentId: content.id,
+          order: index,
+          type: exercise.type,
+          question: exercise.question,
+          options: exercise.options,
+          correctIndex: exercise.correctIndex,
+          explanation: exercise.explanation,
+        })),
+      });
+    }
   }
+
+  await seedLibraryContent(en, librarySeeds);
+  await seedLibraryContent(de, librarySeedsDe);
 
   // ------------------------------------------------------------ Mediathek
   const mediaSeeds = [
@@ -749,30 +926,80 @@ What is clear is that noise, long treated as an unavoidable by-product of urban 
     },
   ];
 
-  const mediaBase = process.env.MEDIA_BASE_URL ?? 'http://localhost:3000/static';
-  for (const seed of mediaSeeds) {
-    const existing = await prisma.mediaItem.findFirst({
-      where: { languageId: en, title: seed.title },
-    });
-    const slug = seed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const data = {
-      languageId: en,
-      level: seed.level,
-      type: seed.type,
-      title: seed.title,
-      description: seed.description,
-      durationSec: seed.durationSec,
-      tags: seed.tags,
-      transcript: seed.transcript,
-      audioUrl: `${mediaBase}/audio/${slug}.mp3`,
-    };
+  /**
+   * Dasselbe Problem wie bei den Vokabeldecks: Ohne deutschsprachige Einträge
+   * ist die Mediathek für ein aktives Deutsch-Profil leer. Gleiche vier
+   * Formate und Niveaus wie beim Englisch-Set, nur inhaltlich auf Deutsch.
+   */
+  const mediaSeedsDe = [
+    {
+      type: MediaType.DIALOGUE,
+      level: CefrLevel.A1,
+      title: 'Beim Bäcker',
+      description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
+      durationSec: 96,
+      tags: ['dialog', 'alltag'],
+      transcript:
+        'A: Guten Morgen! Was darf es sein?\nB: Guten Morgen. Zwei Brötchen, bitte.\nA: Sonst noch etwas?\nB: Noch ein kleines Brot, bitte. Was macht das zusammen?\nA: Drei Euro zwanzig.\nB: Bitte schön.\nA: Danke schön. Einen schönen Tag noch!',
+    },
+    {
+      type: MediaType.AUDIO_LESSON,
+      level: CefrLevel.A2,
+      title: 'Vom Wochenende erzählen',
+      description: 'Redemittel und Übungen zum Perfekt im Gespräch.',
+      durationSec: 421,
+      tags: ['grammatik', 'perfekt'],
+      transcript: null,
+    },
+    {
+      type: MediaType.PODCAST,
+      level: CefrLevel.B1,
+      title: 'Langsame Nachrichten: Von überall arbeiten',
+      description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
+      durationSec: 738,
+      tags: ['podcast', 'arbeit'],
+      transcript: null,
+    },
+    {
+      type: MediaType.PODCAST,
+      level: CefrLevel.B2,
+      title: 'Das Sprachlabor: Wie sich Akzente verändern',
+      description: 'Interviewfolge über Sprachwandel und regionale Aussprache.',
+      durationSec: 1284,
+      tags: ['podcast', 'linguistik'],
+      transcript: null,
+    },
+  ];
 
-    if (existing) {
-      await prisma.mediaItem.update({ where: { id: existing.id }, data });
-    } else {
-      await prisma.mediaItem.create({ data });
+  const mediaBase = process.env.MEDIA_BASE_URL ?? 'http://localhost:3000/static';
+  async function seedMediaItems(languageId: string, seeds: typeof mediaSeeds): Promise<void> {
+    for (const seed of seeds) {
+      const existing = await prisma.mediaItem.findFirst({
+        where: { languageId, title: seed.title },
+      });
+      const slug = seed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const data = {
+        languageId,
+        level: seed.level,
+        type: seed.type,
+        title: seed.title,
+        description: seed.description,
+        durationSec: seed.durationSec,
+        tags: seed.tags,
+        transcript: seed.transcript,
+        audioUrl: `${mediaBase}/audio/${slug}.mp3`,
+      };
+
+      if (existing) {
+        await prisma.mediaItem.update({ where: { id: existing.id }, data });
+      } else {
+        await prisma.mediaItem.create({ data });
+      }
     }
   }
+
+  await seedMediaItems(en, mediaSeeds);
+  await seedMediaItems(de, mediaSeedsDe);
 
   // ------------------------------------------------------------ Lehrplan
   await seedWorkbook(prisma);

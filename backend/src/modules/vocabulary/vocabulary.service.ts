@@ -220,10 +220,7 @@ export class VocabularyService {
 
     if (cards.length === 0) return [];
 
-    const distractorPool = await this.distractorPool(
-      cards.map((card) => card.item.deckId),
-      cards.map((card) => card.item.id),
-    );
+    const distractorPool = await this.distractorPool(cards.map((card) => card.item.deckId));
 
     return cards.map((card) => {
       const mode = this.pickMode(card.status, query.mode);
@@ -237,10 +234,19 @@ export class VocabularyService {
 
       if (mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING) {
         // Fünf Vorschläge insgesamt: die richtige Übersetzung plus vier
-        // Distraktoren aus demselben Deck.
-        const distractors = shuffle(
-          distractorPool.filter((entry) => entry.id !== card.item.id).map((entry) => entry.translation),
-        ).slice(0, 4);
+        // Distraktoren aus demselben Deck. Gleichlautende Übersetzungen werden
+        // vorher entfernt – sonst stünde dieselbe Antwort zweimal da und eine
+        // davon würde als falsch gewertet.
+        const distractors = shuffle([
+          ...new Set(
+            distractorPool
+              .filter(
+                (entry) =>
+                  entry.id !== card.item.id && entry.translation !== card.item.translation,
+              )
+              .map((entry) => entry.translation),
+          ),
+        ]).slice(0, 4);
         const choices = shuffle([card.item.translation, ...distractors]);
         base.choices = choices;
         base.correctChoiceIndex = choices.indexOf(card.item.translation);
@@ -422,10 +428,17 @@ export class VocabularyService {
     return map;
   }
 
-  /** Plausible falsche Antworten stammen aus denselben Decks wie die Zielkarten. */
-  private async distractorPool(deckIds: string[], excludeIds: string[]) {
+  /**
+   * Plausible falsche Antworten stammen aus denselben Decks wie die Zielkarten.
+   *
+   * Der Pool enthält bewusst auch die Karten der laufenden Sitzung: Wer ein
+   * Deck mit zehn Vokabeln komplett neu lernt, hätte sonst gar keine
+   * Distraktoren mehr – die jeweils eigene Karte wird erst beim Bauen der
+   * Auswahl herausgefiltert.
+   */
+  private async distractorPool(deckIds: string[]) {
     return this.prisma.vocabItem.findMany({
-      where: { deckId: { in: [...new Set(deckIds)] }, id: { notIn: excludeIds } },
+      where: { deckId: { in: [...new Set(deckIds)] } },
       select: { id: true, translation: true },
       take: 200,
     });

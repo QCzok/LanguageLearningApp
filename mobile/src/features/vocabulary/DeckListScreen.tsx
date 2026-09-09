@@ -8,7 +8,6 @@ import type { CefrLevel, VocabDeckDto } from '@lingua/shared';
 import {
   Button,
   Caption,
-  Card,
   EmptyState,
   ErrorState,
   Heading,
@@ -20,7 +19,7 @@ import {
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
 import { useActiveProfile } from '../../store/auth.store';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, flashcard, radius, spacing, typography } from '../../theme';
 import { ChevronDownIcon } from '../workbook/BookIcons';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
@@ -33,10 +32,11 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
  * verwirrenden Mittelweg: „Neue Vokabeln“ zeigt unbekannte Wörter als Auswahl
  * mit fünf Bedeutungsvorschlägen; eine falsche Auswahl schickt die Karte auf
  * den Wiederholen-Stapel (Serverseite: `dueAt` rückt auf „gleich wieder
- * fällig“ vor). „Wiederholen“ zeigt genau diesen Stapel – alles, was fällig
- * ist, gemischt aus Lernkarte, Auswahl und Eintippen je nach Stand der Karte.
- * Themendecks bleiben als zweite, kleinere Ebene erreichbar, für wer gezielt
- * ein Thema üben will.
+ * fällig“ vor). „Wiederholen“ zeigt genau diesen Stapel.
+ *
+ * Beide werden als das dargestellt, was sie sind: zwei Kartenstapel. Die
+ * Schichten dahinter sind keine Dekoration, sondern zeigen an, ob überhaupt
+ * etwas im Stapel liegt – ein leerer Stapel ist flach.
  */
 export default function DeckListScreen({ navigation }: Props) {
   const profile = useActiveProfile();
@@ -142,6 +142,7 @@ function LevelSection({
   const totalItems = decks.reduce((sum, deck) => sum + deck.itemCount, 0);
   const newCount = decks.reduce((sum, deck) => sum + (deck.progress?.new ?? deck.itemCount), 0);
   const dueCount = decks.reduce((sum, deck) => sum + (deck.progress?.dueNow ?? 0), 0);
+  const masteredCount = decks.reduce((sum, deck) => sum + (deck.progress?.mastered ?? 0), 0);
 
   return (
     <View style={sectionContainer}>
@@ -158,7 +159,8 @@ function LevelSection({
             {isCurrent ? <CurrentPill /> : null}
           </Row>
           <Caption>
-            {totalItems} Vokabeln · {decks.length} {decks.length === 1 ? 'Deck' : 'Decks'}
+            {totalItems} Vokabeln
+            {masteredCount > 0 ? ` · ${masteredCount} gemeistert` : ''}
           </Caption>
         </View>
         <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
@@ -167,23 +169,20 @@ function LevelSection({
       </Pressable>
 
       {isOpen ? (
-        <View style={{ gap: spacing.md, paddingTop: spacing.md }}>
-          {/* Die beiden einzigen Wege zu lernen – neue Vokabeln oder der
-              Wiederholen-Stapel. Kein dritter, uneindeutiger Button daneben. */}
-          <Row gap={spacing.sm}>
-            <ActionTile
-              icon="🆕"
-              label="Neue Vokabeln"
+        <View style={{ gap: spacing.lg, paddingTop: spacing.lg }}>
+          {/* Die beiden einzigen Wege zu lernen, als zwei Stapel nebeneinander. */}
+          <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
+            <DeckStack
               count={newCount}
-              hint={newCount > 0 ? `${newCount} bereit` : 'Alles gelernt'}
+              label="Neue Vokabeln"
+              hint={newCount > 0 ? 'noch nie geübt' : 'alles kennengelernt'}
               accent={colors.primary}
               onPress={() => onStart('NEW')}
             />
-            <ActionTile
-              icon="🔁"
-              label="Wiederholen"
+            <DeckStack
               count={dueCount}
-              hint={dueCount > 0 ? `${dueCount} fällig` : 'Nichts fällig'}
+              label="Wiederholen"
+              hint={dueCount > 0 ? 'jetzt fällig' : 'nichts fällig'}
               accent={colors.warning}
               onPress={() => onStart('DUE')}
             />
@@ -209,41 +208,48 @@ function CurrentPill() {
   );
 }
 
-/** Eine der beiden Lernrichtungen – bewusst gleich groß, keine ist die Standardwahl. */
-function ActionTile({
-  icon,
-  label,
+/**
+ * Ein Kartenstapel.
+ *
+ * Die Schichten dahinter liegen leicht schief, wie von Hand abgelegt, und
+ * richten sich nach dem Inhalt: kein Stapel ohne Karten, zwei Schichten erst
+ * ab einer nennenswerten Menge. Angetippt werden kann er immer – auch leer,
+ * dann erklärt der Lernbildschirm selbst, dass gerade nichts ansteht.
+ */
+function DeckStack({
   count,
+  label,
   hint,
   accent,
   onPress,
 }: {
-  icon: string;
-  label: string;
   count: number;
+  label: string;
   hint: string;
   accent: string;
   onPress: () => void;
 }) {
-  // Bewusst nie gesperrt: der Nutzer soll immer wählen können, auch wenn
-  // gerade nichts ansteht – der leere Stapel erklärt sich dann im
-  // Lernbildschirm selbst (siehe ReviewScreen).
-  const empty = count === 0;
+  const layers = count === 0 ? 0 : count >= 5 ? 2 : 1;
+
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={`${label}, ${count}`}
       onPress={onPress}
-      style={({ pressed }) => [
-        actionTile,
-        { borderColor: empty ? colors.border : accent },
-        pressed && { opacity: 0.85 },
-        empty && { opacity: 0.6 },
-      ]}
+      style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.85 }]}
     >
-      <Text style={{ fontSize: 22 }}>{icon}</Text>
-      <Text style={actionTileLabel}>{label}</Text>
-      <Text style={[actionTileHint, { color: empty ? colors.textMuted : accent }]}>{hint}</Text>
+      <View>
+        {layers >= 2 ? <View style={[stackLayer, { transform: [{ rotate: '-3.5deg' }] }]} /> : null}
+        {layers >= 1 ? <View style={[stackLayer, { transform: [{ rotate: '2.5deg' }] }]} /> : null}
+
+        <View style={[stackTop, count === 0 && { backgroundColor: colors.surfaceAlt }]}>
+          {/* Kopflinie in der Stapelfarbe – wie der Reiter einer Karteikarte. */}
+          <View style={[stackHeadRule, { backgroundColor: count === 0 ? colors.border : accent }]} />
+          <Text style={[stackCount, { color: count === 0 ? colors.textMuted : accent }]}>{count}</Text>
+          <Text style={stackLabel}>{label}</Text>
+          <Text style={stackHint}>{hint}</Text>
+        </View>
+      </View>
     </Pressable>
   );
 }
@@ -254,21 +260,31 @@ function DeckRow({ deck, onPress }: { deck: VocabDeckDto; onPress: () => void })
   const percent = progress?.total ? (learned / progress.total) * 100 : 0;
 
   return (
-    <Card onPress={onPress} style={deckRowCard}>
-      <Row gap={spacing.md}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={typography.bodyStrong}>{deck.title}</Text>
-          {deck.description ? <Caption>{deck.description}</Caption> : null}
-        </View>
-        {progress && progress.dueNow > 0 ? (
-          <View style={dueBadge}>
-            <Text style={[typography.label, { color: colors.textInverse }]}>{progress.dueNow}</Text>
-          </View>
-        ) : null}
-      </Row>
-      <ProgressBar value={percent} height={5} />
-      <Caption>{deck.itemCount} Vokabeln</Caption>
-    </Card>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [deckRow, pressed && { opacity: 0.85 }]}
+    >
+      {/* Angedeutete Kartenkante links – auch ein Themendeck ist ein Stapel. */}
+      <View style={deckRowSpine} />
+
+      <View style={{ flex: 1, gap: 5 }}>
+        <Row gap={spacing.sm}>
+          <Text style={[typography.bodyStrong, { flex: 1 }]}>{deck.title}</Text>
+          {progress && progress.dueNow > 0 ? (
+            <View style={dueBadge}>
+              <Text style={[typography.label, { color: colors.textInverse }]}>{progress.dueNow}</Text>
+            </View>
+          ) : null}
+        </Row>
+        {deck.description ? <Caption>{deck.description}</Caption> : null}
+        <ProgressBar value={percent} height={4} />
+        <Caption>
+          {deck.itemCount} Vokabeln
+          {progress ? ` · ${progress.new} neu` : ''}
+        </Caption>
+      </View>
+    </Pressable>
   );
 }
 
@@ -283,6 +299,8 @@ function levelHeadline(level: CefrLevel): string {
   };
   return map[level];
 }
+
+// ------------------------------------------------------------------ Styles
 
 const sectionContainer = {
   backgroundColor: colors.surface,
@@ -312,33 +330,75 @@ const currentPillText = {
   color: colors.primaryDark,
 };
 
-const actionTile = {
-  flex: 1,
-  gap: 2,
+/** Die schief liegenden Karten unter der obersten. */
+const stackLayer = {
+  position: 'absolute' as const,
+  top: 4,
+  left: 3,
+  right: 3,
+  bottom: -2,
+  backgroundColor: flashcard.stack,
+  borderRadius: radius.md,
+  borderWidth: 1,
+  borderColor: flashcard.edge,
+};
+
+const stackTop = {
+  backgroundColor: flashcard.paper,
+  borderRadius: radius.md,
+  borderWidth: 1,
+  borderColor: flashcard.edge,
+  paddingHorizontal: spacing.md,
+  paddingTop: spacing.md,
+  paddingBottom: spacing.md,
+  gap: 1,
+  shadowColor: '#3F3A2F',
+  shadowOpacity: 0.12,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 3 },
+  elevation: 3,
+};
+
+const stackHeadRule = {
+  height: 2,
+  borderRadius: 1,
+  marginBottom: spacing.sm,
+};
+
+const stackCount = {
+  fontSize: 32,
+  lineHeight: 38,
+  fontWeight: '700' as const,
+};
+
+const stackLabel = {
+  ...typography.bodyStrong,
+  color: flashcard.ink,
+};
+
+const stackHint = {
+  fontSize: 12,
+  lineHeight: 17,
+  color: flashcard.inkSoft,
+};
+
+const deckRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'stretch' as const,
+  gap: spacing.md,
   backgroundColor: colors.surface,
   borderRadius: radius.md,
-  borderWidth: 1.5,
+  borderWidth: 1,
+  borderColor: colors.border,
   padding: spacing.md,
 };
 
-const actionTileLabel = {
-  ...typography.bodyStrong,
-  color: colors.text,
-};
-
-const actionTileHint = {
-  ...typography.caption,
-  fontWeight: '600' as const,
-};
-
-// Deck-Zeilen innerhalb eines aufgeklappten Niveaus brauchen keinen eigenen
-// Schatten – die Gruppe trägt schon einen Rahmen.
-const deckRowCard = {
-  shadowOpacity: 0,
-  elevation: 0,
+const deckRowSpine = {
+  width: 4,
+  borderRadius: 2,
+  backgroundColor: flashcard.stack,
   borderWidth: 1,
-  borderColor: colors.border,
-  gap: spacing.xs,
+  borderColor: flashcard.edge,
 };
 
 const dueBadge = {
