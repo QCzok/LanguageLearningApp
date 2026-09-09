@@ -31,11 +31,64 @@ function estimateReadingMinutes(wordCount: number, level: CefrLevel): number {
   return Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE[level]));
 }
 
+interface VocabDeckSeed {
+  title: string;
+  level: CefrLevel;
+  description: string;
+  iconEmoji: string;
+  /** Je Eintrag: [Begriff, Übersetzung, Beispielsatz, Beispielübersetzung, Wortart] */
+  items: string[][];
+}
+
+/** Legt System-Vokabeldecks für eine Sprache an oder aktualisiert sie. */
+async function seedVocabDecks(languageId: string, deckSeeds: VocabDeckSeed[]): Promise<void> {
+  for (const [index, seed] of deckSeeds.entries()) {
+    const existing = await prisma.vocabDeck.findFirst({
+      where: { languageId, title: seed.title, isSystem: true },
+    });
+
+    const deck = existing
+      ? await prisma.vocabDeck.update({
+          where: { id: existing.id },
+          data: { description: seed.description, level: seed.level, sortOrder: index },
+        })
+      : await prisma.vocabDeck.create({
+          data: {
+            languageId,
+            level: seed.level,
+            title: seed.title,
+            description: seed.description,
+            iconEmoji: seed.iconEmoji,
+            isSystem: true,
+            sortOrder: index,
+          },
+        });
+
+    await prisma.vocabItem.deleteMany({ where: { deckId: deck.id } });
+    await prisma.vocabItem.createMany({
+      data: seed.items.map(([term, translation, example, exampleTranslation, pos], itemIndex) => ({
+        deckId: deck.id,
+        term,
+        translation,
+        exampleSentence: example,
+        exampleTranslation,
+        partOfSpeech: pos,
+        tags: [seed.level],
+        sortOrder: itemIndex,
+      })),
+    });
+  }
+}
+
 async function main(): Promise<void> {
   console.log('Seed startet …');
 
   // ------------------------------------------------------------- Sprachen
   const languageSeeds = [
+    // Gleiche Daten wie in seed/workbook.ts – idempotent per upsert über den
+    // Code, deshalb spielt es keine Rolle, welcher der beiden Seed-Läufe die
+    // Sprache zuerst anlegt.
+    { code: 'de', name: 'Deutsch', nativeName: 'Deutsch', flagEmoji: '🇩🇪', sortOrder: 0 },
     { code: 'en', name: 'Englisch', nativeName: 'English', flagEmoji: '🇬🇧', sortOrder: 1 },
     { code: 'es', name: 'Spanisch', nativeName: 'Español', flagEmoji: '🇪🇸', sortOrder: 2 },
     { code: 'fr', name: 'Französisch', nativeName: 'Français', flagEmoji: '🇫🇷', sortOrder: 3 },
@@ -51,6 +104,7 @@ async function main(): Promise<void> {
     });
     languages.set(seed.code, language.id);
   }
+  const de = languages.get('de')!;
   const en = languages.get('en')!;
   const es = languages.get('es')!;
 
@@ -365,42 +419,88 @@ async function main(): Promise<void> {
     },
   ];
 
-  for (const [index, seed] of deckSeeds.entries()) {
-    const existing = await prisma.vocabDeck.findFirst({
-      where: { languageId: en, title: seed.title, isSystem: true },
-    });
+  /**
+   * Deutsch als Fremdsprache hat über das Lehrwerk hinaus noch keine eigenen
+   * Vokabeldecks – ohne die landet ein Nutzer mit aktivem Deutsch-Profil im
+   * Vokabeltrainer bei „Noch keine Vokabeln". Gleiche Themen, gleicher
+   * Umfang wie beim Englisch-Set, nur mit vertauschter Richtung: `term` auf
+   * Deutsch, `translation`/`exampleTranslation` auf Englisch.
+   */
+  const germanDeckSeeds = [
+    {
+      title: 'Erste Wörter',
+      level: CefrLevel.A1,
+      description: 'Die 20 wichtigsten Wörter für den Anfang',
+      iconEmoji: '🌱',
+      items: [
+        ['hallo', 'hello', 'Hallo, wie geht es dir?', 'Hello, how are you?', 'interjection'],
+        ['danke', 'thank you', 'Vielen Dank.', 'Thank you very much.', 'phrase'],
+        ['bitte', 'please', 'Zwei Kaffee, bitte.', 'Two coffees, please.', 'adverb'],
+        ['das Haus', 'house', 'Unser Haus ist klein.', 'Our house is small.', 'noun'],
+        ['das Wasser', 'water', 'Ich trinke jeden Tag Wasser.', 'I drink water every day.', 'noun'],
+        ['der Freund', 'friend', 'Sie ist meine beste Freundin.', 'She is my best friend.', 'noun'],
+        ['essen', 'to eat', 'Wir essen um sieben.', 'We eat at seven.', 'verb'],
+        ['arbeiten', 'to work', 'Ich arbeite von zu Hause.', 'I work from home.', 'verb'],
+        ['groß', 'big', 'Das ist eine große Stadt.', 'That is a big city.', 'adjective'],
+        ['klein', 'small', 'Ein kleines Problem.', 'A small problem.', 'adjective'],
+      ],
+    },
+    {
+      title: 'Alltag & Einkaufen',
+      level: CefrLevel.A2,
+      description: 'Wortschatz für Supermarkt, Bahn und Restaurant',
+      iconEmoji: '🛒',
+      items: [
+        ['der Kassenbon', 'receipt', 'Kann ich den Kassenbon haben?', 'Can I have the receipt?', 'noun'],
+        ['der Rabatt', 'discount', 'Gibt es einen Rabatt?', 'Is there a discount?', 'noun'],
+        ['bestellen', 'to order', 'Ich möchte bestellen.', 'I would like to order.', 'verb'],
+        ['das Gleis', 'platform', 'Der Zug fährt von Gleis 4.', 'The train leaves from platform 4.', 'noun'],
+        ['die Verspätung', 'delay', 'Der Zug hat Verspätung.', 'The train has a delay.', 'noun'],
+        ['anprobieren', 'to try on', 'Darf ich das anprobieren?', 'May I try this on?', 'verb'],
+        ['das Bargeld', 'cash', 'Nehmen Sie Bargeld?', 'Do you take cash?', 'noun'],
+        ['die Rückerstattung', 'refund', 'Ich hätte gern eine Rückerstattung.', 'I would like a refund.', 'noun'],
+      ],
+    },
+    {
+      title: 'Arbeit & Büro',
+      level: CefrLevel.B1,
+      description: 'Formulierungen für Meetings, E-Mails und Small Talk',
+      iconEmoji: '💼',
+      items: [
+        ['die Frist', 'deadline', 'Wir haben die Frist verpasst.', 'We missed the deadline.', 'noun'],
+        ['terminieren', 'to schedule', 'Lass uns einen Anruf terminieren.', 'Let us schedule a call.', 'verb'],
+        ['die Tagesordnung', 'agenda', 'Was steht auf der Tagesordnung?', 'What is on the agenda?', 'noun'],
+        ['nachfassen', 'to follow up', 'Ich fasse morgen nach.', 'I will follow up tomorrow.', 'verb'],
+        [
+          'die Interessengruppe',
+          'stakeholder',
+          'Wir haben alle Interessengruppen informiert.',
+          'We informed all stakeholders.',
+          'noun',
+        ],
+        ['die Arbeitsbelastung', 'workload', 'Meine Arbeitsbelastung ist hoch.', 'My workload is heavy.', 'noun'],
+        ['delegieren', 'to delegate', 'Sie delegiert gut.', 'She delegates well.', 'verb'],
+        ['machbar', 'feasible', 'Das ist nicht machbar.', 'That is not feasible.', 'adjective'],
+      ],
+    },
+    {
+      title: 'Meinung & Diskussion',
+      level: CefrLevel.B2,
+      description: 'Argumentieren, widersprechen, abwägen',
+      iconEmoji: '💬',
+      items: [
+        ['argumentieren', 'to argue', 'Er hat überzeugend argumentiert.', 'He argued convincingly.', 'verb'],
+        ['im Gegenteil', 'on the contrary', 'Im Gegenteil, es hat geholfen.', 'On the contrary, it helped.', 'phrase'],
+        ['einräumen', 'to concede', 'Ich räume diesen Punkt ein.', 'I concede that point.', 'verb'],
+        ['die Voreingenommenheit', 'bias', 'Die Studie zeigt Voreingenommenheit.', 'The study shows bias.', 'noun'],
+        ['überzeugend', 'compelling', 'Ein überzeugendes Argument.', 'A compelling argument.', 'adjective'],
+        ['untergraben', 'to undermine', 'Das untergräbt die Behauptung.', 'That undermines the claim.', 'verb'],
+      ],
+    },
+  ];
 
-    const deck = existing
-      ? await prisma.vocabDeck.update({
-          where: { id: existing.id },
-          data: { description: seed.description, level: seed.level, sortOrder: index },
-        })
-      : await prisma.vocabDeck.create({
-          data: {
-            languageId: en,
-            level: seed.level,
-            title: seed.title,
-            description: seed.description,
-            iconEmoji: seed.iconEmoji,
-            isSystem: true,
-            sortOrder: index,
-          },
-        });
-
-    await prisma.vocabItem.deleteMany({ where: { deckId: deck.id } });
-    await prisma.vocabItem.createMany({
-      data: seed.items.map(([term, translation, example, exampleDe, pos], itemIndex) => ({
-        deckId: deck.id,
-        term,
-        translation,
-        exampleSentence: example,
-        exampleTranslation: exampleDe,
-        partOfSpeech: pos,
-        tags: [seed.level],
-        sortOrder: itemIndex,
-      })),
-    });
-  }
+  await seedVocabDecks(en, deckSeeds);
+  await seedVocabDecks(de, germanDeckSeeds);
 
   // ----------------------------------------------------------- Bibliothek
   const librarySeeds = [

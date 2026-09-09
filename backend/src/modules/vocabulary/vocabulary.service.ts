@@ -170,11 +170,13 @@ export class VocabularyService {
           },
         };
 
+    // `dueLimit: 0` blendet den Wiederholen-Stapel bewusst aus – für eine
+    // Sitzung, die ausschließlich neue Vokabeln zeigt (siehe pickMode/mode).
     const due = await this.prisma.vocabProgress.findMany({
       where: { userId, dueAt: { lte: now }, vocabItem: deckFilter },
       include: { vocabItem: true },
       orderBy: { dueAt: 'asc' },
-      take: limit,
+      take: query.dueLimit ?? limit,
     });
 
     const remaining = Math.max(0, limit - due.length);
@@ -234,9 +236,11 @@ export class VocabularyService {
       };
 
       if (mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING) {
+        // Fünf Vorschläge insgesamt: die richtige Übersetzung plus vier
+        // Distraktoren aus demselben Deck.
         const distractors = shuffle(
           distractorPool.filter((entry) => entry.id !== card.item.id).map((entry) => entry.translation),
-        ).slice(0, 3);
+        ).slice(0, 4);
         const choices = shuffle([card.item.translation, ...distractors]);
         base.choices = choices;
         base.correctChoiceIndex = choices.indexOf(card.item.translation);

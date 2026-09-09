@@ -38,7 +38,7 @@ interface SessionSummary {
  * Die eigentliche SM-2-Rechnung passiert serverseitig – hier zählt nur die Note.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
-  const { deckId } = route.params;
+  const { deckId, level, queueType } = route.params;
   const queryClient = useQueryClient();
 
   const [index, setIndex] = useState(0);
@@ -49,8 +49,18 @@ export default function ReviewScreen({ route, navigation }: Props) {
   const shownAt = useRef(Date.now());
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['review-queue', deckId ?? 'all'],
-    queryFn: () => vocabularyApi.queue({ deckId, limit: 20 }),
+    queryKey: ['review-queue', deckId ?? 'all', level ?? 'any', queueType ?? 'mixed'],
+    queryFn: () =>
+      vocabularyApi.queue({
+        deckId,
+        level,
+        limit: 20,
+        // „Neue Vokabeln“: der Wiederholen-Stapel bleibt außen vor, jede Karte
+        // kommt als Auswahl mit fünf Bedeutungsvorschlägen (siehe ChoiceMode).
+        ...(queueType === 'NEW' ? { dueLimit: 0, newLimit: 20, mode: 'MULTIPLE_CHOICE' as const } : {}),
+        // „Wiederholen“: nur fällige Karten, keine neuen.
+        ...(queueType === 'DUE' ? { newLimit: 0 } : {}),
+      }),
     staleTime: 0,
     gcTime: 0, // Eine Sitzung ist einmalig – nichts davon soll wiederverwendet werden.
   });
@@ -105,8 +115,12 @@ export default function ReviewScreen({ route, navigation }: Props) {
       <Screen>
         <EmptyState
           emoji="🎉"
-          title="Nichts zu wiederholen"
-          description="Alle Karten sitzen. Schau später wieder vorbei oder lerne neue Vokabeln in einem anderen Deck."
+          title={queueType === 'NEW' ? 'Keine neuen Vokabeln mehr' : 'Nichts zu wiederholen'}
+          description={
+            queueType === 'NEW'
+              ? 'Für dieses Niveau sind gerade keine neuen Vokabeln mehr da – schau in den Wiederholen-Stapel oder später wieder vorbei.'
+              : 'Der Wiederholen-Stapel ist leer. Schau später wieder vorbei oder lerne neue Vokabeln.'
+          }
           action={{ label: 'Zurück', onPress: () => navigation.goBack() }}
         />
       </Screen>
@@ -268,7 +282,11 @@ function ChoiceMode({
   return (
     <View style={{ flex: 1, gap: spacing.lg }}>
       <Card style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl }}>
-        {card.mode === 'LISTENING' ? <Text style={{ fontSize: 40 }}>🔊</Text> : null}
+        {card.mode === 'LISTENING' ? (
+          <Text style={{ fontSize: 40 }}>🔊</Text>
+        ) : (
+          <Caption>Was bedeutet das?</Caption>
+        )}
         <Text style={typography.display}>{card.item.term}</Text>
         {card.item.phonetic ? <Caption>{card.item.phonetic}</Caption> : null}
       </Card>

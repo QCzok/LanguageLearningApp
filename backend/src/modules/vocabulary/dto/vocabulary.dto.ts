@@ -55,6 +55,19 @@ export class ReviewQueueQueryDto {
   @Min(0)
   @Max(50)
   newLimit?: number;
+
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 100,
+    description:
+      'Wie viele fällige Karten geladen werden (Standard: `limit`). 0 blendet den Wiederholen-Stapel aus – für eine Sitzung mit ausschließlich neuen Vokabeln.',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  dueLimit?: number;
 }
 
 export class SubmitReviewDto {

@@ -29,6 +29,7 @@ import type {
   UserDto,
   VocabDeckDto,
   VocabItemDto,
+  VocabMode,
   VocabStatsDto,
 } from '@lingua/shared';
 import { api } from './client';
@@ -81,8 +82,16 @@ export const vocabularyApi = {
     api.get<VocabDeckDto[]>('/vocabulary/decks', { params }).then((r) => r.data),
   deck: (id: string) =>
     api.get<VocabDeckDto & { items: VocabItemDto[] }>(`/vocabulary/decks/${id}`).then((r) => r.data),
-  queue: (params?: { deckId?: string; limit?: number; mode?: string }) =>
-    api.get<ReviewCardDto[]>('/vocabulary/review/queue', { params }).then((r) => r.data),
+  queue: (params?: {
+    deckId?: string;
+    level?: CefrLevel;
+    limit?: number;
+    /** Wie viele neue (nie gesehene) Karten geladen werden. */
+    newLimit?: number;
+    /** Wie viele fällige Karten geladen werden – 0 blendet den Wiederholen-Stapel aus. */
+    dueLimit?: number;
+    mode?: VocabMode;
+  }) => api.get<ReviewCardDto[]>('/vocabulary/review/queue', { params }).then((r) => r.data),
   review: (body: { cardId: string; grade: number; mode: string; durationMs?: number }) =>
     api
       .post<{
