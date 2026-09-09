@@ -17,6 +17,8 @@ export const colors = {
   dangerSoft: '#FEE2E2',
   premium: '#7C3AED',
   premiumSoft: '#EDE9FE',
+  info: '#0891B2',
+  infoSoft: '#CFFAFE',
 
   background: '#F8FAFC',
   surface: '#FFFFFF',

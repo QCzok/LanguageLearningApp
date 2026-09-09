@@ -1,12 +1,11 @@
 import React from 'react';
-import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Body,
-  Button,
   Caption,
   Card,
   ErrorState,
@@ -24,6 +23,17 @@ import type { MainTabParamList } from '../../navigation/types';
 
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
+/**
+ * Startseite als Kachelraster.
+ *
+ * Vorher stand hier eine lange Kette einzelner Karten (Streak, XP, Tagesziel,
+ * fällige Vokabeln, Weiterlesen, Weiterhören, Wochenübersicht, zwei Mini-
+ * Kacheln am Ende) – auf den ersten Blick nicht zu erfassen, welche der neun
+ * Karten wohin führt. Jetzt trägt eine schlanke Statuszeile die Tageszahlen,
+ * darunter folgt sofort das Kachelraster als Hauptnavigation: ein Ziel pro
+ * Kachel, per Farbe unterscheidbar. Fortsetzen (Buch/Hörtext) und die
+ * Wochenübersicht bleiben als zusätzliche Information darunter, nicht davor.
+ */
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const user = useAuthStore((state) => state.user);
@@ -45,6 +55,43 @@ export default function HomeScreen() {
   const goalReached = data.minutesToday >= data.dailyGoalMinutes;
   const maxMinutes = Math.max(...data.weeklyActivity.map((entry) => entry.minutes), 1);
 
+  const tiles: TileSpec[] = [
+    {
+      key: 'vocabulary',
+      icon: '🗂️',
+      label: 'Vokabeltrainer',
+      subtitle: data.dueCards > 0 ? `${data.dueCards} fällig` : 'Karten üben',
+      accent: colors.primary,
+      onPress: () => navigation.navigate('Vocabulary', { screen: 'DeckList' }),
+    },
+    {
+      key: 'notebook',
+      icon: '📘',
+      label: 'Lernheft',
+      subtitle: 'Kursbuch & Arbeitsbuch',
+      accent: colors.warning,
+      onPress: () => navigation.navigate('Notebook', { screen: 'ChapterList' }),
+    },
+    {
+      key: 'library',
+      icon: '📚',
+      label: 'Bibliothek',
+      subtitle: 'Texte lesen',
+      accent: colors.success,
+      onPress: () => navigation.navigate('Library', { screen: 'LibraryList' }),
+    },
+    {
+      key: 'media',
+      icon: '🎧',
+      label: 'Mediathek',
+      subtitle: 'Hören',
+      accent: colors.info,
+      onPress: () => navigation.navigate('Media', { screen: 'MediaList' }),
+    },
+  ];
+
+  const hasResume = Boolean(data.continueReading || data.continueListening);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
       <ScrollView
@@ -64,108 +111,88 @@ export default function HomeScreen() {
           ) : null}
         </Row>
 
-        {/* Streak und XP nebeneinander – die zwei Zahlen, die täglich motivieren. */}
-        <Row gap={spacing.md}>
-          <Card style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 28 }}>🔥</Text>
-            <Text style={typography.title}>{data.user.streakDays}</Text>
-            <Caption>Tage in Folge</Caption>
-          </Card>
-          <Card style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 28 }}>⭐</Text>
-            <Text style={typography.title}>{data.user.xp}</Text>
-            <Caption>XP gesamt</Caption>
-          </Card>
-        </Row>
-
+        {/* Eine schlanke Statuszeile statt drei einzelner Karten: Streak, XP
+            und Tagesziel sind Tageszahlen, keine eigenen Navigationsziele –
+            sie müssen nicht so viel Fläche beanspruchen wie die Kacheln. */}
         <Card>
-          <Row>
-            <Heading>Tagesziel</Heading>
-            <View style={{ flex: 1 }} />
-            <Caption>
-              {data.minutesToday} / {data.dailyGoalMinutes} Min
-            </Caption>
+          <Row gap={spacing.lg}>
+            <StatBlock icon="🔥" value={data.user.streakDays} label="Tage Serie" />
+            <View style={statDivider} />
+            <StatBlock icon="⭐" value={data.user.xp} label="XP" />
           </Row>
-          <ProgressBar
-            value={goalProgress}
-            color={goalReached ? colors.success : colors.primary}
-            height={10}
-          />
-          <Caption>
-            {goalReached
-              ? 'Tagesziel geschafft – stark!'
-              : `Noch ${Math.max(0, data.dailyGoalMinutes - data.minutesToday)} Minuten bis zum Ziel.`}
-          </Caption>
+          <View style={{ gap: spacing.xs, paddingTop: spacing.md }}>
+            <Row>
+              <Caption>Tagesziel</Caption>
+              <View style={{ flex: 1 }} />
+              <Caption>
+                {data.minutesToday} / {data.dailyGoalMinutes} Min
+              </Caption>
+            </Row>
+            <ProgressBar value={goalProgress} color={goalReached ? colors.success : colors.primary} height={8} />
+          </View>
         </Card>
 
-        {data.dueCards > 0 ? (
-          <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primary }}>
-            <Row gap={spacing.md}>
-              <Text style={{ fontSize: 32 }}>🗂️</Text>
-              <View style={{ flex: 1 }}>
-                <Heading>{data.dueCards} Karten sind fällig</Heading>
-                <Caption>Wiederholen festigt den Wortschatz am besten.</Caption>
-              </View>
-            </Row>
-            <Button
-              label="Jetzt wiederholen"
-              onPress={() => navigation.navigate('Vocabulary', { screen: 'Review', params: {} })}
-            />
-          </Card>
-        ) : (
+        {/* Das Kachelraster ist die Hauptnavigation dieser Seite – ein Ziel
+            pro Kachel, per Farbe unterscheidbar. */}
+        <View style={tileGrid}>
+          {tiles.map(({ key, ...tile }) => (
+            <Tile key={key} {...tile} />
+          ))}
+        </View>
+
+        <Card
+          onPress={() => navigation.navigate('Assistant', { screen: 'AiHub' })}
+          style={{ backgroundColor: colors.premiumSoft, borderColor: colors.premium }}
+        >
+          <Row gap={spacing.md}>
+            <View style={[tileIconBadge, { backgroundColor: '#FFFFFF' }]}>
+              <Text style={{ fontSize: 24 }}>✨</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Heading>Mit der KI üben</Heading>
+              <Caption>Gespräche, Korrektur und Erklärungen auf Ihrem Niveau.</Caption>
+            </View>
+            <Text style={{ fontSize: 20, color: colors.premium }}>›</Text>
+          </Row>
+        </Card>
+
+        {hasResume ? (
           <Card>
-            <Row gap={spacing.md}>
-              <Text style={{ fontSize: 32 }}>✅</Text>
-              <View style={{ flex: 1 }}>
-                <Heading>Keine Wiederholungen offen</Heading>
-                <Caption>Zeit für neue Vokabeln oder einen Text.</Caption>
-              </View>
-            </Row>
-          </Card>
-        )}
-
-        {data.continueReading ? (
-          <Card
-            onPress={() =>
-              navigation.navigate('Library', {
-                screen: 'Reader',
-                params: {
-                  contentId: data.continueReading!.id,
-                  title: data.continueReading!.title,
-                },
-              })
-            }
-          >
-            <Caption>Weiterlesen</Caption>
-            <Heading>{data.continueReading.title}</Heading>
-            <ProgressBar value={data.continueReading.userProgress?.progressPercent ?? 0} height={6} />
-          </Card>
-        ) : null}
-
-        {data.continueListening ? (
-          <Card
-            onPress={() =>
-              navigation.navigate('Media', {
-                screen: 'Player',
-                params: {
-                  mediaId: data.continueListening!.id,
-                  title: data.continueListening!.title,
-                },
-              })
-            }
-          >
-            <Caption>Weiterhören</Caption>
-            <Heading>{data.continueListening.title}</Heading>
-            <ProgressBar
-              value={
-                data.continueListening.durationSec
-                  ? ((data.continueListening.userProgress?.positionSec ?? 0) /
-                      data.continueListening.durationSec) *
-                    100
-                  : 0
-              }
-              height={6}
-            />
+            <Heading>Weitermachen</Heading>
+            <View style={{ gap: spacing.sm, paddingTop: spacing.xs }}>
+              {data.continueReading ? (
+                <ResumeRow
+                  label="Weiterlesen"
+                  title={data.continueReading.title}
+                  progress={data.continueReading.userProgress?.progressPercent ?? 0}
+                  onPress={() =>
+                    navigation.navigate('Library', {
+                      screen: 'Reader',
+                      params: { contentId: data.continueReading!.id, title: data.continueReading!.title },
+                    })
+                  }
+                />
+              ) : null}
+              {data.continueListening ? (
+                <ResumeRow
+                  label="Weiterhören"
+                  title={data.continueListening.title}
+                  progress={
+                    data.continueListening.durationSec
+                      ? ((data.continueListening.userProgress?.positionSec ?? 0) /
+                          data.continueListening.durationSec) *
+                        100
+                      : 0
+                  }
+                  onPress={() =>
+                    navigation.navigate('Media', {
+                      screen: 'Player',
+                      params: { mediaId: data.continueListening!.id, title: data.continueListening!.title },
+                    })
+                  }
+                />
+              ) : null}
+            </View>
           </Card>
         ) : null}
 
@@ -195,19 +222,71 @@ export default function HomeScreen() {
             })}
           </Row>
         </Card>
-
-        <Row gap={spacing.md}>
-          <Card style={{ flex: 1 }} onPress={() => navigation.navigate('Notebook', { screen: 'NotebookList' })}>
-            <Text style={{ fontSize: 26 }}>📓</Text>
-            <Body>Lernheft öffnen</Body>
-          </Card>
-          <Card style={{ flex: 1 }} onPress={() => navigation.navigate('Assistant', { screen: 'AiHub' })}>
-            <Text style={{ fontSize: 26 }}>✨</Text>
-            <Body>Mit der KI üben</Body>
-          </Card>
-        </Row>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+// ------------------------------------------------------------------ Kacheln
+
+interface TileSpec {
+  key: string;
+  icon: string;
+  label: string;
+  subtitle: string;
+  accent: string;
+  onPress: () => void;
+}
+
+function Tile({ icon, label, subtitle, accent, onPress }: Omit<TileSpec, 'key'>) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [tile, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
+    >
+      <View style={[tileIconBadge, { backgroundColor: `${accent}1A` }]}>
+        <Text style={{ fontSize: 26 }}>{icon}</Text>
+      </View>
+      <Text style={tileLabel}>{label}</Text>
+      <Text style={[tileSubtitle, { color: accent }]}>{subtitle}</Text>
+    </Pressable>
+  );
+}
+
+function StatBlock({ icon, value, label }: { icon: string; value: number; label: string }) {
+  return (
+    <Row gap={spacing.sm}>
+      <Text style={{ fontSize: 22 }}>{icon}</Text>
+      <View>
+        <Text style={typography.title}>{value}</Text>
+        <Caption>{label}</Caption>
+      </View>
+    </Row>
+  );
+}
+
+function ResumeRow({
+  label,
+  title,
+  progress,
+  onPress,
+}: {
+  label: string;
+  title: string;
+  progress: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={resumeRow}>
+      <View style={{ flex: 1, gap: 4 }}>
+        <Caption>{label}</Caption>
+        <Body>{title}</Body>
+        <ProgressBar value={progress} height={4} />
+      </View>
+      <Text style={{ fontSize: 18, color: colors.textMuted }}>›</Text>
+    </Pressable>
   );
 }
 
@@ -217,3 +296,52 @@ function greeting(): string {
   if (hour < 18) return 'Hallo';
   return 'Guten Abend';
 }
+
+// ------------------------------------------------------------------ Styles
+
+const tileGrid = {
+  flexDirection: 'row' as const,
+  flexWrap: 'wrap' as const,
+  gap: spacing.md,
+};
+
+const tile = {
+  flexBasis: '47%' as const,
+  flexGrow: 1,
+  backgroundColor: colors.surface,
+  borderRadius: radius.lg,
+  padding: spacing.lg,
+  gap: 4,
+};
+
+const tileIconBadge = {
+  width: 46,
+  height: 46,
+  borderRadius: radius.md,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  marginBottom: 4,
+};
+
+const tileLabel = {
+  ...typography.bodyStrong,
+  color: colors.text,
+};
+
+const tileSubtitle = {
+  ...typography.caption,
+  fontWeight: '600' as const,
+};
+
+const statDivider = {
+  width: 1,
+  alignSelf: 'stretch' as const,
+  backgroundColor: colors.border,
+};
+
+const resumeRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.sm,
+  paddingVertical: spacing.xs,
+};
