@@ -133,7 +133,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
   if (!card) {
     const accuracy = summary.reviewed ? Math.round((summary.correct / summary.reviewed) * 100) : 0;
     return (
-      <Screen>
+      <Screen style={{ flex: 1 }}>
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
           <Flashcard stackSize={2} style={{ marginBottom: spacing.md }}>
             <View style={{ alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.md }}>
@@ -178,7 +178,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
   const remaining = cards.length - index - 1;
 
   return (
-    <Screen>
+    <Screen style={{ flex: 1 }}>
       <View style={{ gap: spacing.sm }}>
         <Row>
           <Caption>
@@ -258,7 +258,7 @@ function FlashcardMode({
 }) {
   return (
     <View style={{ flex: 1, gap: spacing.lg }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing.md }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.md }} showsVerticalScrollIndicator={false}>
         <Pressable onPress={onReveal} accessibilityRole="button">
           <Flashcard stackSize={remaining} variant={revealed ? 'back' : 'front'}>
             <View style={{ minHeight: 210, justifyContent: 'center' }}>
@@ -327,6 +327,7 @@ function ChoiceMode({
   return (
     <View style={{ flex: 1, gap: spacing.md }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }}
         showsVerticalScrollIndicator={false}
       >
@@ -433,6 +434,7 @@ function TypingMode({
   return (
     <View style={{ flex: 1, gap: spacing.md }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }}
         showsVerticalScrollIndicator={false}
       >

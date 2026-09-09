@@ -18,7 +18,8 @@ import {
 } from '../../components';
 import { progressApi } from '../../api/endpoints';
 import { useAuthStore } from '../../store/auth.store';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, radius, shadow, spacing, typography } from '../../theme';
+import { AiCover, LibraryShelfCover, MediaCover, NotebookCover, VocabCover } from './HomeCovers';
 import type { MainTabParamList } from '../../navigation/types';
 
 const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
@@ -58,7 +59,7 @@ export default function HomeScreen() {
   const tiles: TileSpec[] = [
     {
       key: 'vocabulary',
-      icon: '🗂️',
+      Cover: VocabCover,
       label: 'Vokabeltrainer',
       subtitle: data.dueCards > 0 ? `${data.dueCards} fällig` : 'Karten üben',
       accent: colors.primary,
@@ -66,7 +67,7 @@ export default function HomeScreen() {
     },
     {
       key: 'notebook',
-      icon: '📘',
+      Cover: NotebookCover,
       label: 'Lernheft',
       subtitle: 'Kursbuch & Arbeitsbuch',
       accent: colors.warning,
@@ -74,7 +75,7 @@ export default function HomeScreen() {
     },
     {
       key: 'library',
-      icon: '📚',
+      Cover: LibraryShelfCover,
       label: 'Bibliothek',
       subtitle: 'Texte lesen',
       accent: colors.success,
@@ -82,7 +83,7 @@ export default function HomeScreen() {
     },
     {
       key: 'media',
-      icon: '🎧',
+      Cover: MediaCover,
       label: 'Mediathek',
       subtitle: 'Hören',
       accent: colors.info,
@@ -142,18 +143,22 @@ export default function HomeScreen() {
 
         <Card
           onPress={() => navigation.navigate('Assistant', { screen: 'AiHub' })}
-          style={{ backgroundColor: colors.premiumSoft, borderColor: colors.premium }}
+          style={{ padding: 0, overflow: 'hidden', borderColor: colors.premium }}
         >
-          <Row gap={spacing.md}>
-            <View style={[tileIconBadge, { backgroundColor: '#FFFFFF' }]}>
-              <Text style={{ fontSize: 24 }}>✨</Text>
-            </View>
-            <View style={{ flex: 1 }}>
+          {/* Volle Kartenbreite statt der halbbreiten Kachel-Banner – die
+              Karte ist hier durchgehend breit, ein Ausschnitt aus derselben
+              Illustration wirkt entsprechend als weites Panorama. */}
+          <View style={{ width: '100%', aspectRatio: 21 / 9 }}>
+            <AiCover />
+          </View>
+          <View style={{ padding: spacing.lg, gap: 4 }}>
+            <Row>
               <Heading>Mit der KI üben</Heading>
-              <Caption>Gespräche, Korrektur und Erklärungen auf Ihrem Niveau.</Caption>
-            </View>
-            <Text style={{ fontSize: 20, color: colors.premium }}>›</Text>
-          </Row>
+              <View style={{ flex: 1 }} />
+              <Text style={{ fontSize: 20, color: colors.premium }}>›</Text>
+            </Row>
+            <Caption>Gespräche, Korrektur und Erklärungen auf Ihrem Niveau.</Caption>
+          </View>
         </Card>
 
         {hasResume ? (
@@ -229,16 +234,25 @@ export default function HomeScreen() {
 
 // ------------------------------------------------------------------ Kacheln
 
+type CoverComponent = () => React.JSX.Element;
+
 interface TileSpec {
   key: string;
-  icon: string;
+  Cover: CoverComponent;
   label: string;
   subtitle: string;
   accent: string;
   onPress: () => void;
 }
 
-function Tile({ icon, label, subtitle, accent, onPress }: Omit<TileSpec, 'key'>) {
+/**
+ * Wie die Buchcover der Bibliothek: ein kleines, selbst gezeichnetes Bild
+ * statt eines Icons in einem eingefärbten Kreis (siehe `HomeCovers`). Label
+ * und Untertitel bleiben als normaler Text darunter – anders als bei den
+ * Bibliothekskacheln ist der Untertitel hier ein Statuswert („12 fällig“),
+ * der lesbar bleiben soll und nicht über ein Bild gelegt wird.
+ */
+function Tile({ Cover, label, subtitle, accent, onPress }: Omit<TileSpec, 'key'>) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -246,11 +260,13 @@ function Tile({ icon, label, subtitle, accent, onPress }: Omit<TileSpec, 'key'>)
       onPress={onPress}
       style={({ pressed }) => [tile, pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] }]}
     >
-      <View style={[tileIconBadge, { backgroundColor: `${accent}1A` }]}>
-        <Text style={{ fontSize: 26 }}>{icon}</Text>
+      <View style={tileCover}>
+        <Cover />
       </View>
-      <Text style={tileLabel}>{label}</Text>
-      <Text style={[tileSubtitle, { color: accent }]}>{subtitle}</Text>
+      <View style={{ padding: spacing.md, gap: 2 }}>
+        <Text style={tileLabel}>{label}</Text>
+        <Text style={[tileSubtitle, { color: accent }]}>{subtitle}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -305,22 +321,24 @@ const tileGrid = {
   gap: spacing.md,
 };
 
+// Wie `Card`: Rahmenlinie plus echter Schatten statt einer flachen Fläche –
+// die Kacheln sollen als Karten wirken, nicht als eingefärbte Buttons.
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
   backgroundColor: colors.surface,
   borderRadius: radius.lg,
-  padding: spacing.lg,
-  gap: 4,
+  borderWidth: 1,
+  borderColor: colors.border,
+  overflow: 'hidden' as const,
+  ...shadow.card,
 };
 
-const tileIconBadge = {
-  width: 46,
-  height: 46,
-  borderRadius: radius.md,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  marginBottom: 4,
+/** Banner-Bild oben in der Kachel – 16:9, damit es nicht zu viel Fläche frisst. */
+const tileCover = {
+  width: '100%' as const,
+  aspectRatio: 16 / 9,
+  backgroundColor: colors.surfaceAlt,
 };
 
 const tileLabel = {

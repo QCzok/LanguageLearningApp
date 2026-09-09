@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Loading } from '../components';
 import { colors } from '../theme';
 import { useAuthStore } from '../store/auth.store';
+import { WebLayout } from './WebLayout';
 
 import LoginScreen from '../features/auth/LoginScreen';
 import RegisterScreen from '../features/auth/RegisterScreen';
@@ -264,14 +265,16 @@ export default function RootNavigator() {
   const target = !user ? 'Auth' : user.onboardingCompleted ? 'Main' : 'Onboarding';
 
   return (
-    <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {target === 'Auth' && <RootStack.Screen name="Auth" component={AuthNavigator} />}
-        {target === 'Onboarding' && (
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
-        )}
-        {target === 'Main' && <RootStack.Screen name="Main" component={MainNavigator} />}
-      </RootStack.Navigator>
-    </NavigationContainer>
+    <WebLayout>
+      <NavigationContainer>
+        <RootStack.Navigator screenOptions={{ headerShown: false }}>
+          {target === 'Auth' && <RootStack.Screen name="Auth" component={AuthNavigator} />}
+          {target === 'Onboarding' && (
+            <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
+          )}
+          {target === 'Main' && <RootStack.Screen name="Main" component={MainNavigator} />}
+        </RootStack.Navigator>
+      </NavigationContainer>
+    </WebLayout>
   );
 }

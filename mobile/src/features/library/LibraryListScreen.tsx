@@ -4,22 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CEFR_LEVELS } from '@lingua/shared';
-import type { CefrLevel } from '@lingua/shared';
-import {
-  Caption,
-  Card,
-  EmptyState,
-  ErrorState,
-  Heading,
-  Input,
-  LevelBadge,
-  Loading,
-  ProgressBar,
-  Row,
-  Tag,
-} from '../../components';
+import type { CefrLevel, LibraryContentDto } from '@lingua/shared';
+import { EmptyState, ErrorState, Input, LevelBadge, Loading, ProgressBar } from '../../components';
 import { libraryApi } from '../../api/endpoints';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, radius, shadow, spacing, typography } from '../../theme';
+import { LibraryCoverArt } from './LibraryCovers';
 import type { LibraryStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'LibraryList'>;
@@ -30,6 +19,14 @@ const TYPE_FILTERS = [
   { value: 'STORY', label: 'Geschichten' },
 ] as const;
 
+/**
+ * Bibliotheksübersicht als Kachelraster.
+ *
+ * Jede Kachel besteht aus Bild, Titel und den ersten Zeichen des Texts – wie
+ * ein Bücherregal, nicht wie eine Ergebnisliste. Das Bild kommt von
+ * `LibraryCoverArt`: mangels echter Fotos eine zum Thema passende, selbst
+ * gezeichnete Illustration (siehe dort für die Begründung).
+ */
 export default function LibraryListScreen({ navigation }: Props) {
   const [type, setType] = useState<string | undefined>(undefined);
   const [level, setLevel] = useState<CefrLevel | undefined>(undefined);
@@ -89,51 +86,66 @@ export default function LibraryListScreen({ navigation }: Props) {
           />
         ) : null}
 
-        {data?.items.map((content) => (
-          <Card
-            key={content.id}
-            onPress={() =>
-              navigation.navigate('Reader', { contentId: content.id, title: content.title })
-            }
-          >
-            <Row gap={spacing.sm}>
-              <Text style={{ fontSize: 22 }}>{content.type === 'STORY' ? '📖' : '📰'}</Text>
-              <View style={{ flex: 1 }}>
-                <Heading>{content.title}</Heading>
-                <Row gap={spacing.xs}>
-                  <LevelBadge level={content.level} small />
-                  <Caption>· {content.estimatedMinutes} Min</Caption>
-                  <Caption>· {content.exerciseCount} Übungen</Caption>
-                </Row>
-              </View>
-            </Row>
-
-            <Text style={[typography.body, { color: colors.textMuted }]} numberOfLines={2}>
-              {content.summary}
-            </Text>
-
-            {content.tags.length > 0 ? (
-              <Row gap={spacing.xs}>
-                {content.tags.slice(0, 3).map((tag) => (
-                  <Tag key={tag} label={tag} />
-                ))}
-              </Row>
-            ) : null}
-
-            {content.userProgress && content.userProgress.progressPercent > 0 ? (
-              <>
-                <ProgressBar value={content.userProgress.progressPercent} height={5} />
-                <Caption>
-                  {content.userProgress.completedAt
-                    ? 'Gelesen ✓'
-                    : `${content.userProgress.progressPercent}% gelesen`}
-                </Caption>
-              </>
-            ) : null}
-          </Card>
-        ))}
+        <View style={tileGrid}>
+          {data?.items.map((content) => (
+            <ContentTile
+              key={content.id}
+              content={content}
+              onPress={() => navigation.navigate('Reader', { contentId: content.id, title: content.title })}
+            />
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Eine Kachel ist ein Buchcover, kein Listenelement: Das Bild füllt die ganze
+ * Kachel, Titel und Textauszug liegen als echter Text über dem abgedunkelten
+ * unteren Rand (den die Illustration selbst mitbringt, siehe `LibraryCovers`).
+ * Das hält die Kachel kompakt, statt Bild und Text als zwei separate Blöcke
+ * übereinanderzustapeln.
+ */
+function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
+  const progress = content.userProgress;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [tile, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+    >
+      <LibraryCoverArt content={content} />
+
+      <View style={topRow}>
+        <LevelBadge level={content.level} small />
+        {progress?.completedAt ? (
+          <View style={doneBadge}>
+            <Text style={{ fontSize: 12, color: colors.textInverse }}>✓</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={bottomOverlay}>
+        <Text style={tileMeta}>
+          {content.type === 'STORY' ? 'Geschichte' : 'Artikel'} · {content.estimatedMinutes} Min
+        </Text>
+        <Text style={tileTitle} numberOfLines={2}>
+          {content.title}
+        </Text>
+        {/* Die ersten ~50 Zeichen des Texts – ein echter Auszug, keine Zusammenfassung. */}
+        <Text style={tileExcerpt} numberOfLines={2}>
+          {content.excerpt}
+        </Text>
+
+        {progress && progress.progressPercent > 0 && !progress.completedAt ? (
+          <View style={{ marginTop: 6 }}>
+            <ProgressBar value={progress.progressPercent} height={3} />
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -174,3 +186,72 @@ const chipStyle = {
 };
 
 const chipActiveStyle = { backgroundColor: colors.primary, borderColor: colors.primary };
+
+const tileGrid = {
+  flexDirection: 'row' as const,
+  flexWrap: 'wrap' as const,
+  gap: spacing.md,
+};
+
+/**
+ * Die ganze Kachel ist das Buchcover (3:4, siehe `LibraryCovers`) – deutlich
+ * kompakter als das vorige breite 4:3-Bild mit separatem Textblock darunter.
+ * Ein echter Schatten statt einer reinen Rahmenlinie macht sie zur Karte.
+ */
+const tile = {
+  flexBasis: '47%' as const,
+  flexGrow: 1,
+  aspectRatio: 3 / 4,
+  borderRadius: radius.lg,
+  overflow: 'hidden' as const,
+  backgroundColor: colors.surfaceAlt,
+  ...shadow.card,
+};
+
+const topRow = {
+  position: 'absolute' as const,
+  top: spacing.sm,
+  left: spacing.sm,
+  right: spacing.sm,
+  flexDirection: 'row' as const,
+  justifyContent: 'space-between' as const,
+};
+
+const doneBadge = {
+  width: 22,
+  height: 22,
+  borderRadius: 11,
+  backgroundColor: colors.success,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+/** Titel und Auszug liegen auf dem abgedunkelten unteren Rand des Covers. */
+const bottomOverlay = {
+  position: 'absolute' as const,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  padding: spacing.sm,
+  paddingTop: spacing.lg,
+};
+
+const tileMeta = {
+  fontSize: 11,
+  fontWeight: '700' as const,
+  letterSpacing: 0.4,
+  color: 'rgba(255,255,255,0.8)',
+  marginBottom: 2,
+};
+
+const tileTitle = {
+  ...typography.bodyStrong,
+  color: '#FFFFFF',
+};
+
+const tileExcerpt = {
+  fontSize: 12,
+  lineHeight: 17,
+  color: 'rgba(255,255,255,0.82)',
+  marginTop: 2,
+};

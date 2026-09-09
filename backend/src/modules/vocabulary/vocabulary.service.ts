@@ -419,7 +419,14 @@ export class VocabularyService {
     for (const row of rows) {
       const entry = map.get(row.vocabItem.deckId);
       if (!entry) continue;
-      if (row.status !== CardStatus.NEW) entry.new = Math.max(0, entry.new - 1);
+      // "Neu" heißt hier dasselbe wie in getReviewQueue: noch nie ausgeliefert,
+      // also (noch) kein Progress-Eintrag. Ein Progress-Eintrag entsteht schon
+      // beim Ausliefern der Karte (siehe dort), nicht erst bei der Bewertung –
+      // eine Karte mit Status NEW, die aber schon einen Eintrag hat, wurde
+      // also bereits gezeigt und zählt nicht mehr als neu, sonst zeigt die
+      // Übersicht mehr "neue" Karten an, als getReviewQueue tatsächlich noch
+      // ausliefern kann.
+      entry.new = Math.max(0, entry.new - 1);
       if (row.status === CardStatus.LEARNING) entry.learning += 1;
       if (row.status === CardStatus.REVIEW) entry.review += 1;
       if (row.status === CardStatus.MASTERED) entry.mastered += 1;

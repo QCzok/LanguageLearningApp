@@ -7,6 +7,7 @@ import type {
   Paginated,
 } from '@lingua/shared';
 import { paginate } from '../../common/dto/pagination.dto';
+import { excerptOf } from '../../common/utils/text.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
@@ -238,6 +239,7 @@ export class LibraryService {
       type: content.type,
       title: content.title,
       summary: content.summary,
+      excerpt: excerptOf(content.body),
       author: content.author,
       imageUrl: content.imageUrl,
       level: content.level,

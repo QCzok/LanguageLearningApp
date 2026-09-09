@@ -200,10 +200,7 @@ function ChapterCard({
   return (
     <Card
       onPress={locked ? undefined : onPress}
-      style={[
-        chapterCard,
-        locked ? { opacity: 0.55, backgroundColor: colors.surfaceAlt } : null,
-      ]}
+      style={locked ? { opacity: 0.55, backgroundColor: colors.surfaceAlt } : undefined}
     >
       <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
         {/*
@@ -291,16 +288,6 @@ const currentPillText = {
   fontWeight: '700' as const,
   letterSpacing: 0.8,
   color: colors.primaryDark,
-};
-
-// Karten innerhalb eines aufgeklappten Niveaus brauchen keinen eigenen
-// Schatten mehr – die Gruppe trägt schon einen Rahmen; eine Haarlinie
-// zwischen den Kapiteln genügt, um sie zu trennen.
-const chapterCard = {
-  shadowOpacity: 0,
-  elevation: 0,
-  borderWidth: 1,
-  borderColor: colors.border,
 };
 
 const chapterBadge = {

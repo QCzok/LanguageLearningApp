@@ -198,6 +198,8 @@ export interface LibraryContentDto {
   type: LibraryType;
   title: string;
   summary: string;
+  /** Erste ~50 Zeichen des Fließtexts, für Kacheln in der Übersicht. */
+  excerpt: string;
   author: string | null;
   imageUrl: string | null;
   level: CefrLevel;
