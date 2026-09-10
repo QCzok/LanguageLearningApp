@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -71,7 +72,7 @@ export default function NotebookEditorScreen({ route }: Props) {
     mutationFn: (pageId: string) => notebookApi.analyze(pageId),
     onSuccess: (result) => setAnalysis(result),
     onError: (error: Error & { code?: string }) => {
-      Alert.alert(
+      alert(
         error.code === 'AiQuotaExceeded' ? 'Kontingent aufgebraucht' : 'Analyse nicht möglich',
         error.message,
       );
@@ -135,7 +136,7 @@ export default function NotebookEditorScreen({ route }: Props) {
 
   function handleClear(): void {
     if (!content) return;
-    Alert.alert('Seite leeren?', 'Alle Inhalte dieser Seite werden entfernt.', [
+    alert('Seite leeren?', 'Alle Inhalte dieser Seite werden entfernt.', [
       { text: 'Abbrechen', style: 'cancel' },
       {
         text: 'Leeren',
@@ -232,7 +233,7 @@ export default function NotebookEditorScreen({ route }: Props) {
             loading={analyze.isPending}
             onPress={() => {
               if (!isPremium) {
-                Alert.alert(
+                alert(
                   'Lingua Premium',
                   'KI-Korrektur, Chat, Grammatikerklärungen und persönliche Empfehlungen sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
                 );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -54,7 +55,7 @@ export default function NotebookListScreen({ navigation }: Props) {
   });
 
   function confirmDelete(id: string, name: string): void {
-    Alert.alert('Heft löschen?', `„${name}" wird mit allen Seiten unwiderruflich gelöscht.`, [
+    alert('Heft löschen?', `„${name}" wird mit allen Seiten unwiderruflich gelöscht.`, [
       { text: 'Abbrechen', style: 'cancel' },
       { text: 'Löschen', style: 'destructive', onPress: () => remove.mutate(id) },
     ]);

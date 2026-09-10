@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CEFR_LABELS, CEFR_LEVELS } from '@lingua/shared';
@@ -30,7 +31,7 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
     // sobald der aktualisierte Nutzer im Store liegt.
     onSuccess: () => refreshUser(),
     onError: () =>
-      Alert.alert('Speichern fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
+      alert('Speichern fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
   });
 
   return (

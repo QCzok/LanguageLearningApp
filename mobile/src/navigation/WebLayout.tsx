@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme';
 
 /**
@@ -17,8 +17,12 @@ import { colors } from '../theme';
  * Web-Ansichten von WhatsApp oder Twitter/X es tun. Auf iOS/Android ist sie
  * ein reiner Durchreicher ohne jede Wirkung – dort ist die Breite ohnehin
  * schon die des Geräts.
+ *
+ * `MAX_WIDTH` ist auch für `useContentWidth` maßgeblich (siehe dort) – beide
+ * müssen exakt denselben Wert verwenden, sonst weicht die von einem Screen
+ * berechnete Skalierung von der tatsächlich gerenderten Spaltenbreite ab.
  */
-const MAX_WIDTH = 480;
+export const MAX_WIDTH = 480;
 
 export function WebLayout({ children }: { children: ReactNode }) {
   if (Platform.OS !== 'web') return <>{children}</>;
@@ -41,4 +45,30 @@ export function WebLayout({ children }: { children: ReactNode }) {
       </View>
     </View>
   );
+}
+
+/**
+ * Verfügbare Breite des Anzeigebereichs: auf iOS/Android die Fensterbreite
+ * (reagiert auch auf Drehung), im Web `min(Fensterbreite, MAX_WIDTH)` – exakt
+ * das Ergebnis, das `WebLayout`s `width: 100%; max-width` CSS-seitig erzeugt.
+ *
+ * Für jeden Screen zu verwenden, der seinen Inhalt selbst auf die verfügbare
+ * Breite skaliert (z. B. die Lehrwerksseite). `useWindowDimensions` allein
+ * liefert im Web die volle Fensterbreite statt der von `WebLayout`
+ * vorgegebenen, schmaleren Spalte.
+ *
+ * Bewusst rein rechnerisch statt über `onLayout`/`ResizeObserver` gemessen:
+ * Ein `onLayout` auf `WebLayout`s eigener Spalte feuert in diesem Setup
+ * zuverlässig NIE (offenbar eine Eigenheit von react-native-web für ein
+ * `flex:1`-`View`, dessen Größe rein aus einem `flex:1`-Elternteil folgt,
+ * ohne dass sich seine Größe je „ändert“) – und selbst dort, wo es feuert,
+ * liefert es auf einem mehrere Stack-Ebenen tiefen Screen (Kapitel → Einheit)
+ * die volle Fensterbreite statt der Spaltenbreite. Die Rechnung hier hängt
+ * nur von `useWindowDimensions` ab (die zuverlässig funktioniert) und der
+ * festen `MAX_WIDTH`-Konstante, ist also von beiden Problemen unabhängig.
+ */
+export function useContentWidth(): number {
+  const windowWidth = useWindowDimensions().width;
+  if (Platform.OS === 'web') return Math.min(windowWidth, MAX_WIDTH);
+  return windowWidth;
 }

@@ -10,8 +10,7 @@ import {
 import type { ToolKind } from '@lingua/shared';
 import { book, bookLabel, bookSans } from '../../theme';
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ChevronDownIcon,
   CursorIcon,
   EraserIcon,
   HighlighterIcon,
@@ -34,6 +33,10 @@ import {
  * Die Leiste ist als Federmäppchen neben dem Buch gedacht, nicht als App-Leiste:
  * Papierton, Haarlinien, einfarbige Strichsymbole. Sie soll der Seite nicht die
  * Aufmerksamkeit nehmen, deshalb trägt nur das aktive Werkzeug Farbe.
+ *
+ * Ein Griff oben lässt sie ganz einklappen – wer nicht zeichnet, kann sich die
+ * Seite in voller Höhe ansehen, statt dauerhaft ein Federmäppchen am unteren
+ * Rand mitzuschleppen.
  */
 export type BookMode = 'EDIT' | 'DRAW';
 
@@ -64,19 +67,6 @@ const DRAW_TOOLS: Array<{ kind: ToolKind; Icon: IconComponent; label: string }> 
 
 export const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5] as const;
 
-/** Blättern innerhalb des Kapitels – dieselbe Leiste trägt beides: zeichnen und umblättern. */
-export interface BookPageNav {
-  index: number;
-  total: number;
-  accent: string;
-  hasPrevious: boolean;
-  hasNext: boolean;
-  /** Wird gesetzt, wenn die nächste Seite in den anderen Buchteil wechselt. */
-  nextSectionLabel?: string | null;
-  onPrevious: () => void;
-  onNext: () => void;
-}
-
 export function BookToolbar({
   tool,
   onChange,
@@ -86,7 +76,8 @@ export function BookToolbar({
   canUndo,
   onClear,
   hasNotes,
-  page,
+  collapsed,
+  onToggleCollapsed,
 }: {
   tool: BookToolState;
   onChange: (tool: BookToolState) => void;
@@ -96,8 +87,9 @@ export function BookToolbar({
   canUndo: boolean;
   onClear: () => void;
   hasNotes: boolean;
-  /** Ohne diese Angabe bleibt die zweite Zeile im Bearbeiten-Modus leer. */
-  page?: BookPageNav | null;
+  /** Eingeklappt bleibt nur der Griff übrig – mehr Platz für die Seite. */
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }) {
   const isDrawing = tool.mode === 'DRAW';
   const palette = tool.kind === 'HIGHLIGHTER' ? HIGHLIGHTER_COLORS : PEN_COLORS;
@@ -125,168 +117,155 @@ export function BookToolbar({
 
   return (
     <View style={container}>
-      <View style={row}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Aufgaben bearbeiten"
-          accessibilityState={{ selected: !isDrawing }}
-          onPress={() => onChange({ ...tool, mode: 'EDIT' })}
-          style={[toolButton, !isDrawing && toolButtonActive]}
-        >
-          <CursorIcon color={!isDrawing ? book.paper : book.inkSoft} />
-        </Pressable>
-
-        <View style={divider} />
-
-        {DRAW_TOOLS.map(({ kind, Icon, label }) => {
-          const active = isDrawing && tool.kind === kind;
-          return (
-            <Pressable
-              key={kind}
-              accessibilityRole="button"
-              accessibilityLabel={label}
-              accessibilityState={{ selected: active }}
-              onPress={() => selectDrawTool(kind)}
-              style={[toolButton, active && toolButtonActive]}
-            >
-              <Icon color={active ? book.paper : book.inkSoft} />
-            </Pressable>
-          );
-        })}
-
-        <View style={{ flex: 1 }} />
-
-        {/* Zoom bleibt in beiden Modi erreichbar. */}
-        <Pressable
-          accessibilityLabel="Verkleinern"
-          onPress={() => onZoom(ZOOM_STEPS[Math.max(0, zoomIndex - 1)])}
-          disabled={!canZoomOut}
-          style={[toolButton, !canZoomOut && { opacity: 0.3 }]}
-        >
-          <MinusIcon color={book.inkSoft} />
-        </Pressable>
-        <Pressable accessibilityLabel="Zoom zurücksetzen" onPress={() => onZoom(1)} style={zoomLabel}>
-          <Text style={zoomText}>{Math.round(zoom * 100)} %</Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel="Vergrößern"
-          onPress={() => onZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)])}
-          disabled={!canZoomIn}
-          style={[toolButton, !canZoomIn && { opacity: 0.3 }]}
-        >
-          <PlusIcon color={book.inkSoft} />
-        </Pressable>
-      </View>
-
       {/*
-        Zweite Zeile: Im Zeichenmodus Farbe/Stärke, sonst – sofern das Kapitel
-        mehr als eine Seite hat – das Umblättern. Beides beansprucht dieselbe
-        Zeile, weil man nie beides gleichzeitig braucht: Wer zeichnet, blättert
-        gerade nicht; wer blättert, zeichnet gerade nicht.
+        Griff zum Ein-/Ausblenden: Wer gerade nicht zeichnet, kann die Leiste
+        ganz aus dem Weg räumen und bekommt die Seite in voller Höhe. Der
+        Pfeil zeigt dieselbe Richtung wie bei den Akkordeons der
+        Übersichtsseiten – nach unten heißt „hier klappt etwas auf".
       */}
-      {isDrawing ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={optionRow}>
-          {tool.kind !== 'ERASER'
-            ? palette.map((color) => (
-                <Pressable
-                  key={color}
-                  accessibilityLabel={`Farbe ${color}`}
-                  onPress={() => onChange({ ...tool, color })}
-                  style={[swatch, { backgroundColor: color }, tool.color === color && swatchActive]}
-                />
-              ))
-            : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: !collapsed }}
+        accessibilityLabel={collapsed ? 'Werkzeugleiste einblenden' : 'Werkzeugleiste ausblenden'}
+        onPress={onToggleCollapsed}
+        style={handle}
+      >
+        <Text style={handleLabel}>Werkzeuge</Text>
+        <View style={{ transform: [{ rotate: collapsed ? '0deg' : '180deg' }] }}>
+          <ChevronDownIcon color={book.inkFaint} size={14} />
+        </View>
+      </Pressable>
 
-          {tool.kind !== 'ERASER' ? <View style={divider} /> : null}
+      {collapsed ? null : (
+        <>
+          <View style={row}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Aufgaben bearbeiten"
+              accessibilityState={{ selected: !isDrawing }}
+              onPress={() => onChange({ ...tool, mode: 'EDIT' })}
+              style={[toolButton, !isDrawing && toolButtonActive]}
+            >
+              <CursorIcon color={!isDrawing ? book.paper : book.inkSoft} />
+            </Pressable>
 
-          {tool.kind === 'TEXT'
-            ? FONT_SIZES.map((size) => (
+            <View style={divider} />
+
+            {DRAW_TOOLS.map(({ kind, Icon, label }) => {
+              const active = isDrawing && tool.kind === kind;
+              return (
                 <Pressable
-                  key={size}
-                  onPress={() => onChange({ ...tool, fontSize: size })}
-                  style={[sizeChip, tool.fontSize === size && sizeChipActive]}
+                  key={kind}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => selectDrawTool(kind)}
+                  style={[toolButton, active && toolButtonActive]}
                 >
-                  <Text
-                    style={[
-                      sizeChipText,
-                      tool.fontSize === size && { color: book.paper },
-                    ]}
-                  >
-                    {size}
-                  </Text>
+                  <Icon color={active ? book.paper : book.inkSoft} />
                 </Pressable>
-              ))
-            : (tool.kind === 'ERASER' ? [8, 14, 24, 36] : widths).map((width) => (
-                <Pressable
-                  key={width}
-                  accessibilityLabel={`Stärke ${width}`}
-                  onPress={() => onChange({ ...tool, width })}
-                  style={[sizeChip, tool.width === width && sizeChipActive]}
-                >
-                  {/* Die Stärke wird als Punkt gezeigt, nicht als Zahl – so
-                      wählt man auch im Federmäppchen: nach dem Aussehen. */}
-                  <View
-                    style={{
-                      width: Math.min(20, Math.max(4, width)),
-                      height: Math.min(20, Math.max(4, width)),
-                      borderRadius: 10,
-                      backgroundColor: tool.width === width ? book.paper : book.ink,
-                    }}
-                  />
-                </Pressable>
-              ))}
+              );
+            })}
 
-          <View style={divider} />
+            <View style={{ flex: 1 }} />
 
-          <Pressable
-            accessibilityLabel="Rückgängig"
-            onPress={onUndo}
-            disabled={!canUndo}
-            style={[sizeChip, !canUndo && { opacity: 0.3 }]}
-          >
-            <UndoIcon color={book.inkSoft} size={19} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="Alle Notizen löschen"
-            onPress={onClear}
-            disabled={!hasNotes}
-            style={[sizeChip, !hasNotes && { opacity: 0.3 }]}
-          >
-            <TrashIcon color={book.inkSoft} size={19} />
-          </Pressable>
-        </ScrollView>
-      ) : page ? (
-        <View style={row}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Vorherige Seite"
-            onPress={page.onPrevious}
-            disabled={!page.hasPrevious}
-            style={[toolButton, !page.hasPrevious && { opacity: 0.3 }]}
-          >
-            <ChevronLeftIcon color={book.inkSoft} />
-          </Pressable>
-
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={pageNavCounter}>
-              Seite {page.index + 1} von {page.total}
-            </Text>
-            {page.nextSectionLabel ? (
-              <Text style={[pageNavHint, { color: page.accent }]}>weiter im {page.nextSectionLabel}</Text>
-            ) : null}
+            {/* Zoom bleibt in beiden Modi erreichbar. */}
+            <Pressable
+              accessibilityLabel="Verkleinern"
+              onPress={() => onZoom(ZOOM_STEPS[Math.max(0, zoomIndex - 1)])}
+              disabled={!canZoomOut}
+              style={[toolButton, !canZoomOut && { opacity: 0.3 }]}
+            >
+              <MinusIcon color={book.inkSoft} />
+            </Pressable>
+            <Pressable accessibilityLabel="Zoom zurücksetzen" onPress={() => onZoom(1)} style={zoomLabel}>
+              <Text style={zoomText}>{Math.round(zoom * 100)} %</Text>
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Vergrößern"
+              onPress={() => onZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)])}
+              disabled={!canZoomIn}
+              style={[toolButton, !canZoomIn && { opacity: 0.3 }]}
+            >
+              <PlusIcon color={book.inkSoft} />
+            </Pressable>
           </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Nächste Seite"
-            onPress={page.onNext}
-            disabled={!page.hasNext}
-            style={[toolButton, !page.hasNext && { opacity: 0.3 }]}
-          >
-            <ChevronRightIcon color={book.inkSoft} />
-          </Pressable>
-        </View>
-      ) : null}
+          {/* Zweite Zeile nur im Zeichenmodus: Farbe und Stärke des aktiven Werkzeugs. */}
+          {isDrawing ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={optionRow}>
+              {tool.kind !== 'ERASER'
+                ? palette.map((color) => (
+                    <Pressable
+                      key={color}
+                      accessibilityLabel={`Farbe ${color}`}
+                      onPress={() => onChange({ ...tool, color })}
+                      style={[swatch, { backgroundColor: color }, tool.color === color && swatchActive]}
+                    />
+                  ))
+                : null}
+
+              {tool.kind !== 'ERASER' ? <View style={divider} /> : null}
+
+              {tool.kind === 'TEXT'
+                ? FONT_SIZES.map((size) => (
+                    <Pressable
+                      key={size}
+                      onPress={() => onChange({ ...tool, fontSize: size })}
+                      style={[sizeChip, tool.fontSize === size && sizeChipActive]}
+                    >
+                      <Text
+                        style={[
+                          sizeChipText,
+                          tool.fontSize === size && { color: book.paper },
+                        ]}
+                      >
+                        {size}
+                      </Text>
+                    </Pressable>
+                  ))
+                : (tool.kind === 'ERASER' ? [8, 14, 24, 36] : widths).map((width) => (
+                    <Pressable
+                      key={width}
+                      accessibilityLabel={`Stärke ${width}`}
+                      onPress={() => onChange({ ...tool, width })}
+                      style={[sizeChip, tool.width === width && sizeChipActive]}
+                    >
+                      {/* Die Stärke wird als Punkt gezeigt, nicht als Zahl – so
+                          wählt man auch im Federmäppchen: nach dem Aussehen. */}
+                      <View
+                        style={{
+                          width: Math.min(20, Math.max(4, width)),
+                          height: Math.min(20, Math.max(4, width)),
+                          borderRadius: 10,
+                          backgroundColor: tool.width === width ? book.paper : book.ink,
+                        }}
+                      />
+                    </Pressable>
+                  ))}
+
+              <View style={divider} />
+
+              <Pressable
+                accessibilityLabel="Rückgängig"
+                onPress={onUndo}
+                disabled={!canUndo}
+                style={[sizeChip, !canUndo && { opacity: 0.3 }]}
+              >
+                <UndoIcon color={book.inkSoft} size={19} />
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Alle Notizen löschen"
+                onPress={onClear}
+                disabled={!hasNotes}
+                style={[sizeChip, !hasNotes && { opacity: 0.3 }]}
+              >
+                <TrashIcon color={book.inkSoft} size={19} />
+              </Pressable>
+            </ScrollView>
+          ) : null}
+        </>
+      )}
     </View>
   );
 }
@@ -296,9 +275,23 @@ const container = {
   borderTopWidth: 1,
   borderTopColor: book.rule,
   paddingHorizontal: 12,
-  paddingTop: 8,
+  paddingTop: 4,
   paddingBottom: 8,
   gap: 8,
+};
+
+const handle = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  gap: 6,
+  paddingVertical: 6,
+};
+
+const handleLabel = {
+  ...bookLabel,
+  fontSize: 11,
+  color: book.inkFaint,
 };
 
 const row = {
@@ -384,18 +377,4 @@ const sizeChipText = {
   fontSize: 12,
   letterSpacing: 0.4,
   color: book.ink,
-};
-
-const pageNavCounter = {
-  fontFamily: bookSans,
-  fontSize: 13,
-  letterSpacing: 0.6,
-  color: book.inkSoft,
-};
-
-const pageNavHint = {
-  fontFamily: bookSans,
-  fontSize: 11,
-  letterSpacing: 0.4,
-  marginTop: 1,
 };

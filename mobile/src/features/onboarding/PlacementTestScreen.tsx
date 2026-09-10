@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CEFR_LABELS } from '@lingua/shared';
@@ -50,7 +51,7 @@ export default function PlacementTestScreen({ route }: Props) {
       }),
     onSuccess: (data) => setResult(data),
     onError: () =>
-      Alert.alert('Auswertung fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
+      alert('Auswertung fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
   });
 
   const finish = useMutation({

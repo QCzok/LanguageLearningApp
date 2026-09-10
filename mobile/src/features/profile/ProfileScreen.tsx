@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CEFR_LABELS } from '@lingua/shared';
 import {
@@ -33,7 +34,7 @@ export default function ProfileScreen() {
       await refreshUser();
       await queryClient.invalidateQueries({ queryKey: ['subscription'] });
       await queryClient.invalidateQueries({ queryKey: ['ai-quota'] });
-      Alert.alert('Premium aktiv', 'Alle KI-Funktionen stehen dir jetzt zur Verfügung.');
+      alert('Premium aktiv', 'Alle KI-Funktionen stehen dir jetzt zur Verfügung.');
     },
   });
 
@@ -141,7 +142,7 @@ export default function ProfileScreen() {
         label="Abmelden"
         variant="secondary"
         onPress={() =>
-          Alert.alert('Abmelden?', 'Du kannst dich jederzeit wieder anmelden.', [
+          alert('Abmelden?', 'Du kannst dich jederzeit wieder anmelden.', [
             { text: 'Abbrechen', style: 'cancel' },
             { text: 'Abmelden', style: 'destructive', onPress: () => void logout() },
           ])

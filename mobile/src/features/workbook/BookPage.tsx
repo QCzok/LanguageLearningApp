@@ -1,8 +1,8 @@
 import React, { ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { UnitSection } from '@lingua/shared';
 import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
-import { CheckMark } from './BookIcons';
+import { CheckMark, ChevronLeftIcon, ChevronRightIcon } from './BookIcons';
 
 /**
  * Die Lehrwerksseite.
@@ -23,6 +23,23 @@ export const SECTION_THEME: Record<UnitSection, { accent: string; soft: string; 
   ARBEITSBUCH: { accent: book.arbeitsbuch, soft: book.arbeitsbuchSoft, label: 'Arbeitsbuch' },
 };
 
+/**
+ * Blättern innerhalb des Kapitels – als Teil der Fußzeile, nicht als
+ * schwebende Werkzeugleiste. Wer ein Buch liest, blättert am Seitenende
+ * um, nicht über ein Bedienpanel daneben.
+ */
+export interface PageFooterNav {
+  index: number;
+  total: number;
+  accent: string;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  /** Wird gesetzt, wenn die nächste Seite in den anderen Buchteil wechselt. */
+  nextSectionLabel?: string | null;
+  onPrevious: () => void;
+  onNext: () => void;
+}
+
 export function BookPage({
   section,
   chapterTitle,
@@ -32,6 +49,7 @@ export function BookPage({
   unitSubtitle,
   pageNumber,
   children,
+  nav,
   onLayoutHeight,
 }: {
   section: UnitSection;
@@ -42,6 +60,8 @@ export function BookPage({
   unitSubtitle?: string | null;
   pageNumber: number;
   children: ReactNode;
+  /** Ohne Angabe zeigt die Fußzeile nur die Seitenzahl, ohne Umblättern. */
+  nav?: PageFooterNav;
   onLayoutHeight?: (height: number) => void;
 }) {
   const theme = SECTION_THEME[section];
@@ -85,9 +105,51 @@ export function BookPage({
 
       <View style={{ paddingHorizontal: book.margin, gap: 34 }}>{children}</View>
 
+      {/*
+        Fußzeile: die Seitenzahl steht schon immer hier, das Umblättern
+        gehört an dieselbe Stelle – am Ende der Seite, wie in einem echten
+        Buch. Ohne `nav` (z. B. ein Kapitel mit nur einer Seite) bleibt es
+        bei der reinen Seitenzahl.
+      */}
       <View style={footer}>
         <View style={footerRule} />
-        <Text style={pageNumberStyle}>{pageNumber}</Text>
+
+        {nav ? (
+          <View style={footerNavRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Vorherige Seite"
+              onPress={nav.onPrevious}
+              disabled={!nav.hasPrevious}
+              style={[footerNavButton, !nav.hasPrevious && { opacity: 0.25 }]}
+            >
+              <ChevronLeftIcon color={book.inkSoft} size={17} />
+            </Pressable>
+
+            <View style={{ alignItems: 'center' }}>
+              <Text style={pageNumberStyle}>{pageNumber}</Text>
+              <Text style={footerCounter}>
+                Seite {nav.index + 1} von {nav.total}
+              </Text>
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Nächste Seite"
+              onPress={nav.onNext}
+              disabled={!nav.hasNext}
+              style={[footerNavButton, !nav.hasNext && { opacity: 0.25 }]}
+            >
+              <ChevronRightIcon color={book.inkSoft} size={17} />
+            </Pressable>
+          </View>
+        ) : (
+          <Text style={pageNumberStyle}>{pageNumber}</Text>
+        )}
+
+        {nav?.nextSectionLabel ? (
+          <Text style={[footerHint, { color: nav.accent }]}>weiter im {nav.nextSectionLabel}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -282,6 +344,33 @@ const pageNumberStyle = {
   fontFamily: bookFont,
   fontSize: 17,
   color: book.inkSoft,
+};
+
+const footerNavRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 22,
+};
+
+const footerNavButton = {
+  width: 34,
+  height: 34,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const footerCounter = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  letterSpacing: 0.5,
+  color: book.inkFaint,
+  marginTop: 2,
+};
+
+const footerHint = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  letterSpacing: 0.4,
 };
 
 export { spacing, colors };

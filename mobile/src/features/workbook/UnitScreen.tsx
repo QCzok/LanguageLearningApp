@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +18,8 @@ import { workbookApi } from '../../api/endpoints';
 import { book, bookFont, bookLabel, bookSans, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
 import { BookPage, SECTION_THEME } from './BookPage';
+import type { PageFooterNav } from './BookPage';
+import { useContentWidth } from '../../navigation/WebLayout';
 import { BookToolbar, BookToolState, DEFAULT_BOOK_TOOL } from './BookToolbar';
 import {
   AudioPlaceholder,
@@ -38,7 +41,13 @@ const GUTTER = 12;
 export default function UnitScreen({ route, navigation }: Props) {
   const { unitId } = route.params;
   const queryClient = useQueryClient();
-  const { width: screenWidth } = useWindowDimensions();
+
+  // Verfügbare Breite des Anzeigebereichs – im Web die von `WebLayout`
+  // gemessene Spalte statt der vollen Fensterbreite (siehe dort für den
+  // Hintergrund: ein `onLayout` an dieser Stelle würde, weil die Einheit
+  // mehrere Ebenen tief in einem Stack-Navigator liegt, die volle
+  // Fensterbreite melden statt der tatsächlich verfügbaren Spalte).
+  const containerWidth = useContentWidth();
 
   const [answers, setAnswers] = useState<UnitAnswers>({});
   const [results, setResults] = useState<Record<string, BlockResult>>({});
@@ -47,6 +56,8 @@ export default function UnitScreen({ route, navigation }: Props) {
   const [summary, setSummary] = useState<{ score: number; xp: number; correct: number; total: number } | null>(null);
 
   const [tool, setTool] = useState<BookToolState>(DEFAULT_BOOK_TOOL);
+  /** Das Federmäppchen lässt sich ausblenden, um mehr von der Seite zu sehen. */
+  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [notes, setNotes] = useState<NotebookPageContent | null>(null);
   const [notesHistory, setNotesHistory] = useState<NotebookPageContent[]>([]);
@@ -113,7 +124,7 @@ export default function UnitScreen({ route, navigation }: Props) {
     },
     onError: (error: Error) => {
       setCheckingBlock(null);
-      Alert.alert('Prüfen nicht möglich', error.message);
+      alert('Prüfen nicht möglich', error.message);
     },
   });
 
@@ -211,11 +222,29 @@ export default function UnitScreen({ route, navigation }: Props) {
   // Die Seite wird in Buch-Einheiten aufgebaut und als Ganzes auf die
   // Bildschirmbreite skaliert. Zoom vergrößert nur diesen Faktor – der Text
   // fließt dabei nicht um, die Seite bleibt Seite.
-  const baseScale = (screenWidth - GUTTER * 2) / book.pageWidth;
+  const baseScale = (containerWidth - GUTTER * 2) / book.pageWidth;
   const scale = baseScale * zoom;
 
   // Nummerierung der Aufgaben über die ganze Einheit hinweg.
   let exerciseCounter = 0;
+
+  // Blättern gehört ans Ende der Seite (siehe BookPage) statt in die
+  // Werkzeugleiste – ein Buch blättert man am Seitenende um, nicht über ein
+  // Bedienpanel daneben.
+  const pageNav: PageFooterNav | undefined =
+    sequence.length > 0
+      ? {
+          index: pageIndex,
+          total: sequence.length,
+          accent: theme.accent,
+          hasPrevious: Boolean(previousUnit),
+          hasNext: Boolean(nextUnit),
+          nextSectionLabel:
+            nextUnit && nextUnit.section !== data.section ? SECTION_THEME[nextUnit.section].label : null,
+          onPrevious: () => previousUnit && goToUnit(previousUnit),
+          onNext: () => nextUnit && goToUnit(nextUnit),
+        }
+      : undefined;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#E8E4DA' }} edges={['bottom']}>
@@ -268,6 +297,7 @@ export default function UnitScreen({ route, navigation }: Props) {
                 unitTitle={data.title}
                 unitSubtitle={data.subtitle}
                 pageNumber={data.order}
+                nav={pageNav}
                 onLayoutHeight={setPageHeight}
               >
                 {data.content.blocks.map((block) => {
@@ -308,7 +338,7 @@ export default function UnitScreen({ route, navigation }: Props) {
                   }}
                   onComplete={() => complete.mutate()}
                   onReset={() =>
-                    Alert.alert('Zurücksetzen?', 'Alle Antworten dieser Seite werden gelöscht.', [
+                    alert('Zurücksetzen?', 'Alle Antworten dieser Seite werden gelöscht.', [
                       { text: 'Abbrechen', style: 'cancel' },
                       { text: 'Zurücksetzen', style: 'destructive', onPress: () => reset.mutate() },
                     ])
@@ -359,22 +389,17 @@ export default function UnitScreen({ route, navigation }: Props) {
         onZoom={setZoom}
         canUndo={notesHistory.length > 0}
         hasNotes={Boolean(notes?.elements.length)}
-        page={
-          sequence.length > 0
-            ? {
-                index: pageIndex,
-                total: sequence.length,
-                accent: theme.accent,
-                hasPrevious: Boolean(previousUnit),
-                hasNext: Boolean(nextUnit),
-                nextSectionLabel:
-                  nextUnit && nextUnit.section !== data.section
-                    ? SECTION_THEME[nextUnit.section].label
-                    : null,
-                onPrevious: () => previousUnit && goToUnit(previousUnit),
-                onNext: () => nextUnit && goToUnit(nextUnit),
-              }
-            : null
+        collapsed={toolbarCollapsed}
+        onToggleCollapsed={() =>
+          setToolbarCollapsed((collapsed) => {
+            const next = !collapsed;
+            // Wer die Werkzeugleiste ausblendet, will offensichtlich wieder mit
+            // der Seite statt mit dem Stift arbeiten – sonst bliebe der
+            // Zeichenmodus samt gesperrter Aufgabenfelder aktiv, ohne dass noch
+            // ein sichtbarer Weg zurück ins Bearbeiten bliebe.
+            if (next) setTool((current) => ({ ...current, mode: 'EDIT' }));
+            return next;
+          })
         }
         onUndo={() => {
           const previous = notesHistory[notesHistory.length - 1];
@@ -385,7 +410,7 @@ export default function UnitScreen({ route, navigation }: Props) {
         }}
         onClear={() => {
           if (!notes) return;
-          Alert.alert('Notizen löschen?', 'Ihre Stiftnotizen auf dieser Seite werden entfernt.', [
+          alert('Notizen löschen?', 'Ihre Stiftnotizen auf dieser Seite werden entfernt.', [
             { text: 'Abbrechen', style: 'cancel' },
             {
               text: 'Löschen',
