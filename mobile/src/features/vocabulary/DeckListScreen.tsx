@@ -352,7 +352,7 @@ const stackTop = {
   paddingTop: spacing.md,
   paddingBottom: spacing.md,
   gap: 1,
-  shadowColor: '#3F3A2F',
+  shadowColor: colors.text,
   shadowOpacity: 0.12,
   shadowRadius: 8,
   shadowOffset: { width: 0, height: 3 },

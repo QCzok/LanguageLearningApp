@@ -1,6 +1,32 @@
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { Platform, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme';
+
+/**
+ * Lädt die Schriftfamilie „Montserrat“ im Browser nach.
+ *
+ * Auf iOS/Android registriert `expo-font` (siehe `App.tsx`) jeden Schnitt
+ * einzeln unter seinem Google-Fonts-Dateinamen (`Montserrat_700Bold` usw.) –
+ * das ist dort die einzig zuverlässige Art, eine Schriftdatei zu finden. Im
+ * Web dagegen benutzt der Code an vielen Stellen den literalen Namen
+ * „Montserrat“ zusammen mit einer eigenen `fontWeight`-Zahl (siehe
+ * `theme/index.ts`, `fontFamily`) – normales Web-Schriftverhalten, das nur
+ * funktioniert, wenn der Browser die Familie „Montserrat“ tatsächlich kennt.
+ * Diese eine `<link>`-Zeile stellt das her; ohne sie würde jeder Text im Web
+ * still auf die System-Schrift zurückfallen.
+ */
+function useWebFontLoader(): void {
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    if (document.getElementById('app-web-font')) return;
+
+    const link = document.createElement('link');
+    link.id = 'app-web-font';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap';
+    document.head.appendChild(link);
+  }, []);
+}
 
 /**
  * Begrenzt die App im Browser auf eine telefon-taugliche Breite.
@@ -25,17 +51,19 @@ import { colors } from '../theme';
 export const MAX_WIDTH = 480;
 
 export function WebLayout({ children }: { children: ReactNode }) {
+  useWebFontLoader();
+
   if (Platform.OS !== 'web') return <>{children}</>;
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#DDE1E7' }}>
+    <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#D9D9D9' }}>
       <View
         style={{
           flex: 1,
           width: '100%',
           maxWidth: MAX_WIDTH,
           backgroundColor: colors.background,
-          shadowColor: '#0F172A',
+          shadowColor: colors.text,
           shadowOpacity: 0.16,
           shadowRadius: 32,
           shadowOffset: { width: 0, height: 0 },

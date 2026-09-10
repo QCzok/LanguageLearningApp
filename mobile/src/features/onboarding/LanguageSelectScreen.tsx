@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Card, ErrorState, Heading, Loading, Row, Screen, Title } from '../../components';
 import { languagesApi } from '../../api/endpoints';
-import { spacing, typography } from '../../theme';
+import { colors, spacing, typography } from '../../theme';
 import type { OnboardingStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'LanguageSelect'>;
@@ -45,9 +45,9 @@ export default function LanguageSelectScreen({ navigation }: Props) {
               <Text style={{ fontSize: 34 }}>{language.flagEmoji}</Text>
               <View style={{ flex: 1 }}>
                 <Heading>{language.name}</Heading>
-                <Text style={[typography.caption, { color: '#64748B' }]}>{language.nativeName}</Text>
+                <Text style={[typography.caption, { color: colors.textMuted }]}>{language.nativeName}</Text>
               </View>
-              <Text style={{ fontSize: 20, color: '#94A3B8' }}>›</Text>
+              <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
             </Row>
           </Card>
         ))}

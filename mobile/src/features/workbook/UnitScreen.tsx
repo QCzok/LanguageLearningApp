@@ -15,7 +15,7 @@ import type {
 } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
-import { book, bookFont, bookLabel, bookSans, spacing } from '../../theme';
+import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
 import { BookPage, SECTION_THEME } from './BookPage';
 import type { PageFooterNav } from './BookPage';
@@ -247,7 +247,7 @@ export default function UnitScreen({ route, navigation }: Props) {
       : undefined;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#E8E4DA' }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{ alignItems: 'center', paddingVertical: 16 }}
@@ -264,7 +264,7 @@ export default function UnitScreen({ route, navigation }: Props) {
             style={{
               width: book.pageWidth * scale,
               height: pageHeight * scale,
-              shadowColor: '#3F3A2F',
+              shadowColor: colors.text,
               shadowOpacity: 0.18,
               shadowRadius: 14,
               shadowOffset: { width: 0, height: 6 },

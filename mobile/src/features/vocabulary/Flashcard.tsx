@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { View, ViewStyle } from 'react-native';
-import { flashcard, radius, spacing } from '../../theme';
+import { colors, flashcard, radius, spacing } from '../../theme';
 
 /**
  * Die Karteikarte des Vokabeltrainers.
@@ -80,7 +80,7 @@ const cardBase: ViewStyle = {
   borderWidth: 1,
   borderColor: flashcard.edge,
   overflow: 'hidden',
-  shadowColor: '#3F3A2F',
+  shadowColor: colors.text,
   shadowOpacity: 0.16,
   shadowRadius: 10,
   shadowOffset: { width: 0, height: 4 },

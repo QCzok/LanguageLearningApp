@@ -37,10 +37,19 @@ export default function ChapterScreen({ route, navigation }: Props) {
   });
 
   // Nach dem Bearbeiten einer Einheit muss der Fortschritt hier aktuell sein.
+  //
+  // Bewusst ohne `refetch` in den Abhängigkeiten: `refetch` ist zwischen
+  // Renders nicht zuverlässig referenzgleich. Mit `[refetch]` als Abhängigkeit
+  // bekam `useCallback` bei jedem Aufruf eine neue Referenz, wodurch
+  // `useFocusEffect` seinen Effekt erneut auslöste – jeder Refetch feuerte so
+  // sofort den nächsten, eine Anfrageschleife ohne Ende. `refetch` bezieht
+  // sich ohnehin auf den festen `queryKey` dieser Seite, eine veraltete
+  // Closure ist hier unproblematisch.
   useFocusEffect(
     React.useCallback(() => {
       void refetch();
-    }, [refetch]),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
   );
 
   if (isLoading) return <Loading />;
