@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import React, { useMemo, useRef, useState } from 'react';
+import { PanResponder, Pressable, Text, TextInput, View } from 'react-native';
 import type {
   BlockAnswer,
   BlockResult,
+  CefrLevel,
   ChoiceBlock,
   ClozeBlock,
   MatchingBlock,
@@ -13,6 +14,8 @@ import { book, bookFont, bookLabel, bookSans } from '../../../theme';
 import { CheckMark, CrossMark } from '../BookIcons';
 import { ExerciseNumber } from '../BookPage';
 import { bodyText } from './ContentBlocks';
+import { useAuthStore } from '../../../store/auth.store';
+import { asTranslatableLanguage, LANGUAGE_LABELS } from './translation';
 
 /**
  * Aufgabenblöcke im Arbeitsbuch-Stil.
@@ -33,6 +36,16 @@ interface BlockProps<B> {
   isChecking: boolean;
   /** Im Zeichenmodus liegt der Stift über der Seite – Eingaben sind gesperrt. */
   locked: boolean;
+  /**
+   * Aktueller Zoomfaktor der Seite. Nur für Aufgaben mit echter Ziehgeste
+   * (siehe `Ordering`) relevant: Die Seite steckt in einem CSS-Transform,
+   * Fingerbewegungen kommen aber in echten Bildschirmpixeln an – ohne diesen
+   * Faktor würde eine gezogene Karte nicht dem Finger folgen, sondern bei
+   * jedem Zoom ungenau hinterherhinken oder vorauseilen.
+   */
+  scale: number;
+  /** Für Lösungshinweise auf A1, siehe `Choice`. */
+  level: CefrLevel;
 }
 
 function Frame({
@@ -44,6 +57,7 @@ function Frame({
   isChecking,
   canCheck,
   locked,
+  level,
   children,
 }: {
   number: number;
@@ -54,9 +68,17 @@ function Frame({
   isChecking: boolean;
   canCheck: boolean;
   locked: boolean;
+  level: CefrLevel;
   children: React.ReactNode;
 }) {
   const status = result ? (result.correct ? 'correct' : 'partial') : undefined;
+
+  const [translationOpen, setTranslationOpen] = useState(false);
+  const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
+  const language = asTranslatableLanguage(nativeLanguage);
+  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const explanationTranslation =
+    level === 'A1' && language ? result?.explanationTranslations?.[language] : undefined;
 
   return (
     <View style={{ gap: 16 }}>
@@ -71,6 +93,18 @@ function Frame({
               {result.correct ? 'Richtig gelöst' : `${result.scorePercent} % richtig`}
             </Text>
             {result.explanation ? <Text style={hintText}>{result.explanation}</Text> : null}
+            {explanationTranslation ? (
+              <>
+                {translationOpen ? (
+                  <Text style={[hintText, { fontStyle: 'normal' }]}>{explanationTranslation}</Text>
+                ) : null}
+                <Pressable onPress={() => setTranslationOpen((value) => !value)} hitSlop={8}>
+                  <Text style={translationToggle}>
+                    {translationOpen ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+                  </Text>
+                </Pressable>
+              </>
+            ) : null}
           </View>
         ) : (
           <Pressable
@@ -252,13 +286,13 @@ export function Matching(props: BlockProps<MatchingBlock>) {
   return (
     <Frame {...props} instruction={block.instruction} canCheck={pairs.length === block.left.length}>
       <Text style={hintText}>
-        {activeLeft ? 'Jetzt rechts die passende Antwort antippen.' : 'Links antippen, dann rechts zuordnen.'}
+        {activeLeft ? 'Jetzt rechts die passende Antwort antippen – die Verbindung entsteht sofort.' : 'Links antippen, dann rechts verbinden.'}
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 16 }}>
         <View style={{ flex: 1, gap: 12 }}>
           {block.left.map((item) => {
-            const target = block.right.find((r) => r.id === byLeft.get(item.id));
+            const linked = byLeft.has(item.id);
             const isCorrect = result?.details?.[item.id];
 
             return (
@@ -269,35 +303,45 @@ export function Matching(props: BlockProps<MatchingBlock>) {
                 style={[
                   matchCard,
                   activeLeft === item.id && { borderColor: book.ink, borderWidth: 1.5 },
+                  linked && !result && matchCardLinked,
                   result
                     ? { borderColor: isCorrect ? book.correct : book.wrong }
                     : null,
                 ]}
               >
-                <Text style={[bodyText, { fontSize: 19, lineHeight: 27 }]}>{item.text}</Text>
-                <Text style={[hintText, result && { color: isCorrect ? book.correct : book.wrong }]}>
-                  {target ? `→ ${target.text}` : '→ __________'}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {/* Ein gefüllter Punkt statt eines Pfeils – der optische
+                      Anker, an dem gedanklich die Verbindungslinie zur
+                      rechten Spalte ansetzt. */}
+                  <View style={[matchDot, linked && { backgroundColor: book.ink }]} />
+                  <Text style={[bodyText, { fontSize: 19, lineHeight: 27, flex: 1 }]}>{item.text}</Text>
+                </View>
               </Pressable>
             );
           })}
         </View>
 
         <View style={{ flex: 1, gap: 12 }}>
-          {block.right.map((item) => (
-            <Pressable
-              key={item.id}
-              disabled={Boolean(result) || !activeLeft || locked}
-              onPress={() => assign(item.id)}
-              style={[
-                matchCard,
-                usedRight.has(item.id) && { opacity: 0.4 },
-                activeLeft && !result ? { borderColor: book.ink, borderStyle: 'dashed' } : null,
-              ]}
-            >
-              <Text style={[bodyText, { fontSize: 19, lineHeight: 27 }]}>{item.text}</Text>
-            </Pressable>
-          ))}
+          {block.right.map((item) => {
+            const isUsed = usedRight.has(item.id);
+            return (
+              <Pressable
+                key={item.id}
+                disabled={Boolean(result) || !activeLeft || locked}
+                onPress={() => assign(item.id)}
+                style={[
+                  matchCard,
+                  isUsed && !result && matchCardLinked,
+                  activeLeft && !result ? { borderColor: book.ink, borderStyle: 'dashed' } : null,
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={[bodyText, { fontSize: 19, lineHeight: 27, flex: 1 }]}>{item.text}</Text>
+                  <View style={[matchDot, isUsed && { backgroundColor: book.ink }]} />
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </Frame>
@@ -306,19 +350,131 @@ export function Matching(props: BlockProps<MatchingBlock>) {
 
 // -------------------------------------------------------------- Reihenfolge
 
+/** Schwelle in Bildschirmpixeln: darunter zählt eine Geste als Antippen, nicht als Ziehen. */
+const DRAG_TAP_THRESHOLD = 6;
+
+/**
+ * Eine ziehbare Wortkarte aus dem Wortkasten.
+ *
+ * Trägt ihren eigenen `PanResponder` statt eines `Pressable` – beides auf
+ * demselben Element würde um die Touch-Antwortzuständigkeit konkurrieren
+ * (dasselbe Problem wie beim Zeichen-Canvas, siehe dort). Eine Geste ohne
+ * nennenswerte Bewegung zählt als Tippen und hängt die Karte ans Satzende;
+ * eine Geste, die über der Schreiblinie endet, zählt als abgelegt – fachlich
+ * dasselbe Ergebnis, nur mit echtem Ziehgefühl.
+ */
+function DraggableWordTile({
+  item,
+  scale,
+  disabled,
+  dropZoneRef,
+  onDrop,
+  onHoverChange,
+}: {
+  item: { id: string; text: string };
+  scale: number;
+  disabled: boolean;
+  dropZoneRef: React.RefObject<View>;
+  onDrop: () => void;
+  onHoverChange: (hovering: boolean) => void;
+}) {
+  const [drag, setDrag] = useState({ dx: 0, dy: 0, active: false });
+
+  const scaleRef = useRef(scale);
+  const disabledRef = useRef(disabled);
+  const onDropRef = useRef(onDrop);
+  const onHoverChangeRef = useRef(onHoverChange);
+  const zoneRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+  scaleRef.current = scale;
+  disabledRef.current = disabled;
+  onDropRef.current = onDrop;
+  onHoverChangeRef.current = onHoverChange;
+
+  function isOverZone(moveX: number, moveY: number): boolean {
+    const zone = zoneRectRef.current;
+    if (!zone) return false;
+    return moveX >= zone.x && moveX <= zone.x + zone.width && moveY >= zone.y && moveY <= zone.y + zone.height;
+  }
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !disabledRef.current,
+        onMoveShouldSetPanResponder: () => !disabledRef.current,
+
+        onPanResponderGrant: () => {
+          setDrag({ dx: 0, dy: 0, active: true });
+          // Die Schreiblinie einmal beim Greifen vermessen: Ihre Position auf
+          // dem Bildschirm ändert sich während der Geste nicht, ein Messen
+          // bei jeder Bewegung wäre unnötige Arbeit.
+          dropZoneRef.current?.measureInWindow((x, y, width, height) => {
+            zoneRectRef.current = { x, y, width, height };
+          });
+        },
+
+        onPanResponderMove: (_event, gestureState) => {
+          const s = scaleRef.current || 1;
+          // Die Karte steckt wie die ganze Seite in einem CSS-Zoom-Transform;
+          // die Fingerbewegung kommt aber in echten Bildschirmpixeln an – ohne
+          // die Division durch den Zoomfaktor liefe die Karte dem Finger bei
+          // jedem Zoom-Stand falsch nach (dieselbe Rechnung wie im
+          // Zeichen-Canvas, siehe `Canvas.tsx`).
+          setDrag({ dx: gestureState.dx / s, dy: gestureState.dy / s, active: true });
+          onHoverChangeRef.current(isOverZone(gestureState.moveX, gestureState.moveY));
+        },
+
+        onPanResponderRelease: (_event, gestureState) => {
+          const distance = Math.hypot(gestureState.dx, gestureState.dy);
+          const dropped = distance < DRAG_TAP_THRESHOLD || isOverZone(gestureState.moveX, gestureState.moveY);
+          setDrag({ dx: 0, dy: 0, active: false });
+          onHoverChangeRef.current(false);
+          if (dropped && !disabledRef.current) onDropRef.current();
+        },
+
+        onPanResponderTerminate: () => {
+          setDrag({ dx: 0, dy: 0, active: false });
+          onHoverChangeRef.current(false);
+        },
+      }),
+    // Absichtlich ohne Abhängigkeiten: alles Veränderliche läuft über Refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dropZoneRef],
+  );
+
+  return (
+    <View
+      {...panResponder.panHandlers}
+      accessibilityRole="button"
+      accessibilityLabel={`${item.text} – antippen oder in die Zeile ziehen`}
+      style={[
+        tokenChip,
+        tokenIdle,
+        { transform: [{ translateX: drag.dx }, { translateY: drag.dy }] },
+        drag.active && tokenDragging,
+      ]}
+    >
+      <Text style={tokenText}>{item.text}</Text>
+    </View>
+  );
+}
+
 export function Ordering(props: BlockProps<OrderingBlock>) {
-  const { block, answer, result, onChange, locked } = props;
+  const { block, answer, result, onChange, locked, scale } = props;
   const order = answer?.type === 'ORDERING' ? answer.order : [];
   const remaining = block.items.filter((item) => !order.includes(item.id));
   const solution = (result?.solution as string[] | undefined) ?? [];
   const label = (id: string) => block.items.find((item) => item.id === id)?.text ?? '';
 
+  const dropZoneRef = useRef<View>(null);
+  const [zoneHighlighted, setZoneHighlighted] = useState(false);
+
   return (
     <Frame {...props} instruction={block.instruction} canCheck={remaining.length === 0}>
-      {/* Der gebaute Satz steht auf einer Schreiblinie. */}
-      <View style={sentenceLine}>
+      {/* Der gebaute Satz steht auf einer Schreiblinie – dem Zielbereich für
+          die gezogenen Wortkarten. */}
+      <View ref={dropZoneRef} style={[sentenceLine, zoneHighlighted && sentenceLineActive]}>
         {order.length === 0 ? (
-          <Text style={hintText}>Wörter unten antippen, um den Satz zu bilden.</Text>
+          <Text style={hintText}>Wortkarten hierher ziehen oder antippen.</Text>
         ) : (
           order.map((id, index) => {
             const correctHere = result ? solution[index] === id : undefined;
@@ -350,14 +506,15 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
       {remaining.length > 0 && !result ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {remaining.map((item) => (
-            <Pressable
+            <DraggableWordTile
               key={item.id}
+              item={item}
+              scale={scale}
               disabled={locked}
-              onPress={() => onChange({ type: 'ORDERING', order: [...order, item.id] })}
-              style={[tokenChip, tokenIdle]}
-            >
-              <Text style={tokenText}>{item.text}</Text>
-            </Pressable>
+              dropZoneRef={dropZoneRef}
+              onDrop={() => onChange({ type: 'ORDERING', order: [...order, item.id] })}
+              onHoverChange={setZoneHighlighted}
+            />
           ))}
         </View>
       ) : null}
@@ -485,7 +642,22 @@ const matchCard = {
   borderWidth: 1,
   borderColor: book.rule,
   backgroundColor: '#FFFFFF',
-  gap: 3,
+};
+
+/** Verbunden heißt: derselbe Kastenton wie eine bereits ausgefüllte Lücke. */
+const matchCardLinked = {
+  backgroundColor: book.tint,
+  borderColor: book.inkSoft,
+};
+
+/** Anker-Punkt am Kartenrand – dort setzt gedanklich die Verbindungslinie an. */
+const matchDot = {
+  width: 9,
+  height: 9,
+  borderRadius: 5,
+  borderWidth: 1.5,
+  borderColor: book.inkSoft,
+  backgroundColor: 'transparent',
 };
 
 const sentenceLine = {
@@ -498,6 +670,12 @@ const sentenceLine = {
   paddingVertical: 10,
   borderBottomWidth: 1.5,
   borderBottomColor: book.ink,
+};
+
+/** Zeigt sich, während eine gezogene Karte über der Schreiblinie schwebt. */
+const sentenceLineActive = {
+  backgroundColor: book.tint,
+  borderBottomColor: book.correct,
 };
 
 const tokenChip = {
@@ -515,6 +693,17 @@ const tokenPlaced = {
 const tokenIdle = {
   backgroundColor: '#FFFFFF',
   borderColor: book.rule,
+};
+
+/** Während des Ziehens: leicht angehoben, mit Schlagschatten wie eine echte Karte. */
+const tokenDragging = {
+  zIndex: 20,
+  elevation: 8,
+  borderColor: book.ink,
+  shadowColor: book.ink,
+  shadowOpacity: 0.3,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 4 },
 };
 
 const tokenText = {
@@ -587,4 +776,12 @@ const hintText = {
   lineHeight: 26,
   color: book.inkSoft,
   fontStyle: 'italic' as const,
+};
+
+const translationToggle = {
+  fontFamily: bookSans,
+  fontSize: 14,
+  letterSpacing: 0.4,
+  color: book.inkFaint,
+  marginTop: 2,
 };

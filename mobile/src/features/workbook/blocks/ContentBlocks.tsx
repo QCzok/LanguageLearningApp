@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import type {
   AudioBlock,
+  CefrLevel,
   DialogueBlock,
   HeadingBlock,
+  ImageBlock,
   InfoBlock,
   TextBlock,
   VocabListBlock,
@@ -11,6 +13,9 @@ import type {
 import { book, bookFont, bookLabel, bookSans } from '../../../theme';
 import { AudioMark } from '../BookIcons';
 import { BoxLabel, SectionHeading } from '../BookPage';
+import { getSceneComponent } from './SceneIllustrations';
+import { useAuthStore } from '../../../store/auth.store';
+import { asTranslatableLanguage, LANGUAGE_LABELS } from './translation';
 
 /**
  * Darstellungsblöcke des Kursbuchs, gesetzt wie eine gedruckte Lehrwerksseite:
@@ -36,18 +41,23 @@ export function Heading({ block, accent }: BlockProps<HeadingBlock>) {
   return <Text style={subHeading}>{block.text}</Text>;
 }
 
-export function Paragraph({ block }: BlockProps<TextBlock>) {
+export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: CefrLevel }) {
   const [open, setOpen] = useState(false);
+
+  const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
+  const language = asTranslatableLanguage(nativeLanguage);
+  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
 
   return (
     <View style={{ gap: 10 }}>
       <Text style={bodyText}>{block.text}</Text>
-      {block.translation ? (
+      {translation ? (
         <>
-          {open ? <Text style={translationText}>{block.translation}</Text> : null}
+          {open ? <Text style={translationText}>{translation}</Text> : null}
           <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
             <Text style={translationToggle}>
-              {open ? 'Übersetzung ausblenden' : 'Übersetzung anzeigen'}
+              {open ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
             </Text>
           </Pressable>
         </>
@@ -56,9 +66,23 @@ export function Paragraph({ block }: BlockProps<TextBlock>) {
   );
 }
 
-/** Merkkasten: farbiger Balken links, getönter Grund – wie im Lehrwerk. */
-export function Info({ block }: BlockProps<InfoBlock>) {
+/**
+ * Merkkasten: farbiger Balken links, getönter Grund – wie im Lehrwerk.
+ *
+ * Auf A1 kann man eine Grammatikerklärung noch nicht auf Deutsch verstehen –
+ * ist im Profil eine Muttersprache mit hinterlegter Übersetzung eingestellt,
+ * lässt sich Titel und Text zusätzlich in dieser Sprache aufklappen (siehe
+ * `InfoBlock.translations`). Die Tabelle bleibt deutsch, sie enthält den zu
+ * lernenden Stoff selbst.
+ */
+export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLevel }) {
   const style = INFO_STYLES[block.variant];
+  const [open, setOpen] = useState(false);
+
+  const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
+  const language = asTranslatableLanguage(nativeLanguage);
+  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
 
   return (
     <View style={[infoBox, { backgroundColor: style.background, borderLeftColor: style.accent }]}>
@@ -67,6 +91,21 @@ export function Info({ block }: BlockProps<InfoBlock>) {
       <Text style={[bodyText, { fontSize: 20, lineHeight: 31 }]}>{block.text}</Text>
       {block.table ? (
         <PrintTable headers={block.table.headers} rows={block.table.rows} accent={style.accent} />
+      ) : null}
+      {translation ? (
+        <>
+          {open ? (
+            <View style={{ gap: 4, marginTop: 2 }}>
+              <Text style={[infoTitle, { fontSize: 16 }]}>{translation.title}</Text>
+              <Text style={translationText}>{translation.text}</Text>
+            </View>
+          ) : null}
+          <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
+            <Text style={translationToggle}>
+              {open ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+            </Text>
+          </Pressable>
+        </>
       ) : null}
     </View>
   );
@@ -227,6 +266,27 @@ export function AudioPlaceholder({ block, accent }: BlockProps<AudioBlock>) {
   );
 }
 
+/**
+ * Bild im Lehrwerk – gerahmt wie ein eingeklebtes Foto, mit Bildunterschrift
+ * darunter. Es gibt keine echten Fotos in der Anwendung; `ImageBlock.url`
+ * trägt stattdessen einen `illustration:<key>`-Schlüssel, über den
+ * `getSceneComponent` eine passende, selbst gezeichnete Szene auswählt (siehe
+ * `SceneIllustrations.tsx`). `alt` bleibt Pflichtfeld und wird als
+ * Accessibility-Label gereicht, genau wie bei einem echten Bild.
+ */
+export function SceneImage({ block }: BlockProps<ImageBlock>) {
+  const Scene = getSceneComponent(block.url);
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={imageFrame} accessibilityLabel={block.alt} accessible>
+        <Scene />
+      </View>
+      {block.caption ? <Text style={imageCaption}>{block.caption}</Text> : null}
+    </View>
+  );
+}
+
 // ------------------------------------------------------------------ Styles
 
 export const bodyText = {
@@ -374,4 +434,27 @@ const exampleText = {
   lineHeight: 26,
   color: book.inkSoft,
   fontStyle: 'italic' as const,
+};
+
+/** Rahmen wie bei einem eingeklebten Foto: schmale Kante, leichter Schatten. */
+const imageFrame = {
+  width: '100%' as const,
+  aspectRatio: 320 / 200,
+  borderWidth: 1,
+  borderColor: book.paperEdge,
+  overflow: 'hidden' as const,
+  backgroundColor: book.tint,
+  shadowColor: book.ink,
+  shadowOpacity: 0.1,
+  shadowRadius: 6,
+  shadowOffset: { width: 0, height: 3 },
+};
+
+const imageCaption = {
+  fontFamily: bookFont,
+  fontSize: 16,
+  lineHeight: 22,
+  color: book.inkSoft,
+  fontStyle: 'italic' as const,
+  textAlign: 'center' as const,
 };

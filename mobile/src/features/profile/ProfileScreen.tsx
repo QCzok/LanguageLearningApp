@@ -15,7 +15,7 @@ import {
   Screen,
   Title,
 } from '../../components';
-import { subscriptionApi, usersApi } from '../../api/endpoints';
+import { languagesApi, subscriptionApi, usersApi } from '../../api/endpoints';
 import { useAuthStore, useIsPremium } from '../../store/auth.store';
 import { colors, radius, spacing, typography } from '../../theme';
 
@@ -27,6 +27,16 @@ export default function ProfileScreen() {
   const isPremium = useIsPremium();
 
   const subscription = useQuery({ queryKey: ['subscription'], queryFn: subscriptionApi.status });
+  const languages = useQuery({ queryKey: ['languages'], queryFn: languagesApi.list });
+
+  const setNativeLanguage = useMutation({
+    mutationFn: (nativeLanguage: string) => usersApi.update({ nativeLanguage }),
+    onSuccess: async () => {
+      await refreshUser();
+      // Erklärungen im Heft übersetzen sich anhand dieser Einstellung.
+      await queryClient.invalidateQueries({ queryKey: ['workbook-unit'] });
+    },
+  });
 
   const activatePremium = useMutation({
     mutationFn: subscriptionApi.activate,
@@ -105,6 +115,35 @@ export default function ProfileScreen() {
         {activeProfile ? (
           <Caption>Tagesziel: {activeProfile.dailyGoalMinutes} Minuten</Caption>
         ) : null}
+      </Card>
+
+      <Card>
+        <Heading>Muttersprache</Heading>
+        <Caption>
+          Grammatik-Erklärungen und Lösungshinweise auf A1 erscheinen zusätzlich in dieser Sprache.
+        </Caption>
+        <Row gap={spacing.sm} style={{ flexWrap: 'wrap', marginTop: spacing.xs }}>
+          {(languages.data ?? []).map((language) => {
+            const active = language.code === user.nativeLanguage;
+            return (
+              <Card
+                key={language.id}
+                onPress={active ? undefined : () => setNativeLanguage.mutate(language.code)}
+                style={[
+                  { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 0 },
+                  active
+                    ? { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primarySoft }
+                    : { borderWidth: 1 },
+                ]}
+              >
+                <Row gap={spacing.xs}>
+                  <Text style={{ fontSize: 18 }}>{language.flagEmoji}</Text>
+                  <Body>{language.nativeName}</Body>
+                </Row>
+              </Card>
+            );
+          })}
+        </Row>
       </Card>
 
       <Card style={{ borderColor: isPremium ? colors.premium : colors.border }}>

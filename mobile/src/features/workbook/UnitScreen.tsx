@@ -8,6 +8,7 @@ import { emptyPageContent, isExerciseBlock } from '@lingua/shared';
 import type {
   BlockAnswer,
   BlockResult,
+  CefrLevel,
   NotebookPageContent,
   UnitAnswers,
   UnitSummaryDto,
@@ -27,6 +28,7 @@ import {
   Heading as HeadingBlockView,
   Info,
   Paragraph,
+  SceneImage,
   VocabList,
 } from './blocks/ContentBlocks';
 import { Choice, Cloze, Matching, Ordering, Writing } from './blocks/ExerciseBlocks';
@@ -312,6 +314,8 @@ export default function UnitScreen({ route, navigation }: Props) {
                       result={results[block.id]}
                       isChecking={checkingBlock === block.id}
                       locked={isDrawing}
+                      scale={scale}
+                      level={data.level}
                       onChange={(answer) => handleAnswer(block.id, answer)}
                       onCheck={() => {
                         flushAnswers();
@@ -539,6 +543,8 @@ function BlockView({
   result,
   isChecking,
   locked,
+  scale,
+  level,
   onChange,
   onCheck,
 }: {
@@ -549,18 +555,20 @@ function BlockView({
   result?: BlockResult;
   isChecking: boolean;
   locked: boolean;
+  scale: number;
+  level: CefrLevel;
   onChange: (answer: BlockAnswer) => void;
   onCheck: () => void;
 }) {
-  const exercise = { number, accent, answer, result, onChange, onCheck, isChecking, locked };
+  const exercise = { number, accent, answer, result, onChange, onCheck, isChecking, locked, scale, level };
 
   switch (block.type) {
     case 'HEADING':
       return <HeadingBlockView block={block} accent={accent} />;
     case 'TEXT':
-      return <Paragraph block={block} accent={accent} />;
+      return <Paragraph block={block} accent={accent} level={level} />;
     case 'INFO':
-      return <Info block={block} accent={accent} />;
+      return <Info block={block} accent={accent} level={level} />;
     case 'VOCAB_LIST':
       return <VocabList block={block} accent={accent} />;
     case 'DIALOGUE':
@@ -568,7 +576,7 @@ function BlockView({
     case 'AUDIO':
       return <AudioPlaceholder block={block} accent={accent} />;
     case 'IMAGE':
-      return null;
+      return <SceneImage block={block} accent={accent} />;
     case 'CLOZE':
       return <Cloze block={block} {...exercise} />;
     case 'CHOICE':

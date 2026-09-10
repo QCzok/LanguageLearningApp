@@ -87,6 +87,7 @@ function evaluateChoice(block: ChoiceBlock, answer: BlockAnswer | undefined): Bl
     details,
     solution: block.solution ?? [],
     explanation: block.explanation,
+    explanationTranslations: block.explanationTranslations,
   };
 }
 
@@ -194,7 +195,12 @@ function stripBlock(block: WorkbookBlock): WorkbookBlock {
         ),
       };
     case 'CHOICE': {
-      const { solution: _solution, explanation: _explanation, ...rest } = block;
+      const {
+        solution: _solution,
+        explanation: _explanation,
+        explanationTranslations: _explanationTranslations,
+        ...rest
+      } = block;
       return rest;
     }
     case 'MATCHING': {

@@ -16,6 +16,15 @@ import type { CefrLevel } from './cefr';
  */
 export const WORKBOOK_CONTENT_VERSION = 1;
 
+/**
+ * Sprachen, in die Erklärungen im Heft übersetzt werden. Dieselben vier
+ * Sprachen wie unter den lernbaren Sprachen (siehe `Language`-Tabelle),
+ * abzüglich Deutsch – wer Deutsch als Muttersprache angibt, braucht keine
+ * Übersetzung der deutschen Erklärungen.
+ */
+export const TRANSLATABLE_LANGUAGES = ['en', 'es', 'fr', 'it'] as const;
+export type TranslatableLanguage = (typeof TRANSLATABLE_LANGUAGES)[number];
+
 export const BLOCK_TYPES = [
   'HEADING',
   'TEXT',
@@ -53,8 +62,8 @@ export interface TextBlock {
   id: string;
   type: 'TEXT';
   text: string;
-  /** Übersetzung in die Muttersprache, in der App aufklappbar. */
-  translation?: string;
+  /** Übersetzung in die Muttersprache, in der App aufklappbar. Nur auf A1, siehe `InfoBlock.translations`. */
+  translations?: Partial<Record<TranslatableLanguage, string>>;
 }
 
 export interface InfoBlock {
@@ -65,6 +74,12 @@ export interface InfoBlock {
   text: string;
   /** Optionale Tabelle, z. B. eine Konjugation. */
   table?: { headers: string[]; rows: string[][] };
+  /**
+   * Übersetzung von Titel und Text in die Muttersprache – auf A1 kann man
+   * eine Grammatikerklärung noch nicht auf Deutsch verstehen. Die Tabelle
+   * bleibt unübersetzt: Sie enthält das zu lernende Deutsch selbst.
+   */
+  translations?: Partial<Record<TranslatableLanguage, { title: string; text: string }>>;
 }
 
 export interface VocabListBlock {
@@ -143,6 +158,8 @@ export interface ChoiceBlock {
   multiple: boolean;
   solution?: string[];
   explanation?: string;
+  /** Übersetzung der Erklärung in die Muttersprache, siehe `InfoBlock.translations`. */
+  explanationTranslations?: Partial<Record<TranslatableLanguage, string>>;
 }
 
 export interface MatchingBlock {
@@ -219,6 +236,7 @@ export interface BlockResult {
   /** Die Lösung, erst nach dem Prüfen mitgeliefert. */
   solution?: unknown;
   explanation?: string;
+  explanationTranslations?: Partial<Record<TranslatableLanguage, string>>;
 }
 
 export interface UnitCheckResult {
