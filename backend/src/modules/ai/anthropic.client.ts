@@ -1,23 +1,23 @@
 import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import type { AutoParseableOutputFormat } from '@anthropic-ai/sdk/lib/parser';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import type * as z from 'zod/v4';
 import { aiConfig } from '../../config/configuration';
+import type { AiClient, TokenUsage } from './ai-client.interface';
 
-export interface TokenUsage {
-  inputTokens: number;
-  outputTokens: number;
-  cachedTokens: number;
-}
+export type { TokenUsage };
 
 /**
- * Dünne Kapsel um das Anthropic-SDK.
+ * Dünne Kapsel um das Anthropic-SDK – die Implementierung von `AiClient` für
+ * den echten, pay-per-token API-Key. Siehe `ClaudeCliClient` für die
+ * Abo-basierte Alternative.
  *
  * Zweck: ein einziger Ort für Modellwahl, Fehlerübersetzung und Token-Buchhaltung.
  * Die Fachlogik (Prompts, Persistenz, Kontingente) liegt im AiService.
  */
 @Injectable()
-export class AnthropicClient {
+export class AnthropicClient implements AiClient {
   private readonly logger = new Logger(AnthropicClient.name);
   private readonly client: Anthropic | null;
 
@@ -49,8 +49,7 @@ export class AnthropicClient {
    * Antwort direkt gegen das Schema – kein manuelles JSON-Parsen nötig.
    */
   async parse<T>(params: {
-    /** Von `zodOutputFormat(...)` erzeugt – siehe ai.schemas.ts. */
-    format: AutoParseableOutputFormat<T>;
+    schema: z.ZodType<T>;
     systemPrefix: string;
     systemSuffix: string;
     userContent: string;
@@ -67,7 +66,7 @@ export class AnthropicClient {
           { type: 'text', text: params.systemSuffix },
         ],
         output_config: {
-          format: params.format,
+          format: zodOutputFormat(params.schema),
           ...(params.effort ? { effort: params.effort } : {}),
         },
         messages: [{ role: 'user', content: params.userContent }],

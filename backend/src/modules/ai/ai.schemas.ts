@@ -1,4 +1,3 @@
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import * as z from 'zod/v4';
 
 /**
@@ -52,14 +51,3 @@ export const recommendationSchema = z.object({
   ),
 });
 export type RecommendationResult = z.infer<typeof recommendationSchema>;
-
-/**
- * Fertige Output-Formate für die Messages-API.
- *
- * Die Umwandlung passiert einmal beim Modul-Laden statt bei jedem Aufruf –
- * das Format ist unveränderlich und die Objekte sind damit auch stabil im
- * Prompt-Präfix, was dem Caching zugutekommt.
- */
-export const correctionFormat = zodOutputFormat(correctionSchema);
-export const grammarFormat = zodOutputFormat(grammarSchema);
-export const recommendationFormat = zodOutputFormat(recommendationSchema);

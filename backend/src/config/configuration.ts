@@ -29,4 +29,11 @@ export const aiConfig = registerAs('ai', () => ({
   model: process.env.AI_MODEL ?? 'claude-opus-5',
   freeMonthlyLimit: parseInt(process.env.AI_FREE_MONTHLY_LIMIT ?? '5', 10),
   premiumMonthlyLimit: parseInt(process.env.AI_PREMIUM_MONTHLY_LIMIT ?? '1000', 10),
+  /**
+   * "subscription" läuft über die lokal installierte `claude`-CLI (Claude-
+   * Abo) statt über einen Anthropic-API-Key – siehe ClaudeCliClient für den
+   * Hintergrund. Ausdrücklich eine Entwicklungs-Übergangslösung; Standard
+   * bleibt "api" für den echten API-Key-Pfad.
+   */
+  provider: (process.env.AI_PROVIDER ?? 'api') as 'api' | 'subscription',
 }));

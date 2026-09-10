@@ -26,8 +26,8 @@ import { aiConfig } from '../../config/configuration';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
-import { AnthropicClient, TokenUsage } from './anthropic.client';
-import { correctionFormat, grammarFormat, recommendationFormat } from './ai.schemas';
+import { AI_CLIENT, AiClient, TokenUsage } from './ai-client.interface';
+import { correctionSchema, grammarSchema, recommendationSchema } from './ai.schemas';
 import {
   chatInstructions,
   CORRECTION_INSTRUCTIONS,
@@ -49,7 +49,7 @@ export class AiService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly anthropic: AnthropicClient,
+    @Inject(AI_CLIENT) private readonly aiClient: AiClient,
     private readonly users: UsersService,
     @Inject(aiConfig.KEY) private readonly config: ConfigType<typeof aiConfig>,
   ) {}
@@ -102,7 +102,7 @@ export class AiService {
       data: {
         userId,
         feature,
-        model: this.anthropic.model,
+        model: this.aiClient.model,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
         cachedTokens: usage.cachedTokens,
@@ -143,8 +143,8 @@ export class AiService {
 
     const language = page.notebook.language ?? profile.language;
 
-    const { parsed, usage } = await this.anthropic.parse({
-      format: correctionFormat,
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: correctionSchema,
       systemPrefix: TUTOR_SYSTEM_PREFIX,
       systemSuffix: `${learnerContext({
         targetLanguage: language.nativeName,
@@ -164,7 +164,7 @@ export class AiService {
         scorePercent: parsed.scorePercent,
         corrections: parsed.corrections as unknown as Prisma.InputJsonValue,
         suggestions: parsed.suggestions,
-        model: this.anthropic.model,
+        model: this.aiClient.model,
       },
     });
 
@@ -260,7 +260,7 @@ export class AiService {
     await this.assertQuota(userId);
     const { systemSuffix, history } = await this.prepareChat(userId, conversationId, dto.content);
 
-    const { text, usage } = await this.anthropic.completeText({
+    const { text, usage } = await this.aiClient.completeText({
       systemPrefix: TUTOR_SYSTEM_PREFIX,
       systemSuffix,
       messages: history,
@@ -282,7 +282,7 @@ export class AiService {
     await this.assertQuota(userId);
     const { systemSuffix, history } = await this.prepareChat(userId, conversationId, dto.content);
 
-    for await (const event of this.anthropic.streamText({
+    for await (const event of this.aiClient.streamText({
       systemPrefix: TUTOR_SYSTEM_PREFIX,
       systemSuffix,
       messages: history,
@@ -313,8 +313,8 @@ export class AiService {
       this.users.getActiveProfileOrThrow(userId),
     ]);
 
-    const { parsed, usage } = await this.anthropic.parse({
-      format: grammarFormat,
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: grammarSchema,
       systemPrefix: TUTOR_SYSTEM_PREFIX,
       systemSuffix: `${learnerContext({
         targetLanguage: profile.language.nativeName,
@@ -405,8 +405,8 @@ export class AiService {
       },
     };
 
-    const { parsed, usage } = await this.anthropic.parse({
-      format: recommendationFormat,
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: recommendationSchema,
       systemPrefix: TUTOR_SYSTEM_PREFIX,
       systemSuffix: `${learnerContext({
         targetLanguage: profile.language.nativeName,
