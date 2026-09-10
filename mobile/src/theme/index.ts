@@ -30,6 +30,8 @@ export const colors = {
   infoSoft: '#E2E5E9',
 
   background: '#F2F2F2',
+  /** Etwas heller als der App-Hintergrund – für längere Lesetexte, wo mehr Helligkeit die Lesbarkeit verbessert. */
+  readingBackground: '#F8F7F4',
   surface: '#FFFFFF',
   surfaceAlt: '#E8E8E8',
   border: '#DBDBDB',

@@ -15,7 +15,7 @@ import { CheckMark, CrossMark } from '../BookIcons';
 import { ExerciseNumber } from '../BookPage';
 import { bodyText } from './ContentBlocks';
 import { useAuthStore } from '../../../store/auth.store';
-import { asTranslatableLanguage, LANGUAGE_LABELS } from './translation';
+import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
 
 /**
  * Aufgabenblöcke im Arbeitsbuch-Stil.

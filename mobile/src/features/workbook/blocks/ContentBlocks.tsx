@@ -15,7 +15,7 @@ import { AudioMark } from '../BookIcons';
 import { BoxLabel, SectionHeading } from '../BookPage';
 import { getSceneComponent } from './SceneIllustrations';
 import { useAuthStore } from '../../../store/auth.store';
-import { asTranslatableLanguage, LANGUAGE_LABELS } from './translation';
+import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
 
 /**
  * Darstellungsblöcke des Kursbuchs, gesetzt wie eine gedruckte Lehrwerksseite:

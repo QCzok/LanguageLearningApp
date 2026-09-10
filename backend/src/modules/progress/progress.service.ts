@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { DashboardDto, LibraryContentDto } from '@lingua/shared';
+import type { DashboardDto, LibraryContentDto, LibrarySection } from '@lingua/shared';
 import { addUtcDays, startOfUtcDay, toDateKey } from '../../common/utils/date.util';
-import { excerptOf } from '../../common/utils/text.util';
+import { excerptOf, plainTextOf } from '../../common/utils/text.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { MediaService } from '../media/media.service';
@@ -118,7 +118,7 @@ export class ProgressService {
       type: content.type,
       title: content.title,
       summary: content.summary,
-      excerpt: excerptOf(content.body),
+      excerpt: excerptOf(plainTextOf(content.body as unknown as LibrarySection[])),
       author: content.author,
       imageUrl: content.imageUrl,
       level: content.level,

@@ -10,6 +10,7 @@ import type {
   VocabMode,
 } from './enums';
 import type { NotebookPageContent, PageBackground } from './notebook';
+import type { TranslatableLanguage } from './workbook';
 
 /** Antwortform aller Listen-Endpunkte. */
 export interface Paginated<T> {
@@ -193,6 +194,26 @@ export interface NotebookAnalysisDto {
 
 // ----------------------------------------------------------------- Bibliothek
 
+/** Ein schwieriges Wort oder eine Wendung aus einem Abschnitt, kurz erklärt. */
+export interface LibraryGlossaryEntry {
+  term: string;
+  explanation: string;
+}
+
+/**
+ * Ein Lesetext ist in Abschnitte gegliedert (in der Regel ein Absatz je
+ * Abschnitt) statt ein einzelner Fließtext-String. Jeder Abschnitt trägt
+ * optional eine Übersetzung in die Muttersprache (aufklappbar, wie die
+ * Erklärungen im Lehrwerk – siehe `InfoBlock.translations`) und ein kleines
+ * Glossar für Wörter, die über das Niveau des Texts hinausgehen.
+ */
+export interface LibrarySection {
+  id: string;
+  text: string;
+  translations?: Partial<Record<TranslatableLanguage, string>>;
+  glossary?: LibraryGlossaryEntry[];
+}
+
 export interface LibraryContentDto {
   id: string;
   type: LibraryType;
@@ -210,7 +231,7 @@ export interface LibraryContentDto {
   exerciseCount: number;
   publishedAt: string;
   /** Nur in Detail-Antworten. */
-  body?: string;
+  body?: LibrarySection[];
   exercises?: LibraryExerciseDto[];
   userProgress?: { progressPercent: number; completedAt: string | null; bestScore: number | null };
 }

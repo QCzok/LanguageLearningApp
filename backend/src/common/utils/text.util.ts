@@ -1,6 +1,11 @@
 /** Länge des Vorschautexts auf Bibliothekskacheln. */
 const EXCERPT_LENGTH = 50;
 
+/** Reiht die Abschnittstexte eines Lesetexts zu einem Fließtext aneinander. */
+export function plainTextOf(sections: Array<{ text: string }>): string {
+  return sections.map((section) => section.text).join(' ');
+}
+
 /**
  * Kurzer Vorschautext für die Kachelansicht: die ersten ~50 Zeichen eines
  * Fließtexts, an einer Wortgrenze abgeschnitten statt mitten im Wort.

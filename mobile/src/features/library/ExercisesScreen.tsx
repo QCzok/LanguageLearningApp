@@ -19,6 +19,7 @@ import {
 import { libraryApi } from '../../api/endpoints';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
+import { ReadingSection } from './ReadingSection';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Exercises'>;
 
@@ -28,6 +29,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
   const [choices, setChoices] = useState<Record<string, number>>({});
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ExerciseResultDto | null>(null);
+  const [textVisible, setTextVisible] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['library', contentId],
@@ -86,6 +88,28 @@ export default function ExercisesScreen({ route, navigation }: Props) {
           <ProgressBar value={(answered / exercises.length) * 100} height={6} />
         </View>
       )}
+
+      {/* Zum Nachlesen während der Aufgaben – standardmäßig eingeklappt,
+          damit die Fragen im Vordergrund stehen. */}
+      {data.body?.length ? (
+        <Card>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setTextVisible((value) => !value)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+          >
+            <Text style={{ fontSize: 18 }}>{textVisible ? '▾' : '▸'}</Text>
+            <Heading>{textVisible ? 'Text ausblenden' : 'Text anzeigen'}</Heading>
+          </Pressable>
+          {textVisible ? (
+            <View style={{ gap: spacing.lg, marginTop: spacing.sm }}>
+              {data.body.map((section) => (
+                <ReadingSection key={section.id} section={section} />
+              ))}
+            </View>
+          ) : null}
+        </Card>
+      ) : null}
 
       {exercises.map((exercise, index) => {
         const feedback = resultById.get(exercise.id);

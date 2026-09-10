@@ -4,10 +4,11 @@ import type {
   ExerciseResultDto,
   LibraryContentDto,
   LibraryExerciseDto,
+  LibrarySection,
   Paginated,
 } from '@lingua/shared';
 import { paginate } from '../../common/dto/pagination.dto';
-import { excerptOf } from '../../common/utils/text.util';
+import { excerptOf, plainTextOf } from '../../common/utils/text.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
@@ -110,7 +111,7 @@ export class LibraryService {
 
     return {
       ...this.toContentDto(content),
-      body: content.body,
+      body: content.body as unknown as LibrarySection[],
       exercises: content.exercises.map((exercise) => this.toExerciseDto(exercise, false)),
       userProgress: {
         progressPercent: progress?.progressPercent ?? 0,
@@ -239,7 +240,7 @@ export class LibraryService {
       type: content.type,
       title: content.title,
       summary: content.summary,
-      excerpt: excerptOf(content.body),
+      excerpt: excerptOf(plainTextOf(content.body as unknown as LibrarySection[])),
       author: content.author,
       imageUrl: content.imageUrl,
       level: content.level,

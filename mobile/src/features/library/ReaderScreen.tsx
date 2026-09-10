@@ -17,6 +17,7 @@ import {
 import { libraryApi } from '../../api/endpoints';
 import { colors, spacing, typography } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
+import { ReadingSection } from './ReadingSection';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Reader'>;
 
@@ -77,7 +78,7 @@ export default function ReaderScreen({ route, navigation }: Props) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.readingBackground }} edges={['left', 'right']}>
       <ProgressBar value={progress} height={3} />
 
       <ScrollView
@@ -100,12 +101,11 @@ export default function ReaderScreen({ route, navigation }: Props) {
           <Caption>{data.summary}</Caption>
         </Card>
 
-        {/* Absätze einzeln rendern: bessere Lesbarkeit als ein Textblock. */}
-        <View style={{ gap: spacing.lg }}>
-          {data.body?.split('\n\n').map((paragraph, index) => (
-            <Text key={index} style={[typography.body, { fontSize: 17, lineHeight: 28 }]}>
-              {paragraph.trim()}
-            </Text>
+        {/* Abschnitte einzeln rendern: jeder trägt seine eigene Übersetzung
+            und sein eigenes Glossar, statt einen einzigen Textblock. */}
+        <View style={{ gap: spacing.xl }}>
+          {data.body?.map((section) => (
+            <ReadingSection key={section.id} section={section} />
           ))}
         </View>
 

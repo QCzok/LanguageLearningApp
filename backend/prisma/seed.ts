@@ -5,9 +5,11 @@
  * Schlüssel). Inhalte sind bewusst klein gehalten – sie zeigen die Struktur, die
  * produktive Redaktion füllt später über das Editor-Backend nach.
  */
-import { CefrLevel, ExerciseType, LibraryType, MediaType, PrismaClient } from '@prisma/client';
+import { CefrLevel, MediaType, Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import type { LibrarySection } from '@lingua/shared';
 import { seedWorkbook } from './seed/workbook';
+import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, type LibraryContentSeed } from './seed/library';
 
 const prisma = new PrismaClient();
 
@@ -503,360 +505,27 @@ async function main(): Promise<void> {
   await seedVocabDecks(de, germanDeckSeeds);
 
   // ----------------------------------------------------------- Bibliothek
-  const librarySeeds = [
-    {
-      type: LibraryType.ARTICLE,
-      level: CefrLevel.A2,
-      title: 'A Day at the Farmers Market',
-      summary: 'Ein kurzer Text über einen Samstagmorgen auf dem Wochenmarkt.',
-      author: 'Lingua Redaktion',
-      tags: ['alltag', 'einkaufen'],
-      body: `Every Saturday morning, Mara walks to the farmers market near her flat. She takes a cloth bag and a small list.
-
-The market opens at eight. At that time, the bread is still warm and the queue is short. Mara buys two loaves, a piece of cheese and a box of strawberries. The woman at the cheese stand always gives her a small piece to try.
-
-"How much is the cheese?" Mara asks.
-"Six euros," the woman says. "It is from a farm near the lake."
-
-Mara pays in cash. Then she sits on a bench with a coffee and watches the people. Some come with children, some with dogs. A man plays the guitar next to the flower stand.
-
-At ten o'clock the market is full. Mara walks home slowly. Her bag is heavy, but she is happy. Saturday morning is her favourite time of the week.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'When does the market open?',
-          options: ['At seven', 'At eight', 'At nine', 'At ten'],
-          correctIndex: 1,
-          explanation: 'Im Text steht: "The market opens at eight."',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'How does Mara pay for the cheese?',
-          options: ['By card', 'In cash', 'With a voucher', 'She does not pay'],
-          correctIndex: 1,
-          explanation: '"Mara pays in cash."',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'Mara goes to the market every Sunday.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation: 'Sie geht jeden Samstagmorgen ("Every Saturday morning").',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question: 'Beschreibe in drei Sätzen deinen eigenen Samstagmorgen auf Englisch.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Nutze das Present Simple und Zeitangaben wie "at eight", "in the morning".',
-        },
-      ],
-    },
-    {
-      type: LibraryType.STORY,
-      level: CefrLevel.B1,
-      title: 'The Lighthouse Keeper',
-      summary: 'Eine kurze Geschichte über Einsamkeit, Gewohnheit und eine unerwartete Begegnung.',
-      author: 'Lingua Redaktion',
-      tags: ['geschichte', 'natur'],
-      body: `For nineteen years, Tomas had kept the light on Sker Point. He knew the sound of every wave against the rocks, and he could tell the weather by the way the gulls flew.
-
-The routine never changed. He climbed the ninety-two steps at dusk, checked the lamp, wrote the date in the logbook, and climbed down again. Once a month, a boat brought supplies and letters that were rarely for him.
-
-Then, on a grey Tuesday in November, he found a girl asleep on the landing stage.
-
-She said her name was Ines and that her boat had failed. She was perhaps twenty. Tomas gave her dry clothes and soup, and expected her to leave with the next tide.
-
-She stayed eleven days. She asked questions he had not been asked in years: why he had come, whether he missed the mainland, what he wrote in the logbook every evening. He found that he had answers, and that saying them aloud changed them slightly.
-
-When the repair boat finally came, Ines shook his hand at the landing stage.
-"You should write more than the date," she said.
-
-That evening Tomas climbed the ninety-two steps, checked the lamp, and opened the logbook. Under the date he wrote a full sentence for the first time.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'How long had Tomas worked at the lighthouse?',
-          options: ['Nine years', 'Eleven years', 'Nineteen years', 'Ninety-two years'],
-          correctIndex: 2,
-          explanation: '"For nineteen years, Tomas had kept the light on Sker Point."',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'What does Ines mean by "You should write more than the date"?',
-          options: [
-            'He should keep a better logbook for his employer.',
-            'He should record his own thoughts and life, not only facts.',
-            'He should write letters to the mainland.',
-            'He should learn to write faster.',
-          ],
-          correctIndex: 1,
-          explanation:
-            'Der letzte Absatz zeigt die Wirkung: Er schreibt zum ersten Mal einen ganzen Satz über sich.',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'Ines left with the next tide.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation: 'Sie blieb elf Tage ("She stayed eleven days").',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question: 'Was verändert sich für Tomas durch die Begegnung? Antworte in 3–4 Sätzen.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Achte auf Past Simple und Past Perfect zur Unterscheidung der Zeitebenen.',
-        },
-      ],
-    },
-    {
-      type: LibraryType.ARTICLE,
-      level: CefrLevel.B2,
-      title: 'Why Cities Are Getting Quieter',
-      summary: 'Ein Sachtext über Elektromobilität, Stadtplanung und die Folgen für den Alltag.',
-      author: 'Lingua Redaktion',
-      tags: ['gesellschaft', 'umwelt'],
-      body: `Anyone who has returned to a European city centre after a decade away tends to notice the same thing before they notice anything else: it is quieter.
-
-Part of the explanation is obvious. Electric vehicles produce a fraction of the noise of combustion engines at low speeds, and cities have been replacing bus fleets faster than private drivers have replaced their cars. But engineers point out that the effect is not evenly distributed. Above roughly 30 km/h, tyre and wind noise dominate, so a motorway lined with electric cars sounds much like a motorway lined with petrol ones.
-
-The larger shift is arguably not technological but regulatory. Low-emission zones, reduced speed limits and the conversion of through-roads into residential streets have changed how traffic moves rather than merely what it runs on. Researchers in Barcelona measured a drop of several decibels in streets converted under the city's superblock programme, a change large enough to be perceived as roughly halving the loudness.
-
-Not everyone welcomes the change. Associations for blind and partially sighted pedestrians warned early that near-silent vehicles are harder to detect, and regulations in the EU and elsewhere now require artificial sound at low speeds. Others argue that quieter streets accelerate gentrification, making already desirable districts more expensive.
-
-What is clear is that noise, long treated as an unavoidable by-product of urban life, has become something cities believe they can decide about.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Why does the article say electric cars do not make motorways quieter?',
-          options: [
-            'Electric cars are louder at high speed.',
-            'Above about 30 km/h, tyre and wind noise dominate.',
-            'Motorways have no electric cars yet.',
-            'Motorway surfaces amplify engine noise.',
-          ],
-          correctIndex: 1,
-          explanation: 'Der zweite Absatz nennt genau diese Schwelle.',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'According to the text, what has had the larger effect?',
-          options: [
-            'The technology of the vehicles',
-            'Regulation and street design',
-            'The behaviour of individual drivers',
-            'Weather conditions in city centres',
-          ],
-          correctIndex: 1,
-          explanation: '"The larger shift is arguably not technological but regulatory."',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'The article presents quieter streets as entirely positive.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation:
-            'Es werden Einwände genannt: Sicherheit für blinde Menschen und Gentrifizierung.',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question:
-            'Fasse das Hauptargument des Textes in zwei Sätzen zusammen und nenne einen Gegeneinwand.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Nützliche Wendungen: "The main argument is that …", "However, critics point out …"',
-        },
-      ],
-    },
-  ];
-
-  /**
-   * Wie bei Vokabeldecks und Mediathek: ohne deutschsprachige Texte bleibt
-   * die Bibliothek für ein aktives Deutsch-Profil leer. Gleiche drei Formate,
-   * Niveaus und Aufgabentypen wie beim Englisch-Set, inhaltlich eigenständige
-   * deutsche Texte (keine Wort-für-Wort-Übersetzung).
-   */
-  const librarySeedsDe = [
-    {
-      type: LibraryType.ARTICLE,
-      level: CefrLevel.A2,
-      title: 'Ein Morgen auf dem Wochenmarkt',
-      summary: 'Ein kurzer Text über einen Samstagmorgen auf dem Wochenmarkt.',
-      author: 'Lingua Redaktion',
-      tags: ['alltag', 'einkaufen'],
-      body: `Jeden Samstagmorgen geht Mara zu dem Wochenmarkt in der Nähe ihrer Wohnung. Sie nimmt eine Stofftasche und einen kleinen Einkaufszettel mit.
-
-Der Markt öffnet um acht Uhr. Zu dieser Zeit ist das Brot noch warm und die Schlange ist kurz. Mara kauft zwei Brote, ein Stück Käse und eine Schale Erdbeeren. Die Frau am Käsestand gibt ihr immer ein kleines Stück zum Probieren.
-
-„Was kostet der Käse?", fragt Mara.
-„Sechs Euro", sagt die Frau. „Er kommt von einem Bauernhof am See."
-
-Mara bezahlt bar. Dann setzt sie sich mit einem Kaffee auf eine Bank und beobachtet die Leute. Manche kommen mit Kindern, manche mit Hunden. Ein Mann spielt Gitarre neben dem Blumenstand.
-
-Um zehn Uhr ist der Markt voll. Mara geht langsam nach Hause. Ihre Tasche ist schwer, aber sie ist glücklich. Der Samstagmorgen ist ihre liebste Zeit der Woche.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Wann öffnet der Markt?',
-          options: ['Um sieben Uhr', 'Um acht Uhr', 'Um neun Uhr', 'Um zehn Uhr'],
-          correctIndex: 1,
-          explanation: 'Im Text steht: „Der Markt öffnet um acht Uhr."',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Wie bezahlt Mara den Käse?',
-          options: ['Mit Karte', 'Bar', 'Mit einem Gutschein', 'Sie bezahlt nicht'],
-          correctIndex: 1,
-          explanation: '„Mara bezahlt bar."',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'Mara geht jeden Sonntag auf den Markt.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation: 'Sie geht jeden Samstagmorgen dorthin.',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question: 'Beschreibe in drei Sätzen deinen eigenen Samstagmorgen auf Deutsch.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Nutze das Präsens und Zeitangaben wie „um acht Uhr", „am Morgen".',
-        },
-      ],
-    },
-    {
-      type: LibraryType.STORY,
-      level: CefrLevel.B1,
-      title: 'Der Leuchtturmwärter',
-      summary: 'Eine kurze Geschichte über Einsamkeit, Gewohnheit und eine unerwartete Begegnung.',
-      author: 'Lingua Redaktion',
-      tags: ['geschichte', 'natur'],
-      body: `Neunzehn Jahre lang kümmerte sich Tomas um das Licht am Sker Point. Er kannte den Klang jeder Welle an den Felsen, und er konnte am Flug der Möwen das Wetter erkennen.
-
-Die Routine änderte sich nie. In der Dämmerung stieg er die zweiundneunzig Stufen hinauf, prüfte die Lampe, trug das Datum ins Logbuch ein und stieg wieder hinunter. Einmal im Monat brachte ein Boot Vorräte und Briefe, die selten für ihn waren.
-
-Dann, an einem grauen Dienstag im November, fand er ein Mädchen schlafend auf dem Landesteg.
-
-Sie sagte, sie heiße Ines und ihr Boot habe eine Panne gehabt. Sie war vielleicht zwanzig. Tomas gab ihr trockene Kleidung und Suppe und erwartete, dass sie mit der nächsten Flut abreisen würde.
-
-Sie blieb elf Tage. Sie stellte Fragen, die ihm seit Jahren niemand gestellt hatte: warum er hierher gekommen sei, ob er das Festland vermisse, was er jeden Abend ins Logbuch schreibe. Er stellte fest, dass er Antworten hatte, und dass es sie ein wenig veränderte, sie laut auszusprechen.
-
-Als das Reparaturboot endlich kam, schüttelte Ines ihm auf dem Landesteg die Hand.
-„Du solltest mehr schreiben als nur das Datum", sagte sie.
-
-An diesem Abend stieg Tomas die zweiundneunzig Stufen hinauf, prüfte die Lampe und öffnete das Logbuch. Unter das Datum schrieb er zum ersten Mal einen vollständigen Satz.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Wie lange arbeitete Tomas schon am Leuchtturm?',
-          options: ['Neun Jahre', 'Elf Jahre', 'Neunzehn Jahre', 'Zweiundneunzig Jahre'],
-          correctIndex: 2,
-          explanation: '„Neunzehn Jahre lang kümmerte sich Tomas um das Licht am Sker Point."',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Was meint Ines mit „Du solltest mehr schreiben als nur das Datum"?',
-          options: [
-            'Er soll für seinen Arbeitgeber ein besseres Logbuch führen.',
-            'Er soll seine eigenen Gedanken und sein Leben festhalten, nicht nur Fakten.',
-            'Er soll Briefe ans Festland schreiben.',
-            'Er soll schneller schreiben lernen.',
-          ],
-          correctIndex: 1,
-          explanation:
-            'Der letzte Absatz zeigt die Wirkung: Er schreibt zum ersten Mal einen ganzen Satz über sich.',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'Ines reiste mit der nächsten Flut ab.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation: 'Sie blieb elf Tage.',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question: 'Was verändert sich für Tomas durch die Begegnung? Antworte in 3–4 Sätzen.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Achte auf Präteritum und Plusquamperfekt zur Unterscheidung der Zeitebenen.',
-        },
-      ],
-    },
-    {
-      type: LibraryType.ARTICLE,
-      level: CefrLevel.B2,
-      title: 'Warum Städte leiser werden',
-      summary: 'Ein Sachtext über Elektromobilität, Stadtplanung und die Folgen für den Alltag.',
-      author: 'Lingua Redaktion',
-      tags: ['gesellschaft', 'umwelt'],
-      body: `Wer nach einem Jahrzehnt im Ausland in eine europäische Innenstadt zurückkehrt, bemerkt meist zuerst eines: Es ist leiser geworden.
-
-Ein Teil der Erklärung liegt auf der Hand. Elektrofahrzeuge erzeugen bei niedriger Geschwindigkeit nur einen Bruchteil des Lärms von Verbrennungsmotoren, und Städte haben ihre Busflotten schneller umgerüstet, als private Fahrer ihre Autos ersetzt haben. Ingenieure weisen jedoch darauf hin, dass der Effekt ungleich verteilt ist. Oberhalb von etwa 30 km/h dominieren Reifen- und Windgeräusche, sodass eine Autobahn mit Elektroautos ganz ähnlich klingt wie eine mit Benzinern.
-
-Der größere Wandel ist wohl weniger technischer als regulatorischer Natur. Umweltzonen, reduzierte Tempolimits und die Umwandlung von Durchgangsstraßen in Wohnstraßen haben verändert, wie sich der Verkehr bewegt, nicht nur, womit er fährt. Forscher in Barcelona maßen in Straßen, die im Rahmen des städtischen Superblock-Programms umgestaltet wurden, einen Rückgang von mehreren Dezibel – ein Unterschied, groß genug, um als etwa halb so laut wahrgenommen zu werden.
-
-Nicht alle begrüßen die Veränderung. Verbände für blinde und sehbehinderte Fußgänger warnten früh davor, dass nahezu geräuschlose Fahrzeuge schwerer wahrzunehmen sind, und Vorschriften in der EU und anderswo schreiben inzwischen künstliche Geräusche bei niedriger Geschwindigkeit vor. Andere argumentieren, dass leisere Straßen die Gentrifizierung beschleunigen und ohnehin begehrte Viertel noch teurer machen.
-
-Klar ist: Lärm, lange als unvermeidliches Nebenprodukt des Stadtlebens hingenommen, ist zu etwas geworden, worüber Städte glauben, entscheiden zu können.`,
-      exercises: [
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Warum werden laut dem Text Autobahnen durch Elektroautos nicht leiser?',
-          options: [
-            'Elektroautos sind bei hoher Geschwindigkeit lauter.',
-            'Oberhalb von etwa 30 km/h dominieren Reifen- und Windgeräusche.',
-            'Auf Autobahnen gibt es noch keine Elektroautos.',
-            'Autobahnbeläge verstärken Motorengeräusche.',
-          ],
-          correctIndex: 1,
-          explanation: 'Der zweite Absatz nennt genau diese Schwelle.',
-        },
-        {
-          type: ExerciseType.MULTIPLE_CHOICE,
-          question: 'Was hatte laut Text die größere Wirkung?',
-          options: [
-            'Die Technik der Fahrzeuge',
-            'Regulierung und Straßengestaltung',
-            'Das Verhalten einzelner Fahrer',
-            'Die Wetterbedingungen in Innenstädten',
-          ],
-          correctIndex: 1,
-          explanation: '„Der größere Wandel ist wohl weniger technischer als regulatorischer Natur."',
-        },
-        {
-          type: ExerciseType.TRUE_FALSE,
-          question: 'Der Text stellt leisere Straßen als durchweg positiv dar.',
-          options: ['Richtig', 'Falsch'],
-          correctIndex: 1,
-          explanation: 'Es werden Einwände genannt: Sicherheit für blinde Menschen und Gentrifizierung.',
-        },
-        {
-          type: ExerciseType.OPEN,
-          question: 'Fasse das Hauptargument des Textes in zwei Sätzen zusammen und nenne einen Gegeneinwand.',
-          options: [],
-          correctIndex: -1,
-          explanation: 'Nützliche Wendungen: „Das Hauptargument ist, dass …", „Kritiker weisen jedoch darauf hin, dass …"',
-        },
-      ],
-    },
-  ];
-
-  async function seedLibraryContent(languageId: string, seeds: typeof librarySeeds): Promise<void> {
+  async function seedLibraryContent(languageId: string, seeds: LibraryContentSeed[]): Promise<void> {
     for (const seed of seeds) {
       const existing = await prisma.libraryContent.findFirst({
         where: { languageId, title: seed.title },
       });
 
-      const wordCount = seed.body.split(/\s+/).length;
+      const body: LibrarySection[] = seed.sections.map((section, index) => ({
+        id: `sec-${index}`,
+        text: section.text,
+        translations: section.translations,
+        glossary: section.glossary,
+      }));
+
+      const wordCount = seed.sections.reduce((sum, section) => sum + section.text.split(/\s+/).length, 0);
       const data = {
         languageId,
         level: seed.level,
         type: seed.type,
         title: seed.title,
         summary: seed.summary,
-        body: seed.body,
+        body: body as unknown as Prisma.InputJsonValue,
         author: seed.author,
         tags: seed.tags,
         wordCount,
@@ -882,8 +551,8 @@ Klar ist: Lärm, lange als unvermeidliches Nebenprodukt des Stadtlebens hingenom
     }
   }
 
-  await seedLibraryContent(en, librarySeeds);
-  await seedLibraryContent(de, librarySeedsDe);
+  await seedLibraryContent(en, LIBRARY_SEEDS_EN);
+  await seedLibraryContent(de, LIBRARY_SEEDS_DE);
 
   // ------------------------------------------------------------ Mediathek
   const mediaSeeds = [

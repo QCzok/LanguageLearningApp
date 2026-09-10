@@ -463,8 +463,9 @@ model LibraryContent {
   type             LibraryType
   title            String
   summary          String
-  /// Markdown-Fließtext.
-  body             String
+  /// LibrarySection[] (siehe packages/shared) – Abschnitte mit optionaler
+  /// Übersetzung und Glossar statt eines einzelnen Fließtext-Strings.
+  body             Json
   author           String?
   imageUrl         String?
   wordCount        Int         @default(0)

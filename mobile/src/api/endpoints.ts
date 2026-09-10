@@ -56,6 +56,7 @@ export const usersApi = {
     level: CefrLevel;
     levelSource?: 'SELF_SELECTED' | 'PLACEMENT_TEST';
     dailyGoalMinutes?: number;
+    isActive?: boolean;
   }) => api.post<LearningProfileDto>('/users/me/learning-profiles', body).then((r) => r.data),
   activateProfile: (id: string) =>
     api.post<LearningProfileDto>(`/users/me/learning-profiles/${id}/activate`).then((r) => r.data),

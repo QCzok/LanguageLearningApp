@@ -1,8 +1,9 @@
-import React from 'react';
-import { Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CEFR_LABELS } from '@lingua/shared';
+import { CEFR_LABELS, CEFR_LEVELS } from '@lingua/shared';
+import type { CefrLevel, LanguageDto, LearningProfileDto } from '@lingua/shared';
 import {
   Body,
   Button,
@@ -89,32 +90,16 @@ export default function ProfileScreen() {
       <Card>
         <Heading>Deine Sprachen</Heading>
         {user.profiles.map((profile) => (
-          <Card
+          <LanguageProfileCard
             key={profile.id}
-            style={
-              profile.isActive
-                ? { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primarySoft }
-                : { borderWidth: 1 }
-            }
-            onPress={profile.isActive ? undefined : () => switchProfile.mutate(profile.id)}
-          >
-            <Row gap={spacing.md}>
-              <Text style={{ fontSize: 28 }}>{profile.language.flagEmoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Body>{profile.language.name}</Body>
-                <Caption>
-                  {CEFR_LABELS[profile.level].short} ·{' '}
-                  {profile.levelSource === 'PLACEMENT_TEST' ? 'per Test ermittelt' : 'selbst gewählt'}
-                </Caption>
-              </View>
-              <LevelBadge level={profile.level} />
-            </Row>
-            {profile.isActive ? <Caption>Aktiv</Caption> : <Caption>Zum Wechseln tippen</Caption>}
-          </Card>
+            profile={profile}
+            onSwitch={() => switchProfile.mutate(profile.id)}
+          />
         ))}
         {activeProfile ? (
           <Caption>Tagesziel: {activeProfile.dailyGoalMinutes} Minuten</Caption>
         ) : null}
+        <AddLanguageSection languages={languages.data ?? []} existingProfiles={user.profiles} />
       </Card>
 
       <Card>
@@ -190,6 +175,208 @@ export default function ProfileScreen() {
     </Screen>
   );
 }
+
+/**
+ * Eine Sprachkarte trägt jetzt zwei unabhängige Aktionen: den Kartenkörper
+ * zum Wechseln der aktiven Sprache (wie zuvor) und einen eigenen Link zum
+ * Ändern des Niveaus – auch für ein gerade nicht aktives Profil. Deshalb
+ * `isActive` bei jeder Niveau-Änderung ausdrücklich mitschicken: Ohne dieses
+ * Feld setzt der Server es standardmäßig auf `true` und würde ein inaktives
+ * Profil allein durchs Ändern des Niveaus versehentlich aktivieren.
+ */
+function LanguageProfileCard({
+  profile,
+  onSwitch,
+}: {
+  profile: LearningProfileDto;
+  onSwitch: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const refreshUser = useAuthStore((state) => state.refreshUser);
+  const [editingLevel, setEditingLevel] = useState(false);
+
+  const setLevel = useMutation({
+    mutationFn: (level: CefrLevel) =>
+      usersApi.setLearningProfile({
+        languageId: profile.language.id,
+        level,
+        levelSource: 'SELF_SELECTED',
+        dailyGoalMinutes: profile.dailyGoalMinutes,
+        isActive: profile.isActive,
+      }),
+    onSuccess: async () => {
+      setEditingLevel(false);
+      await refreshUser();
+      // Sprachabhängige Inhalte (Lehrwerk, Bibliothek, Vokabeln …) richten
+      // sich nach dem Niveau – ohne Neuladen zeigten sie noch die alte Stufe.
+      await queryClient.invalidateQueries();
+    },
+  });
+
+  return (
+    <Card
+      style={
+        profile.isActive
+          ? { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primarySoft }
+          : { borderWidth: 1 }
+      }
+      onPress={profile.isActive ? undefined : onSwitch}
+    >
+      <Row gap={spacing.md}>
+        <Text style={{ fontSize: 28 }}>{profile.language.flagEmoji}</Text>
+        <View style={{ flex: 1 }}>
+          <Body>{profile.language.name}</Body>
+          <Caption>
+            {CEFR_LABELS[profile.level].short} ·{' '}
+            {profile.levelSource === 'PLACEMENT_TEST' ? 'per Test ermittelt' : 'selbst gewählt'}
+          </Caption>
+        </View>
+        <LevelBadge level={profile.level} />
+      </Row>
+
+      <Row gap={spacing.sm}>
+        {profile.isActive ? <Caption>Aktiv</Caption> : <Caption>Zum Wechseln tippen</Caption>}
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={() => setEditingLevel((value) => !value)} hitSlop={8}>
+          <Text style={changeLevelLink}>{editingLevel ? 'Abbrechen' : 'Niveau ändern'}</Text>
+        </Pressable>
+      </Row>
+
+      {editingLevel ? (
+        <Row gap={spacing.xs} style={{ flexWrap: 'wrap', marginTop: spacing.xs }}>
+          {CEFR_LEVELS.map((level) => {
+            const active = level === profile.level;
+            return (
+              <Pressable
+                key={level}
+                disabled={setLevel.isPending}
+                onPress={() => setLevel.mutate(level)}
+                style={[levelChip, active && levelChipActive]}
+              >
+                <Text style={[typography.label, { color: active ? colors.textInverse : colors.text }]}>
+                  {level}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </Row>
+      ) : null}
+    </Card>
+  );
+}
+
+/**
+ * Neue Sprache hinzufügen – zweistufig: erst die Sprache aus den noch nicht
+ * gelernten auswählen, dann darunter das Startniveau. Die neue Sprache wird
+ * bewusst nicht sofort aktiv (kein `isActive`-Feld hier, das Backend setzt
+ * neue Profile über den Bestätigungsweg unten gezielt auf `false`) – das
+ * Weiterlernen an welcher Sprache man möchte bleibt ein eigener, zweiter
+ * Schritt über den schon vorhandenen „Zum Wechseln tippen“-Weg.
+ */
+function AddLanguageSection({
+  languages,
+  existingProfiles,
+}: {
+  languages: LanguageDto[];
+  existingProfiles: LearningProfileDto[];
+}) {
+  const queryClient = useQueryClient();
+  const refreshUser = useAuthStore((state) => state.refreshUser);
+  const [open, setOpen] = useState(false);
+  const [pickingLanguageId, setPickingLanguageId] = useState<string | null>(null);
+
+  const addLanguage = useMutation({
+    mutationFn: (payload: { languageId: string; level: CefrLevel }) =>
+      usersApi.setLearningProfile({
+        languageId: payload.languageId,
+        level: payload.level,
+        levelSource: 'SELF_SELECTED',
+        isActive: false,
+      }),
+    onSuccess: async () => {
+      setOpen(false);
+      setPickingLanguageId(null);
+      await refreshUser();
+      await queryClient.invalidateQueries();
+    },
+  });
+
+  const existingLanguageIds = new Set(existingProfiles.map((profile) => profile.language.id));
+  const available = languages.filter((language) => !existingLanguageIds.has(language.id));
+
+  if (available.length === 0) return null;
+
+  return (
+    <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
+      <Pressable
+        onPress={() => {
+          setOpen((value) => !value);
+          setPickingLanguageId(null);
+        }}
+        hitSlop={8}
+      >
+        <Text style={changeLevelLink}>{open ? 'Abbrechen' : '+ Sprache hinzufügen'}</Text>
+      </Pressable>
+
+      {open
+        ? available.map((language) => {
+            const picking = pickingLanguageId === language.id;
+            return (
+              <View key={language.id} style={{ gap: spacing.xs }}>
+                <Card
+                  onPress={() => setPickingLanguageId(picking ? null : language.id)}
+                  style={picking ? { borderColor: colors.primary, borderWidth: 2 } : { borderWidth: 1 }}
+                >
+                  <Row gap={spacing.md}>
+                    <Text style={{ fontSize: 24 }}>{language.flagEmoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Body>{language.name}</Body>
+                    </View>
+                    <Text style={{ fontSize: 20, color: colors.textMuted }}>{picking ? '−' : '+'}</Text>
+                  </Row>
+                </Card>
+
+                {picking ? (
+                  <Row gap={spacing.xs} style={{ flexWrap: 'wrap', paddingLeft: spacing.sm }}>
+                    {CEFR_LEVELS.map((level) => (
+                      <Pressable
+                        key={level}
+                        disabled={addLanguage.isPending}
+                        onPress={() => addLanguage.mutate({ languageId: language.id, level })}
+                        style={levelChip}
+                      >
+                        <Text style={typography.label}>{level}</Text>
+                      </Pressable>
+                    ))}
+                  </Row>
+                ) : null}
+              </View>
+            );
+          })
+        : null}
+    </View>
+  );
+}
+
+const changeLevelLink = {
+  ...typography.caption,
+  color: colors.primary,
+  textDecorationLine: 'underline' as const,
+};
+
+const levelChip = {
+  paddingVertical: spacing.xs,
+  paddingHorizontal: spacing.md,
+  borderRadius: radius.full,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.surface,
+};
+
+const levelChipActive = {
+  backgroundColor: colors.primary,
+  borderColor: colors.primary,
+};
 
 const avatarStyle = {
   width: 72,
