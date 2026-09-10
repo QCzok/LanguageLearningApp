@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type {
   AudioBlock,
   CefrLevel,
@@ -123,7 +123,15 @@ const INFO_STYLES: Record<InfoBlock['variant'], { label: string; background: str
   IMPORTANT: { label: 'Wichtig', background: '#F8F0EE', accent: book.wrong },
 };
 
-/** Tabellen sind im Buch Linienraster, kein Kartenstapel. */
+/**
+ * Tabellen sind im Buch Linienraster, kein Kartenstapel.
+ *
+ * Jede Zelle bekommt denselben `flex: 1` (plus `flexBasis: 0`, damit der
+ * Inhalt die Breite nicht mehr diktiert) – so füllt die Tabelle immer die
+ * volle Breite ihres Kastens, und weil alle Zeilen (Kopf wie Daten) exakt
+ * dieselben Spaltenbreiten teilen, können sie nie gegeneinander verrutschen,
+ * unabhängig davon, wie lang der Text in einer einzelnen Zeile ist.
+ */
 function PrintTable({
   headers,
   rows,
@@ -134,35 +142,36 @@ function PrintTable({
   accent: string;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-      <View style={tableFrame}>
-        <View style={[tableRow, { borderBottomWidth: 1.5, borderBottomColor: accent }]}>
-          {headers.map((header, index) => (
-            <View key={index} style={tableCell}>
-              <Text style={[tableHeadText, { color: accent }]}>{header}</Text>
-            </View>
-          ))}
-        </View>
-
-        {rows.map((row, rowIndex) => (
+    <View style={tableFrame}>
+      <View style={[tableRow, { borderBottomWidth: 1.5, borderBottomColor: accent }]}>
+        {headers.map((header, index) => (
           <View
-            key={rowIndex}
-            style={[
-              tableRow,
-              rowIndex < rows.length - 1 && { borderBottomWidth: 1, borderBottomColor: book.rule },
-            ]}
+            key={index}
+            style={[tableCell, index < headers.length - 1 && tableCellDivider]}
           >
-            {row.map((cell, cellIndex) => (
-              <View key={cellIndex} style={tableCell}>
-                <Text style={[tableCellText, cellIndex === 0 && { color: book.inkSoft }]}>
-                  {cell}
-                </Text>
-              </View>
-            ))}
+            <Text style={[tableHeadText, { color: accent }]}>{header}</Text>
           </View>
         ))}
       </View>
-    </ScrollView>
+
+      {rows.map((row, rowIndex) => (
+        <View
+          key={rowIndex}
+          style={[
+            tableRow,
+            rowIndex < rows.length - 1 && { borderBottomWidth: 1, borderBottomColor: book.rule },
+          ]}
+        >
+          {row.map((cell, cellIndex) => (
+            <View key={cellIndex} style={[tableCell, cellIndex < row.length - 1 && tableCellDivider]}>
+              <Text style={[tableCellText, cellIndex === 0 && { color: book.inkSoft }]}>
+                {cell}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -381,6 +390,8 @@ const speakerName = {
 };
 
 const tableFrame = {
+  width: '100%' as const,
+  marginTop: 6,
   borderWidth: 1,
   borderColor: book.rule,
   backgroundColor: '#FFFFFF',
@@ -389,10 +400,22 @@ const tableFrame = {
 
 const tableRow = { flexDirection: 'row' as const };
 
+/**
+ * `flexBasis: 0` zusammen mit `flex: 1` ist entscheidend: Ohne sie bestimmt
+ * der jeweils längste Zelleninhalt einer Zeile deren Breite, und weil jede
+ * Zeile ihr eigener Flex-Container ist, würden die Spalten von Zeile zu Zeile
+ * unterschiedlich breit ausfallen. So teilen sich alle Zellen einer Tabelle
+ * dieselbe Breite, ganz gleich, was in ihnen steht.
+ */
 const tableCell = {
-  minWidth: 130,
-  paddingHorizontal: 16,
+  flex: 1,
+  flexBasis: 0,
+  minWidth: 0,
+  paddingHorizontal: 14,
   paddingVertical: 11,
+};
+
+const tableCellDivider = {
   borderRightWidth: 1,
   borderRightColor: book.ruleFaint,
 };
