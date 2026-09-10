@@ -266,6 +266,7 @@ export default function Canvas({
                 left: editing.x * scale,
                 top: (editing.y - editing.fontSize) * scale,
                 width: editing.width * scale,
+                minHeight: editing.fontSize * scale * 1.6,
                 fontSize: editing.fontSize * scale,
                 color: editing.color,
                 lineHeight: editing.fontSize * scale * 1.3,
@@ -465,8 +466,17 @@ const styles = StyleSheet.create({
   container: { width: '100%' },
   textInput: {
     position: 'absolute',
-    padding: 0,
+    padding: 3,
     margin: 0,
     textAlignVertical: 'top',
+    // Ohne sichtbaren Rand/Untergrund ist ein frisch angelegtes, noch leeres
+    // Textfeld auf der Seite kaum zu erkennen – nur ein blasser Platzhalter
+    // auf weißem Papier. Der gestrichelte Rahmen macht sofort sichtbar, dass
+    // ein Feld entstanden ist und wo es sitzt, auch bevor getippt wird.
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    borderRadius: 3,
+    backgroundColor: 'rgba(115, 3, 13, 0.05)',
   },
 });
