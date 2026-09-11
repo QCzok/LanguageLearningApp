@@ -22,8 +22,4 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// Verhindert, dass Metro Pakete über die Verzeichniskette hinaus sucht und
-// dabei eine zweite Kopie von React einsammelt.
-config.resolver.disableHierarchicalLookup = true;
-
 module.exports = config;

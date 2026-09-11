@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus, setAudioModeAsync } from 'expo-audio';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,17 +31,12 @@ const PROGRESS_SYNC_MS = 10_000;
 export default function PlayerScreen({ route }: Props) {
   const { mediaId } = route.params;
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const player = useAudioPlayer(undefined, { updateInterval: 500 });
+  const status = useAudioPlayerStatus(player);
   const lastSync = useRef(0);
-  const [status, setStatus] = useState<{
-    isLoaded: boolean;
-    isPlaying: boolean;
-    positionSec: number;
-    durationSec: number;
-  }>({ isLoaded: false, isPlaying: false, positionSec: 0, durationSec: 0 });
+  const hasSeekedInitial = useRef(false);
   const [speed, setSpeed] = useState(1);
   const [showTranscript, setShowTranscript] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['media', mediaId],
@@ -53,94 +48,66 @@ export default function PlayerScreen({ route }: Props) {
       mediaApi.saveProgress(mediaId, payload),
   });
 
-  const onPlaybackStatus = useCallback(
-    (playbackStatus: AVPlaybackStatus) => {
-      if (!playbackStatus.isLoaded) return;
+  useEffect(() => {
+    void setAudioModeAsync({ playsInSilentMode: true, shouldPlayInBackground: false });
+  }, []);
 
-      const positionSec = Math.floor(playbackStatus.positionMillis / 1000);
-      setStatus({
-        isLoaded: true,
-        isPlaying: playbackStatus.isPlaying,
-        positionSec,
-        durationSec: Math.floor((playbackStatus.durationMillis ?? 0) / 1000),
-      });
-
-      // Position regelmäßig sichern, damit „weiterhören" auch nach einem
-      // App-Absturz funktioniert.
-      const now = Date.now();
-      if (playbackStatus.isPlaying && now - lastSync.current > PROGRESS_SYNC_MS) {
-        lastSync.current = now;
-        saveProgress.mutate({ positionSec, minutesListened: PROGRESS_SYNC_MS / 60_000 });
-      }
-      if (playbackStatus.didJustFinish) {
-        saveProgress.mutate({ positionSec: Math.floor((playbackStatus.durationMillis ?? 0) / 1000) });
-      }
-    },
-    [saveProgress],
-  );
-
-  // Audio laden, sobald die Metadaten da sind – und beim Verlassen wieder freigeben.
+  // Audio laden, sobald die Metadaten da sind.
   useEffect(() => {
     if (!data) return;
-    let cancelled = false;
-
-    async function load() {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: false });
-        const { sound } = await Audio.Sound.createAsync(
-          { uri: data!.audioUrl },
-          {
-            shouldPlay: false,
-            positionMillis: (data!.userProgress?.positionSec ?? 0) * 1000,
-            progressUpdateIntervalMillis: 500,
-          },
-          onPlaybackStatus,
-        );
-        if (cancelled) {
-          await sound.unloadAsync();
-          return;
-        }
-        soundRef.current = sound;
-      } catch {
-        if (!cancelled) {
-          setLoadError('Die Audiodatei konnte nicht geladen werden.');
-        }
-      }
-    }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-      const sound = soundRef.current;
-      soundRef.current = null;
-      void sound?.unloadAsync();
-    };
+    hasSeekedInitial.current = false;
+    player.replace({ uri: data.audioUrl });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.id]);
 
-  async function togglePlay(): Promise<void> {
-    const sound = soundRef.current;
-    if (!sound) return;
-    if (status.isPlaying) {
-      await sound.pauseAsync();
-      saveProgress.mutate({ positionSec: status.positionSec });
+  // Zur gespeicherten Hörposition springen, sobald die Datei geladen ist.
+  useEffect(() => {
+    if (!hasSeekedInitial.current && status.isLoaded && data?.userProgress?.positionSec) {
+      hasSeekedInitial.current = true;
+      void player.seekTo(data.userProgress.positionSec);
+    }
+  }, [status.isLoaded, data, player]);
+
+  // Position regelmäßig sichern, damit „weiterhören" auch nach einem
+  // App-Absturz funktioniert.
+  useEffect(() => {
+    if (!status.playing) return;
+    const now = Date.now();
+    if (now - lastSync.current > PROGRESS_SYNC_MS) {
+      lastSync.current = now;
+      saveProgress.mutate({
+        positionSec: Math.floor(status.currentTime),
+        minutesListened: PROGRESS_SYNC_MS / 60_000,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.currentTime, status.playing]);
+
+  useEffect(() => {
+    if (status.didJustFinish) {
+      saveProgress.mutate({ positionSec: Math.floor(status.duration) });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.didJustFinish]);
+
+  function togglePlay(): void {
+    if (status.playing) {
+      player.pause();
+      saveProgress.mutate({ positionSec: Math.floor(status.currentTime) });
     } else {
-      await sound.playAsync();
+      player.play();
     }
   }
 
-  async function skip(seconds: number): Promise<void> {
-    const sound = soundRef.current;
-    if (!sound) return;
-    const target = Math.max(0, Math.min(status.durationSec, status.positionSec + seconds));
-    await sound.setPositionAsync(target * 1000);
+  function skip(seconds: number): void {
+    const target = Math.max(0, Math.min(status.duration, status.currentTime + seconds));
+    void player.seekTo(target);
   }
 
-  async function changeSpeed(value: number): Promise<void> {
+  function changeSpeed(value: number): void {
     setSpeed(value);
     // Tonhöhenkorrektur ist beim Sprachenlernen wichtig – sonst klingt es unnatürlich.
-    await soundRef.current?.setRateAsync(value, true);
+    player.setPlaybackRate(value, 'high');
   }
 
   if (isLoading) return <Loading />;
@@ -148,8 +115,8 @@ export default function PlayerScreen({ route }: Props) {
     return <ErrorState message="Die Folge konnte nicht geladen werden." onRetry={refetch} />;
   }
 
-  const duration = status.durationSec || data.durationSec;
-  const percent = duration ? (status.positionSec / duration) * 100 : 0;
+  const duration = status.duration || data.durationSec;
+  const percent = duration ? (status.currentTime / duration) * 100 : 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
@@ -168,15 +135,15 @@ export default function PlayerScreen({ route }: Props) {
         <View style={{ gap: spacing.xs }}>
           <ProgressBar value={percent} height={6} />
           <Row>
-            <Caption>{formatDuration(status.positionSec)}</Caption>
+            <Caption>{formatDuration(Math.floor(status.currentTime))}</Caption>
             <View style={{ flex: 1 }} />
             <Caption>{formatDuration(duration)}</Caption>
           </Row>
         </View>
 
-        {loadError ? (
+        {status.error ? (
           <Card style={{ backgroundColor: colors.warningSoft, borderColor: colors.warning }}>
-            <Caption>{loadError}</Caption>
+            <Caption>Die Audiodatei konnte nicht geladen werden.</Caption>
           </Card>
         ) : null}
 
@@ -191,12 +158,12 @@ export default function PlayerScreen({ route }: Props) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={status.isPlaying ? 'Pause' : 'Abspielen'}
+            accessibilityLabel={status.playing ? 'Pause' : 'Abspielen'}
             onPress={togglePlay}
             disabled={!status.isLoaded}
             style={[playButtonStyle, !status.isLoaded && { opacity: 0.5 }]}
           >
-            <Text style={{ fontSize: 32 }}>{status.isPlaying ? '⏸' : '▶️'}</Text>
+            <Text style={{ fontSize: 32 }}>{status.playing ? '⏸' : '▶️'}</Text>
           </Pressable>
 
           <Pressable

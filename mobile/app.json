@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "scheme": "lingua",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#73030D",
-      "resizeMode": "contain"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -29,7 +24,14 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#73030D",
+          "imageResizeMode": "contain"
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "http://localhost:3000/api/v1"

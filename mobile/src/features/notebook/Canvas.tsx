@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import type {
@@ -60,6 +60,11 @@ export default function Canvas({
 }: CanvasProps) {
   const [layout, setLayout] = useState({ width: 0, height: 0 });
   const [liveStroke, setLiveStroke] = useState<StrokePoint[] | null>(null);
+  // Getippter Text bleibt lokal, solange editiert wird – erst beim Verlassen
+  // des Feldes geht er an den Seiteninhalt. Würde jeder Tastendruck sofort
+  // über `onChange` nach oben gemeldet (inkl. Speichern-Request), kollidiert
+  // das auf Android mit dem Rendern dieser Komponente selbst.
+  const [draftText, setDraftText] = useState('');
 
   // Refs, weil der PanResponder beim ersten Rendern erzeugt wird und sonst
   // veraltete Props sehen würde.
@@ -177,22 +182,19 @@ export default function Canvas({
     }
   }
 
-  function updateText(elementId: string, text: string): void {
-    onChange({
-      ...contentRef.current,
-      elements: contentRef.current.elements.map((element) =>
-        element.id === elementId && element.type === 'TEXT' ? { ...element, text } : element,
-      ),
-    });
-  }
-
-  function finishTextEditing(elementId: string): void {
+  function finishTextEditing(elementId: string, text: string): void {
     // Leer gebliebene Textfelder werden wieder entfernt.
-    const element = contentRef.current.elements.find((entry) => entry.id === elementId);
-    if (element?.type === 'TEXT' && element.text.trim().length === 0) {
+    if (text.trim().length === 0) {
       onChange({
         ...contentRef.current,
         elements: contentRef.current.elements.filter((entry) => entry.id !== elementId),
+      });
+    } else {
+      onChange({
+        ...contentRef.current,
+        elements: contentRef.current.elements.map((entry) =>
+          entry.id === elementId && entry.type === 'TEXT' ? { ...entry, text } : entry,
+        ),
       });
     }
     onEditText(null);
@@ -201,6 +203,15 @@ export default function Canvas({
   const editing = content.elements.find(
     (element): element is TextElement => element.id === editingTextId && element.type === 'TEXT',
   );
+
+  // Bei Editierbeginn den aktuellen Text als Ausgangspunkt übernehmen.
+  useEffect(() => {
+    if (!editingTextId) return;
+    const target = contentRef.current.elements.find(
+      (element): element is TextElement => element.id === editingTextId && element.type === 'TEXT',
+    );
+    setDraftText(target?.text ?? '');
+  }, [editingTextId]);
 
   function handleLayout(event: LayoutChangeEvent): void {
     const { width } = event.nativeEvent.layout;
@@ -257,9 +268,9 @@ export default function Canvas({
           <TextInput
             autoFocus
             multiline
-            value={editing.text}
-            onChangeText={(value) => updateText(editing.id, value)}
-            onBlur={() => finishTextEditing(editing.id)}
+            value={draftText}
+            onChangeText={setDraftText}
+            onBlur={() => finishTextEditing(editing.id, draftText)}
             style={[
               styles.textInput,
               {

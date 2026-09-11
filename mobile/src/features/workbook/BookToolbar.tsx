@@ -167,6 +167,25 @@ export function BookToolbar({
               );
             })}
 
+            <View style={divider} />
+
+            <Pressable
+              accessibilityLabel="Rückgängig"
+              onPress={onUndo}
+              disabled={!canUndo}
+              style={[toolButton, !canUndo && { opacity: 0.3 }]}
+            >
+              <UndoIcon color={book.inkSoft} size={19} />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="Alle Notizen löschen"
+              onPress={onClear}
+              disabled={!hasNotes}
+              style={[toolButton, !hasNotes && { opacity: 0.3 }]}
+            >
+              <TrashIcon color={book.inkSoft} size={19} />
+            </Pressable>
+
             <View style={{ flex: 1 }} />
 
             {/* Zoom bleibt in beiden Modi erreichbar. */}
@@ -178,9 +197,6 @@ export function BookToolbar({
             >
               <MinusIcon color={book.inkSoft} />
             </Pressable>
-            <Pressable accessibilityLabel="Zoom zurücksetzen" onPress={() => onZoom(1)} style={zoomLabel}>
-              <Text style={zoomText}>{Math.round(zoom * 100)} %</Text>
-            </Pressable>
             <Pressable
               accessibilityLabel="Vergrößern"
               onPress={() => onZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, zoomIndex + 1)])}
@@ -190,80 +206,6 @@ export function BookToolbar({
               <PlusIcon color={book.inkSoft} />
             </Pressable>
           </View>
-
-          {/* Zweite Zeile nur im Zeichenmodus: Farbe und Stärke des aktiven Werkzeugs. */}
-          {isDrawing ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={optionRow}>
-              {tool.kind !== 'ERASER'
-                ? palette.map((color) => (
-                    <Pressable
-                      key={color}
-                      accessibilityLabel={`Farbe ${color}`}
-                      onPress={() => onChange({ ...tool, color })}
-                      style={[swatch, { backgroundColor: color }, tool.color === color && swatchActive]}
-                    />
-                  ))
-                : null}
-
-              {tool.kind !== 'ERASER' ? <View style={divider} /> : null}
-
-              {tool.kind === 'TEXT'
-                ? FONT_SIZES.map((size) => (
-                    <Pressable
-                      key={size}
-                      onPress={() => onChange({ ...tool, fontSize: size })}
-                      style={[sizeChip, tool.fontSize === size && sizeChipActive]}
-                    >
-                      <Text
-                        style={[
-                          sizeChipText,
-                          tool.fontSize === size && { color: book.paper },
-                        ]}
-                      >
-                        {size}
-                      </Text>
-                    </Pressable>
-                  ))
-                : (tool.kind === 'ERASER' ? [8, 14, 24, 36] : widths).map((width) => (
-                    <Pressable
-                      key={width}
-                      accessibilityLabel={`Stärke ${width}`}
-                      onPress={() => onChange({ ...tool, width })}
-                      style={[sizeChip, tool.width === width && sizeChipActive]}
-                    >
-                      {/* Die Stärke wird als Punkt gezeigt, nicht als Zahl – so
-                          wählt man auch im Federmäppchen: nach dem Aussehen. */}
-                      <View
-                        style={{
-                          width: Math.min(20, Math.max(4, width)),
-                          height: Math.min(20, Math.max(4, width)),
-                          borderRadius: 10,
-                          backgroundColor: tool.width === width ? book.paper : book.ink,
-                        }}
-                      />
-                    </Pressable>
-                  ))}
-
-              <View style={divider} />
-
-              <Pressable
-                accessibilityLabel="Rückgängig"
-                onPress={onUndo}
-                disabled={!canUndo}
-                style={[sizeChip, !canUndo && { opacity: 0.3 }]}
-              >
-                <UndoIcon color={book.inkSoft} size={19} />
-              </Pressable>
-              <Pressable
-                accessibilityLabel="Alle Notizen löschen"
-                onPress={onClear}
-                disabled={!hasNotes}
-                style={[sizeChip, !hasNotes && { opacity: 0.3 }]}
-              >
-                <TrashIcon color={book.inkSoft} size={19} />
-              </Pressable>
-            </ScrollView>
-          ) : null}
         </>
       )}
     </View>
