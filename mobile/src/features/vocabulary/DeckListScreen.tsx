@@ -20,7 +20,7 @@ import {
 import { vocabularyApi } from '../../api/endpoints';
 import { useActiveProfile } from '../../store/auth.store';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
-import { ChevronDownIcon } from '../workbook/BookIcons';
+import { ChevronDownIcon, ShuffleIcon } from '../workbook/BookIcons';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
@@ -238,7 +238,11 @@ function CurrentPill() {
  * Die Schichten dahinter liegen leicht schief, wie von Hand abgelegt, und
  * richten sich nach dem Inhalt: kein Stapel ohne Karten, zwei Schichten erst
  * ab einer nennenswerten Menge. Angetippt werden kann er immer – auch leer,
- * dann erklärt der Lernbildschirm selbst, dass gerade nichts ansteht.
+ * dann erklärt der Lernbildschirm selbst, dass gerade nichts ansteht. Die
+ * „Mischen“-Zeile darunter startet dieselbe Sitzung wie der Stapel selbst –
+ * die Reihenfolge ist ohnehin bei jedem Start neu gemischt (siehe
+ * ReviewScreen), sie macht das nur sichtbar und ist als eigene Zeile leicht
+ * zu treffen (statt als kleines Icon auf der Karte).
  */
 function DeckStack({
   count,
@@ -254,27 +258,40 @@ function DeckStack({
   onPress: () => void;
 }) {
   const layers = count === 0 ? 0 : count >= 5 ? 2 : 1;
+  const tintColor = count === 0 ? colors.textMuted : accent;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label}, ${count}`}
-      onPress={onPress}
-      style={({ pressed }) => [{ flex: 1 }, pressed && { opacity: 0.85 }]}
-    >
-      <View>
-        {layers >= 2 ? <View style={[stackLayer, { transform: [{ rotate: '-3.5deg' }] }]} /> : null}
-        {layers >= 1 ? <View style={[stackLayer, { transform: [{ rotate: '2.5deg' }] }]} /> : null}
+    <View style={{ flex: 1 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${count}`}
+        onPress={onPress}
+        style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+      >
+        <View>
+          {layers >= 2 ? <View style={[stackLayer, { transform: [{ rotate: '-3.5deg' }] }]} /> : null}
+          {layers >= 1 ? <View style={[stackLayer, { transform: [{ rotate: '2.5deg' }] }]} /> : null}
 
-        <View style={[stackTop, count === 0 && { backgroundColor: colors.surfaceAlt }]}>
-          {/* Kopflinie in der Stapelfarbe – wie der Reiter einer Karteikarte. */}
-          <View style={[stackHeadRule, { backgroundColor: count === 0 ? colors.border : accent }]} />
-          <Text style={[stackCount, { color: count === 0 ? colors.textMuted : accent }]}>{count}</Text>
-          <Text style={stackLabel}>{label}</Text>
-          <Text style={stackHint}>{hint}</Text>
+          <View style={[stackTop, count === 0 && { backgroundColor: colors.surfaceAlt }]}>
+            {/* Kopflinie in der Stapelfarbe – wie der Reiter einer Karteikarte. */}
+            <View style={[stackHeadRule, { backgroundColor: count === 0 ? colors.border : accent }]} />
+            <Text style={[stackCount, { color: tintColor }]}>{count}</Text>
+            <Text style={stackLabel}>{label}</Text>
+            <Text style={stackHint}>{hint}</Text>
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${label} durchmischen`}
+        onPress={onPress}
+        style={({ pressed }) => [shuffleRow, pressed && { opacity: 0.6 }]}
+      >
+        <ShuffleIcon color={colors.textMuted} size={14} />
+        <Text style={shuffleRowText}>Mischen</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -347,6 +364,24 @@ const stackTop = {
   shadowRadius: 8,
   shadowOffset: { width: 0, height: 3 },
   elevation: 3,
+};
+
+/** Eigene, gut treffbare Zeile unter dem Stapel – dieselbe Aktion wie der Stapel selbst. */
+const shuffleRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  gap: spacing.xs,
+  minHeight: 40,
+  marginTop: spacing.xs,
+  borderRadius: radius.md,
+  borderWidth: 1,
+  borderColor: colors.border,
+};
+
+const shuffleRowText = {
+  ...typography.label,
+  color: colors.textMuted,
 };
 
 const stackHeadRule = {

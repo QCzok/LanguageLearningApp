@@ -10,6 +10,12 @@ import * as argon2 from 'argon2';
 import type { LibrarySection } from '@lingua/shared';
 import { seedWorkbook } from './seed/workbook';
 import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, type LibraryContentSeed } from './seed/library';
+import { GERMAN_VOCAB_A1 } from './seed/german-vocab-a1';
+import { GERMAN_VOCAB_A2 } from './seed/german-vocab-a2';
+import { GERMAN_VOCAB_B1 } from './seed/german-vocab-b1';
+import { GERMAN_VOCAB_B2 } from './seed/german-vocab-b2';
+import { GERMAN_VOCAB_C1 } from './seed/german-vocab-c1';
+import { GERMAN_VOCAB_C2 } from './seed/german-vocab-c2';
 
 const prisma = new PrismaClient();
 
@@ -44,6 +50,13 @@ interface VocabDeckSeed {
 
 /** Legt System-Vokabeldecks für eine Sprache an oder aktualisiert sie. */
 async function seedVocabDecks(languageId: string, deckSeeds: VocabDeckSeed[]): Promise<void> {
+  // System-Decks, die nicht mehr im Seed vorkommen, verschwinden mit – sonst
+  // blieben nach einer Umbenennung/Neustrukturierung alte Decks samt Wörtern
+  // liegen und die Gesamtzahl pro Niveau stimmt nicht mehr.
+  await prisma.vocabDeck.deleteMany({
+    where: { languageId, isSystem: true, title: { notIn: deckSeeds.map((seed) => seed.title) } },
+  });
+
   for (const [index, seed] of deckSeeds.entries()) {
     const existing = await prisma.vocabDeck.findFirst({
       where: { languageId, title: seed.title, isSystem: true },
@@ -422,83 +435,17 @@ async function main(): Promise<void> {
   ];
 
   /**
-   * Deutsch als Fremdsprache hat über das Lehrwerk hinaus noch keine eigenen
-   * Vokabeldecks – ohne die landet ein Nutzer mit aktivem Deutsch-Profil im
-   * Vokabeltrainer bei „Noch keine Vokabeln". Gleiche Themen, gleicher
-   * Umfang wie beim Englisch-Set, nur mit vertauschter Richtung: `term` auf
-   * Deutsch, `translation`/`exampleTranslation` auf Englisch.
+   * Deutsch als Fremdsprache: 250 Wörter pro Niveau (A1–C2), je fünf
+   * Themenpakete zu 50 Wörtern – ausgelagert nach `seed/german-vocab-*.ts`,
+   * damit diese Datei nicht auf mehrere tausend Zeilen anwächst.
    */
   const germanDeckSeeds = [
-    {
-      title: 'Erste Wörter',
-      level: CefrLevel.A1,
-      description: 'Die 20 wichtigsten Wörter für den Anfang',
-      iconEmoji: '🌱',
-      items: [
-        ['hallo', 'hello', 'Hallo, wie geht es dir?', 'Hello, how are you?', 'interjection'],
-        ['danke', 'thank you', 'Vielen Dank.', 'Thank you very much.', 'phrase'],
-        ['bitte', 'please', 'Zwei Kaffee, bitte.', 'Two coffees, please.', 'adverb'],
-        ['das Haus', 'house', 'Unser Haus ist klein.', 'Our house is small.', 'noun'],
-        ['das Wasser', 'water', 'Ich trinke jeden Tag Wasser.', 'I drink water every day.', 'noun'],
-        ['der Freund', 'friend', 'Sie ist meine beste Freundin.', 'She is my best friend.', 'noun'],
-        ['essen', 'to eat', 'Wir essen um sieben.', 'We eat at seven.', 'verb'],
-        ['arbeiten', 'to work', 'Ich arbeite von zu Hause.', 'I work from home.', 'verb'],
-        ['groß', 'big', 'Das ist eine große Stadt.', 'That is a big city.', 'adjective'],
-        ['klein', 'small', 'Ein kleines Problem.', 'A small problem.', 'adjective'],
-      ],
-    },
-    {
-      title: 'Alltag & Einkaufen',
-      level: CefrLevel.A2,
-      description: 'Wortschatz für Supermarkt, Bahn und Restaurant',
-      iconEmoji: '🛒',
-      items: [
-        ['der Kassenbon', 'receipt', 'Kann ich den Kassenbon haben?', 'Can I have the receipt?', 'noun'],
-        ['der Rabatt', 'discount', 'Gibt es einen Rabatt?', 'Is there a discount?', 'noun'],
-        ['bestellen', 'to order', 'Ich möchte bestellen.', 'I would like to order.', 'verb'],
-        ['das Gleis', 'platform', 'Der Zug fährt von Gleis 4.', 'The train leaves from platform 4.', 'noun'],
-        ['die Verspätung', 'delay', 'Der Zug hat Verspätung.', 'The train has a delay.', 'noun'],
-        ['anprobieren', 'to try on', 'Darf ich das anprobieren?', 'May I try this on?', 'verb'],
-        ['das Bargeld', 'cash', 'Nehmen Sie Bargeld?', 'Do you take cash?', 'noun'],
-        ['die Rückerstattung', 'refund', 'Ich hätte gern eine Rückerstattung.', 'I would like a refund.', 'noun'],
-      ],
-    },
-    {
-      title: 'Arbeit & Büro',
-      level: CefrLevel.B1,
-      description: 'Formulierungen für Meetings, E-Mails und Small Talk',
-      iconEmoji: '💼',
-      items: [
-        ['die Frist', 'deadline', 'Wir haben die Frist verpasst.', 'We missed the deadline.', 'noun'],
-        ['terminieren', 'to schedule', 'Lass uns einen Anruf terminieren.', 'Let us schedule a call.', 'verb'],
-        ['die Tagesordnung', 'agenda', 'Was steht auf der Tagesordnung?', 'What is on the agenda?', 'noun'],
-        ['nachfassen', 'to follow up', 'Ich fasse morgen nach.', 'I will follow up tomorrow.', 'verb'],
-        [
-          'die Interessengruppe',
-          'stakeholder',
-          'Wir haben alle Interessengruppen informiert.',
-          'We informed all stakeholders.',
-          'noun',
-        ],
-        ['die Arbeitsbelastung', 'workload', 'Meine Arbeitsbelastung ist hoch.', 'My workload is heavy.', 'noun'],
-        ['delegieren', 'to delegate', 'Sie delegiert gut.', 'She delegates well.', 'verb'],
-        ['machbar', 'feasible', 'Das ist nicht machbar.', 'That is not feasible.', 'adjective'],
-      ],
-    },
-    {
-      title: 'Meinung & Diskussion',
-      level: CefrLevel.B2,
-      description: 'Argumentieren, widersprechen, abwägen',
-      iconEmoji: '💬',
-      items: [
-        ['argumentieren', 'to argue', 'Er hat überzeugend argumentiert.', 'He argued convincingly.', 'verb'],
-        ['im Gegenteil', 'on the contrary', 'Im Gegenteil, es hat geholfen.', 'On the contrary, it helped.', 'phrase'],
-        ['einräumen', 'to concede', 'Ich räume diesen Punkt ein.', 'I concede that point.', 'verb'],
-        ['die Voreingenommenheit', 'bias', 'Die Studie zeigt Voreingenommenheit.', 'The study shows bias.', 'noun'],
-        ['überzeugend', 'compelling', 'Ein überzeugendes Argument.', 'A compelling argument.', 'adjective'],
-        ['untergraben', 'to undermine', 'Das untergräbt die Behauptung.', 'That undermines the claim.', 'verb'],
-      ],
-    },
+    ...GERMAN_VOCAB_A1,
+    ...GERMAN_VOCAB_A2,
+    ...GERMAN_VOCAB_B1,
+    ...GERMAN_VOCAB_B2,
+    ...GERMAN_VOCAB_C1,
+    ...GERMAN_VOCAB_C2,
   ];
 
   await seedVocabDecks(en, deckSeeds);

@@ -175,6 +175,19 @@ export function CheckMark({ color, size = 16 }: IconProps) {
   );
 }
 
+/** Zwei sich kreuzende Pfeile – zum Durchmischen eines Kartenstapels. */
+export function ShuffleIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Path d="M16 3 L21 3 L21 8" stroke={color} {...STROKE} />
+      <Path d="M4 20 L21 3" stroke={color} {...STROKE} />
+      <Path d="M21 16 L21 21 L16 21" stroke={color} {...STROKE} />
+      <Path d="M15 15 L21 21" stroke={color} {...STROKE} />
+      <Path d="M4 4 L9 9" stroke={color} {...STROKE} />
+    </Frame>
+  );
+}
+
 /** Kreuz für eine falsch angekreuzte Antwort – der Rotstift des Lehrers. */
 export function CrossMark({ color, size = 16 }: IconProps) {
   return (

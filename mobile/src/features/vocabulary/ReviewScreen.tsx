@@ -106,15 +106,24 @@ export default function ReviewScreen({ route, navigation }: Props) {
 
   const card = queue[0];
 
-  function grade(value: number, mode: VocabMode) {
+  // Ans Backend geht die Note sofort bei der Antwort – nicht erst, wenn die
+  // Karte per „Weiter" verlassen wird. So zählt die Antwort auch, wenn die
+  // Sitzung dazwischen per Zurück-Geste/-Taste verlassen wird, statt verloren
+  // zu gehen.
+  function submitAnswer(value: number, mode: VocabMode) {
     if (!card) return;
-    const correct = value >= 3;
     submit.mutate({
       cardId: card.cardId,
       grade: value,
       mode,
       durationMs: Date.now() - shownAt.current,
     });
+  }
+
+  // Blättert lokal zur nächsten Karte weiter – rein die Anzeige, die Note ist
+  // an dieser Stelle längst abgeschickt (siehe `submitAnswer`).
+  function advance(correct: boolean) {
+    if (!card) return;
     setRevealed(false);
     setTypedAnswer('');
     setChoiceIndex(null);
@@ -133,6 +142,14 @@ export default function ReviewScreen({ route, navigation }: Props) {
       void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
+  }
+
+  // Für Lernkarte/Eintippen: die Notenwahl selbst ist schon die Antwort, kein
+  // separater „Weiter"-Schritt danach – Abschicken und Weiterblättern gehören
+  // hier zusammen.
+  function grade(value: number, mode: VocabMode) {
+    submitAnswer(value, mode);
+    advance(value >= 3);
   }
 
   if (isLoading) return <Loading label="Karten werden geladen …" />;
@@ -222,8 +239,13 @@ export default function ReviewScreen({ route, navigation }: Props) {
           remaining={remaining}
           queueType={queueType}
           selected={choiceIndex}
-          onSelect={setChoiceIndex}
-          onGrade={grade}
+          onSelect={(index) => {
+            setChoiceIndex(index);
+            // Sofort abschicken – richtig/falsch steht mit der Auswahl schon
+            // fest, „Weiter" ist danach nur noch Anzeige (siehe `submitAnswer`).
+            submitAnswer(index === card.correctChoiceIndex ? 4 : 1, card.mode);
+          }}
+          onContinue={() => advance(choiceIndex === card.correctChoiceIndex)}
         />
       ) : null}
 
@@ -331,14 +353,14 @@ function ChoiceMode({
   queueType,
   selected,
   onSelect,
-  onGrade,
+  onContinue,
 }: {
   card: ReviewCardDto;
   remaining: number;
   queueType?: 'NEW' | 'DUE' | 'MASTERED';
   selected: number | null;
   onSelect: (index: number) => void;
-  onGrade: (grade: number, mode: VocabMode) => void;
+  onContinue: () => void;
 }) {
   const answered = selected !== null;
   const isCorrect = selected === card.correctChoiceIndex;
@@ -412,11 +434,11 @@ function ChoiceMode({
           <Text style={[verdictText, { color: isCorrect ? colors.success : colors.danger }]}>
             {isCorrect ? 'Richtig' : wrongLabel(queueType)}
           </Text>
-          {/* Auswahlfragen liefern nur richtig/falsch – daraus werden 4 bzw. 1. */}
+          {/* Note ist schon abgeschickt (siehe onSelect) – „Weiter" blättert nur noch lokal um. */}
           <Button
             label="Weiter"
             variant={isCorrect ? 'primary' : 'danger'}
-            onPress={() => onGrade(isCorrect ? 4 : 1, card.mode)}
+            onPress={onContinue}
           />
         </View>
       ) : null}
