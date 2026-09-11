@@ -3,6 +3,7 @@ import { CefrLevel, VocabMode } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsOptional,
@@ -68,6 +69,24 @@ export class ReviewQueueQueryDto {
   @Min(0)
   @Max(100)
   dueLimit?: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Nur Karten laden, deren letzte Antwort falsch war (Wiederholen-Stapel) – unabhängig von `dueAt`.',
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  onlyNeedsRepeat?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Nur Karten laden, deren letzte Antwort richtig war (Gelernt-Stapel) – unabhängig vom Mastery-Intervall.',
+  })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  onlyLearned?: boolean;
 }
 
 export class SubmitReviewDto {

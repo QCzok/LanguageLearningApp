@@ -170,6 +170,32 @@ export class VocabularyService {
           },
         };
 
+    // Wiederholen-Stapel: die letzte Antwort war falsch. Das steht eindeutig
+    // fest, sobald `status = LEARNING` bei `repetitions = 0` ist – nur der
+    // Fehler-Zweig von `reviewCard()` setzt beides zusammen (ein erster
+    // *richtiger* Versuch erhöht `repetitions` immer auf mindestens 1). Bewusst
+    // unabhängig von `dueAt`: die Karte soll sofort im Stapel erscheinen, ohne
+    // auf den SM-2-Timer zu warten.
+    if (query.onlyNeedsRepeat) {
+      return this.queueFromWhere(
+        { userId, status: CardStatus.LEARNING, repetitions: 0, vocabItem: deckFilter },
+        limit,
+        query.mode,
+      );
+    }
+
+    // Gelernt-Stapel: die letzte Antwort war richtig (`repetitions >= 1`) –
+    // unabhängig vom tatsächlichen SM-2-Status oder Intervall. Wer hier etwas
+    // falsch beantwortet, fällt regulär über `submitReview` zurück in den
+    // Wiederholen-Stapel (Status wechselt zu LEARNING, repetitions auf 0).
+    if (query.onlyLearned) {
+      return this.queueFromWhere(
+        { userId, repetitions: { gte: 1 }, vocabItem: deckFilter },
+        limit,
+        query.mode,
+      );
+    }
+
     // `dueLimit: 0` blendet den Wiederholen-Stapel bewusst aus – für eine
     // Sitzung, die ausschließlich neue Vokabeln zeigt (siehe pickMode/mode).
     const due = await this.prisma.vocabProgress.findMany({
@@ -182,25 +208,18 @@ export class VocabularyService {
     const remaining = Math.max(0, limit - due.length);
     const newLimit = Math.min(remaining, query.newLimit ?? DEFAULT_NEW_LIMIT);
 
-    let fresh: Array<{ id: string; item: Prisma.VocabItemGetPayload<object> }> = [];
+    let fresh: Prisma.VocabItemGetPayload<object>[] = [];
     if (newLimit > 0) {
-      // Karten ohne Progress-Eintrag = noch nie gesehen.
-      const unseen = await this.prisma.vocabItem.findMany({
+      // Karten ohne Progress-Eintrag = noch nie gesehen. Bewusst OHNE hier
+      // schon eine Progress-Zeile anzulegen: nur weil eine Karte ausgeliefert
+      // wurde, heißt das nicht, dass sie bearbeitet wurde – bricht die Sitzung
+      // vorher ab, soll die Karte weiterhin als "neu" zählen (siehe
+      // `submitReview`, das die Zeile erst bei der ersten Bewertung anlegt).
+      fresh = await this.prisma.vocabItem.findMany({
         where: { ...deckFilter, progress: { none: { userId } } },
         take: newLimit,
         orderBy: { sortOrder: 'asc' },
       });
-
-      // Progress-Einträge werden beim ersten Ausliefern angelegt, damit der
-      // Fortschritt auch dann erhalten bleibt, wenn die Sitzung abgebrochen wird.
-      fresh = await this.prisma.$transaction(
-        unseen.map((item) =>
-          this.prisma.vocabProgress.create({
-            data: { userId, vocabItemId: item.id, dueAt: now, ...SRS_DEFAULTS },
-            include: { vocabItem: true },
-          }),
-        ),
-      ).then((created) => created.map((entry) => ({ id: entry.id, item: entry.vocabItem })));
     }
 
     const cards = [
@@ -210,9 +229,11 @@ export class VocabularyService {
         status: entry.status,
         dueAt: entry.dueAt,
       })),
-      ...fresh.map((entry) => ({
-        cardId: entry.id,
-        item: entry.item,
+      // `cardId` ist hier die VocabItem-ID, nicht die einer Progress-Zeile –
+      // `submitReview` erkennt das und legt die Zeile bei Bedarf selbst an.
+      ...fresh.map((item) => ({
+        cardId: item.id,
+        item,
         status: CardStatus.NEW,
         dueAt: now,
       })),
@@ -222,37 +243,67 @@ export class VocabularyService {
 
     const distractorPool = await this.distractorPool(cards.map((card) => card.item.deckId));
 
-    return cards.map((card) => {
-      const mode = this.pickMode(card.status, query.mode);
-      const base: ReviewCardDto = {
-        cardId: card.cardId,
-        item: toVocabItemDto(card.item),
-        mode,
-        status: card.status,
-        dueAt: card.dueAt.toISOString(),
-      };
+    // Alle Stapel sind durchmischbar – die Reihenfolge (älteste Fälligkeit
+    // zuerst, dann neue Karten) ist keine feste Abarbeitungsliste.
+    return shuffle(cards).map((card) =>
+      this.buildCard(card, distractorPool, this.pickMode(card.status, query.mode)),
+    );
+  }
 
-      if (mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING) {
-        // Fünf Vorschläge insgesamt: die richtige Übersetzung plus vier
-        // Distraktoren aus demselben Deck. Gleichlautende Übersetzungen werden
-        // vorher entfernt – sonst stünde dieselbe Antwort zweimal da und eine
-        // davon würde als falsch gewertet.
-        const distractors = shuffle([
-          ...new Set(
-            distractorPool
-              .filter(
-                (entry) =>
-                  entry.id !== card.item.id && entry.translation !== card.item.translation,
-              )
-              .map((entry) => entry.translation),
-          ),
-        ]).slice(0, 4);
-        const choices = shuffle([card.item.translation, ...distractors]);
-        base.choices = choices;
-        base.correctChoiceIndex = choices.indexOf(card.item.translation);
-      }
-      return base;
+  /** Lädt Karten anhand eines Progress-Filters (statt dueAt/newLimit-Kombination) und baut sie durchmischt auf. */
+  private async queueFromWhere(
+    where: Prisma.VocabProgressWhereInput,
+    limit: number,
+    mode?: VocabMode,
+  ): Promise<ReviewCardDto[]> {
+    const rows = await this.prisma.vocabProgress.findMany({
+      where,
+      include: { vocabItem: true },
+      take: limit,
     });
+    if (rows.length === 0) return [];
+
+    const distractorPool = await this.distractorPool(rows.map((entry) => entry.vocabItem.deckId));
+    return shuffle(rows).map((entry) =>
+      this.buildCard(
+        { cardId: entry.id, item: entry.vocabItem, status: entry.status, dueAt: entry.dueAt },
+        distractorPool,
+        mode ?? VocabMode.MULTIPLE_CHOICE,
+      ),
+    );
+  }
+
+  /** Baut eine ReviewCardDto inkl. Distraktoren, wo der Modus Auswahlantworten braucht. */
+  private buildCard(
+    card: { cardId: string; item: Prisma.VocabItemGetPayload<object>; status: CardStatus; dueAt: Date },
+    distractorPool: Array<{ id: string; translation: string }>,
+    mode: VocabMode,
+  ): ReviewCardDto {
+    const base: ReviewCardDto = {
+      cardId: card.cardId,
+      item: toVocabItemDto(card.item),
+      mode,
+      status: card.status,
+      dueAt: card.dueAt.toISOString(),
+    };
+
+    if (mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING) {
+      // Fünf Vorschläge insgesamt: die richtige Übersetzung plus vier
+      // Distraktoren aus demselben Deck. Gleichlautende Übersetzungen werden
+      // vorher entfernt – sonst stünde dieselbe Antwort zweimal da und eine
+      // davon würde als falsch gewertet.
+      const distractors = shuffle([
+        ...new Set(
+          distractorPool
+            .filter((entry) => entry.id !== card.item.id && entry.translation !== card.item.translation)
+            .map((entry) => entry.translation),
+        ),
+      ]).slice(0, 4);
+      const choices = shuffle([card.item.translation, ...distractors]);
+      base.choices = choices;
+      base.correctChoiceIndex = choices.indexOf(card.item.translation);
+    }
+    return base;
   }
 
   /**
@@ -260,11 +311,25 @@ export class VocabularyService {
    * nur die Note, damit der Lernstand nicht manipulierbar ist.
    */
   async submitReview(userId: string, dto: SubmitReviewDto) {
-    const card = await this.prisma.vocabProgress.findFirst({
+    let card = await this.prisma.vocabProgress.findFirst({
       where: { id: dto.cardId, userId },
       include: { vocabItem: true },
     });
-    if (!card) throw new NotFoundException('Karte nicht gefunden');
+
+    if (!card) {
+      // Keine Progress-Zeile unter dieser ID – `getReviewQueue` liefert für
+      // frisch ausgelieferte, noch nie bearbeitete Karten die VocabItem-ID
+      // statt einer Progress-ID (siehe dort). Die erste Bewertung legt die
+      // Zeile jetzt an, nicht schon beim bloßen Anzeigen.
+      const item = await this.prisma.vocabItem.findUnique({ where: { id: dto.cardId } });
+      if (!item) throw new NotFoundException('Karte nicht gefunden');
+      card = await this.prisma.vocabProgress.upsert({
+        where: { userId_vocabItemId: { userId, vocabItemId: item.id } },
+        create: { userId, vocabItemId: item.id, dueAt: new Date(), ...SRS_DEFAULTS },
+        update: {},
+        include: { vocabItem: true },
+      });
+    }
 
     const next = reviewCard(
       {
@@ -394,7 +459,7 @@ export class VocabularyService {
 
     const rows = await this.prisma.vocabProgress.findMany({
       where: { userId, vocabItem: { deckId: { in: deckIds } } },
-      select: { status: true, dueAt: true, vocabItem: { select: { deckId: true } } },
+      select: { status: true, dueAt: true, repetitions: true, vocabItem: { select: { deckId: true } } },
     });
 
     const totals = await this.prisma.vocabItem.groupBy({
@@ -413,6 +478,8 @@ export class VocabularyService {
         review: 0,
         mastered: 0,
         dueNow: 0,
+        needsRepeat: 0,
+        learned: 0,
       });
     }
 
@@ -431,6 +498,11 @@ export class VocabularyService {
       if (row.status === CardStatus.REVIEW) entry.review += 1;
       if (row.status === CardStatus.MASTERED) entry.mastered += 1;
       if (row.dueAt.getTime() <= now) entry.dueNow += 1;
+      // Wiederholen-/Gelernt-Stapel (DeckListScreen): rein von der letzten
+      // Antwort abhängig, nicht vom SM-2-Timer oder Mastery-Intervall – siehe
+      // `getReviewQueue`'s `onlyNeedsRepeat`/`onlyLearned`.
+      if (row.status === CardStatus.LEARNING && row.repetitions === 0) entry.needsRepeat += 1;
+      if (row.repetitions >= 1) entry.learned += 1;
     }
     return map;
   }

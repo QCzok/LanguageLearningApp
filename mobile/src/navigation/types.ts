@@ -20,14 +20,15 @@ export type VocabularyStackParamList = {
   DeckDetail: { deckId: string; title: string };
   /**
    * Ohne `deckId` gilt die Sitzung für ein ganzes Niveau. `queueType` legt
-   * fest, welchen der beiden Stapel der Nutzer gewählt hat: neue Vokabeln
-   * (fünf Bedeutungsvorschläge je Wort) oder den Wiederholen-Stapel (fällige
-   * Karten, die beim ersten Versuch falsch beantwortet wurden).
+   * fest, welchen der drei Stapel der Nutzer gewählt hat: neue Vokabeln
+   * (fünf Bedeutungsvorschläge je Wort), den Wiederholen-Stapel (fällige
+   * Karten) oder den Gelernt-Stapel (bereits gemeisterte Karten zum
+   * Auffrischen).
    */
   Review: {
     deckId?: string;
     level?: CefrLevel;
-    queueType?: 'NEW' | 'DUE';
+    queueType?: 'NEW' | 'DUE' | 'MASTERED';
     title?: string;
   };
   VocabStats: undefined;

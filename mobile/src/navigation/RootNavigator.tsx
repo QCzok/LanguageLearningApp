@@ -6,6 +6,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Loading } from '../components';
 import { colors } from '../theme';
 import { useAuthStore } from '../store/auth.store';
+import { useTranslation } from '../i18n';
 import { WebLayout } from './WebLayout';
 
 import LoginScreen from '../features/auth/LoginScreen';
@@ -67,22 +68,23 @@ function AuthNavigator() {
 
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 function OnboardingNavigator() {
+  const { t } = useTranslation();
   return (
     <OnboardingStack.Navigator screenOptions={defaultStackOptions}>
       <OnboardingStack.Screen
         name="LanguageSelect"
         component={LanguageSelectScreen}
-        options={{ title: 'Sprache wählen' }}
+        options={{ title: t('onboardingLanguageSelect') }}
       />
       <OnboardingStack.Screen
         name="LevelChoice"
         component={LevelChoiceScreen}
-        options={{ title: 'Dein Niveau' }}
+        options={{ title: t('onboardingLevelChoice') }}
       />
       <OnboardingStack.Screen
         name="PlacementTest"
         component={PlacementTestScreen}
-        options={{ title: 'Einstufungstest' }}
+        options={{ title: t('onboardingPlacementTest') }}
       />
     </OnboardingStack.Navigator>
   );
@@ -90,12 +92,13 @@ function OnboardingNavigator() {
 
 const VocabularyStack = createNativeStackNavigator<VocabularyStackParamList>();
 function VocabularyNavigator() {
+  const { t } = useTranslation();
   return (
     <VocabularyStack.Navigator screenOptions={defaultStackOptions}>
       <VocabularyStack.Screen
         name="DeckList"
         component={DeckListScreen}
-        options={{ title: 'Vokabeln' }}
+        options={{ title: t('vocabularyDeckList') }}
       />
       <VocabularyStack.Screen
         name="DeckDetail"
@@ -105,12 +108,15 @@ function VocabularyNavigator() {
       <VocabularyStack.Screen
         name="Review"
         component={ReviewScreen}
-        options={({ route }) => ({ title: route.params.title ?? 'Lernen', headerBackTitle: 'Ende' })}
+        options={({ route }) => ({
+          title: route.params.title ?? t('vocabularyReviewFallback'),
+          headerBackTitle: t('vocabularyReviewBackTitle'),
+        })}
       />
       <VocabularyStack.Screen
         name="VocabStats"
         component={VocabStatsScreen}
-        options={{ title: 'Statistik' }}
+        options={{ title: t('vocabularyStats') }}
       />
     </VocabularyStack.Navigator>
   );
@@ -118,12 +124,13 @@ function VocabularyNavigator() {
 
 const NotebookStack = createNativeStackNavigator<NotebookStackParamList>();
 function NotebookNavigator() {
+  const { t } = useTranslation();
   return (
     <NotebookStack.Navigator screenOptions={defaultStackOptions}>
       <NotebookStack.Screen
         name="ChapterList"
         component={ChapterListScreen}
-        options={{ title: 'Lernheft' }}
+        options={{ title: t('notebookChapterList') }}
       />
       <NotebookStack.Screen
         name="Chapter"
@@ -138,7 +145,7 @@ function NotebookNavigator() {
       <NotebookStack.Screen
         name="NotebookList"
         component={NotebookListScreen}
-        options={{ title: 'Eigene Notizhefte' }}
+        options={{ title: t('notebookList') }}
       />
       <NotebookStack.Screen
         name="NotebookEditor"
@@ -151,12 +158,13 @@ function NotebookNavigator() {
 
 const LibraryStack = createNativeStackNavigator<LibraryStackParamList>();
 function LibraryNavigator() {
+  const { t } = useTranslation();
   return (
     <LibraryStack.Navigator screenOptions={defaultStackOptions}>
       <LibraryStack.Screen
         name="LibraryList"
         component={LibraryListScreen}
-        options={{ title: 'Bibliothek' }}
+        options={{ title: t('libraryList') }}
       />
       <LibraryStack.Screen
         name="Reader"
@@ -166,7 +174,7 @@ function LibraryNavigator() {
       <LibraryStack.Screen
         name="Exercises"
         component={ExercisesScreen}
-        options={{ title: 'Übungen' }}
+        options={{ title: t('libraryExercises') }}
       />
     </LibraryStack.Navigator>
   );
@@ -174,12 +182,13 @@ function LibraryNavigator() {
 
 const MediaStack = createNativeStackNavigator<MediaStackParamList>();
 function MediaNavigator() {
+  const { t } = useTranslation();
   return (
     <MediaStack.Navigator screenOptions={defaultStackOptions}>
       <MediaStack.Screen
         name="MediaList"
         component={MediaListScreen}
-        options={{ title: 'Mediathek' }}
+        options={{ title: t('mediaList') }}
       />
       <MediaStack.Screen
         name="Player"
@@ -192,19 +201,20 @@ function MediaNavigator() {
 
 const AiStack = createNativeStackNavigator<AiStackParamList>();
 function AiNavigator() {
+  const { t } = useTranslation();
   return (
     <AiStack.Navigator screenOptions={defaultStackOptions}>
-      <AiStack.Screen name="AiHub" component={AiHubScreen} options={{ title: 'KI-Assistent' }} />
+      <AiStack.Screen name="AiHub" component={AiHubScreen} options={{ title: t('aiHub') }} />
       <AiStack.Screen
         name="AiChat"
         component={AiChatScreen}
         options={({ route }) => ({ title: route.params.title })}
       />
-      <AiStack.Screen name="Grammar" component={GrammarScreen} options={{ title: 'Erklären' }} />
+      <AiStack.Screen name="Grammar" component={GrammarScreen} options={{ title: t('aiGrammar') }} />
       <AiStack.Screen
         name="Recommendations"
         component={RecommendationsScreen}
-        options={{ title: 'Empfehlungen' }}
+        options={{ title: t('aiRecommendations') }}
       />
     </AiStack.Navigator>
   );
@@ -226,6 +236,7 @@ const tabIcons: Record<keyof MainTabParamList, string> = {
 };
 
 function MainNavigator() {
+  const { t } = useTranslation();
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -239,13 +250,13 @@ function MainNavigator() {
         ),
       })}
     >
-      <Tabs.Screen name="Home" component={HomeScreen} options={{ title: 'Start' }} />
-      <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: 'Vokabeln' }} />
-      <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: 'Heft' }} />
-      <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: 'Lesen' }} />
-      <Tabs.Screen name="Media" component={MediaNavigator} options={{ title: 'Hören' }} />
-      <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: 'KI' }} />
-      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profil' }} />
+      <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabHome') }} />
+      <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: t('tabVocabulary') }} />
+      <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: t('tabNotebook') }} />
+      <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: t('tabLibrary') }} />
+      <Tabs.Screen name="Media" component={MediaNavigator} options={{ title: t('tabMedia') }} />
+      <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: t('tabAssistant') }} />
+      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabProfile') }} />
     </Tabs.Navigator>
   );
 }

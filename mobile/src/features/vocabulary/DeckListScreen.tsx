@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CEFR_LEVELS } from '@lingua/shared';
@@ -13,7 +14,6 @@ import {
   Heading,
   LevelBadge,
   Loading,
-  ProgressBar,
   Row,
   Title,
 } from '../../components';
@@ -28,20 +28,32 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
 /**
  * Vokabeltrainer als Akkordeon nach Niveau.
  *
- * Pro Niveau gibt es genau zwei Wege zu lernen – nie einen dritten,
- * verwirrenden Mittelweg: „Neue Vokabeln“ zeigt unbekannte Wörter als Auswahl
- * mit fünf Bedeutungsvorschlägen; eine falsche Auswahl schickt die Karte auf
- * den Wiederholen-Stapel (Serverseite: `dueAt` rückt auf „gleich wieder
- * fällig“ vor). „Wiederholen“ zeigt genau diesen Stapel.
+ * Pro Niveau gibt es bis zu drei Stapel, die direkt von der letzten Antwort
+ * abhängen (nicht vom SM-2-Timer oder Mastery-Intervall): „Neue Vokabeln“
+ * zeigt unbekannte Wörter als Auswahl mit fünf Bedeutungsvorschlägen. Eine
+ * falsche Antwort schickt die Karte sofort in „Wiederholen“ – dort bleibt sie
+ * liegen, bis sie richtig beantwortet wird. Eine richtige Antwort schickt sie
+ * nach „Gelernt“ zum Auffrischen; fällt man dort durch, wandert sie zurück
+ * nach „Wiederholen“.
  *
- * Beide werden als das dargestellt, was sie sind: zwei Kartenstapel. Die
- * Schichten dahinter sind keine Dekoration, sondern zeigen an, ob überhaupt
- * etwas im Stapel liegt – ein leerer Stapel ist flach.
+ * Jeder Stapel erscheint nur, wenn dort auch etwas liegt – ein leerer Stapel
+ * wird nicht angezeigt statt flach dargestellt.
  */
 export default function DeckListScreen({ navigation }: Props) {
   const profile = useActiveProfile();
   const decks = useQuery({ queryKey: ['decks'], queryFn: () => vocabularyApi.decks() });
   const [expanded, setExpanded] = useState<Set<CefrLevel> | null>(null);
+
+  // Nach einer (auch abgebrochenen) Lernsitzung müssen die Stapel hier aktuell
+  // sein – nicht erst nach Ablauf der 60s-Cachezeit. Bewusst ohne `refetch` in
+  // den Abhängigkeiten (siehe ChapterScreen): sonst löst der neue `refetch`
+  // bei jedem Aufruf den Effekt erneut aus.
+  useFocusEffect(
+    React.useCallback(() => {
+      void decks.refetch();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
 
   if (decks.isLoading) return <Loading />;
   if (decks.isError || !decks.data) {
@@ -76,11 +88,13 @@ export default function DeckListScreen({ navigation }: Props) {
     setExpanded(next);
   }
 
-  function startSession(level: CefrLevel, queueType: 'NEW' | 'DUE') {
+  function startSession(level: CefrLevel, queueType: 'NEW' | 'DUE' | 'MASTERED') {
+    const stackLabel =
+      queueType === 'NEW' ? 'Neue Vokabeln' : queueType === 'DUE' ? 'Wiederholen' : 'Gelernt';
     navigation.navigate('Review', {
       level,
       queueType,
-      title: `${levelHeadline(level)} · ${queueType === 'NEW' ? 'Neue Vokabeln' : 'Wiederholen'}`,
+      title: `${levelHeadline(level)} · ${stackLabel}`,
     });
   }
 
@@ -112,7 +126,6 @@ export default function DeckListScreen({ navigation }: Props) {
             isOpen={openLevels.has(group.level)}
             onToggle={() => toggleLevel(group.level)}
             onStart={(queueType) => startSession(group.level, queueType)}
-            onOpenDeck={(deck) => navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title })}
           />
         ))}
       </ScrollView>
@@ -129,20 +142,21 @@ function LevelSection({
   isOpen,
   onToggle,
   onStart,
-  onOpenDeck,
 }: {
   level: CefrLevel;
   decks: VocabDeckDto[];
   isCurrent: boolean;
   isOpen: boolean;
   onToggle: () => void;
-  onStart: (queueType: 'NEW' | 'DUE') => void;
-  onOpenDeck: (deck: VocabDeckDto) => void;
+  onStart: (queueType: 'NEW' | 'DUE' | 'MASTERED') => void;
 }) {
   const totalItems = decks.reduce((sum, deck) => sum + deck.itemCount, 0);
   const newCount = decks.reduce((sum, deck) => sum + (deck.progress?.new ?? deck.itemCount), 0);
-  const dueCount = decks.reduce((sum, deck) => sum + (deck.progress?.dueNow ?? 0), 0);
-  const masteredCount = decks.reduce((sum, deck) => sum + (deck.progress?.mastered ?? 0), 0);
+  // Wiederholen/Gelernt hängen an der letzten Antwort (siehe Backend), nicht
+  // am SM-2-Timer oder Mastery-Intervall – die Stapel erscheinen so, sobald
+  // dort etwas liegt.
+  const dueCount = decks.reduce((sum, deck) => sum + (deck.progress?.needsRepeat ?? 0), 0);
+  const learnedCount = decks.reduce((sum, deck) => sum + (deck.progress?.learned ?? 0), 0);
 
   return (
     <View style={sectionContainer}>
@@ -160,7 +174,7 @@ function LevelSection({
           </Row>
           <Caption>
             {totalItems} Vokabeln
-            {masteredCount > 0 ? ` · ${masteredCount} gemeistert` : ''}
+            {learnedCount > 0 ? ` · ${learnedCount} gelernt` : ''}
           </Caption>
         </View>
         <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
@@ -170,30 +184,40 @@ function LevelSection({
 
       {isOpen ? (
         <View style={{ gap: spacing.lg, paddingTop: spacing.lg }}>
-          {/* Die beiden einzigen Wege zu lernen, als zwei Stapel nebeneinander. */}
-          <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
-            <DeckStack
-              count={newCount}
-              label="Neue Vokabeln"
-              hint={newCount > 0 ? 'noch nie geübt' : 'alles kennengelernt'}
-              accent={colors.primary}
-              onPress={() => onStart('NEW')}
-            />
-            <DeckStack
-              count={dueCount}
-              label="Wiederholen"
-              hint={dueCount > 0 ? 'jetzt fällig' : 'nichts fällig'}
-              accent={colors.warning}
-              onPress={() => onStart('DUE')}
-            />
-          </Row>
-
-          <View style={{ gap: spacing.sm }}>
-            <Caption>Oder gezielt nach Thema üben</Caption>
-            {decks.map((deck) => (
-              <DeckRow key={deck.id} deck={deck} onPress={() => onOpenDeck(deck)} />
-            ))}
-          </View>
+          {newCount > 0 || dueCount > 0 || learnedCount > 0 ? (
+            /* Drei Wege zu lernen, als Stapel nebeneinander – jeder nur, wenn dort etwas liegt. */
+            <Row gap={spacing.md} style={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              {newCount > 0 ? (
+                <DeckStack
+                  count={newCount}
+                  label="Neue Vokabeln"
+                  hint="noch nie geübt"
+                  accent={colors.primary}
+                  onPress={() => onStart('NEW')}
+                />
+              ) : null}
+              {dueCount > 0 ? (
+                <DeckStack
+                  count={dueCount}
+                  label="Wiederholen"
+                  hint="falsch beantwortet"
+                  accent={colors.warning}
+                  onPress={() => onStart('DUE')}
+                />
+              ) : null}
+              {learnedCount > 0 ? (
+                <DeckStack
+                  count={learnedCount}
+                  label="Gelernt"
+                  hint="zum Auffrischen"
+                  accent={colors.success}
+                  onPress={() => onStart('MASTERED')}
+                />
+              ) : null}
+            </Row>
+          ) : (
+            <Caption>Für dieses Niveau ist gerade nichts zu tun – alles gelernt 🎉</Caption>
+          )}
         </View>
       ) : null}
     </View>
@@ -249,40 +273,6 @@ function DeckStack({
           <Text style={stackLabel}>{label}</Text>
           <Text style={stackHint}>{hint}</Text>
         </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function DeckRow({ deck, onPress }: { deck: VocabDeckDto; onPress: () => void }) {
-  const progress = deck.progress;
-  const learned = progress ? progress.total - progress.new : 0;
-  const percent = progress?.total ? (learned / progress.total) * 100 : 0;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [deckRow, pressed && { opacity: 0.85 }]}
-    >
-      {/* Angedeutete Kartenkante links – auch ein Themendeck ist ein Stapel. */}
-      <View style={deckRowSpine} />
-
-      <View style={{ flex: 1, gap: 5 }}>
-        <Row gap={spacing.sm}>
-          <Text style={[typography.bodyStrong, { flex: 1 }]}>{deck.title}</Text>
-          {progress && progress.dueNow > 0 ? (
-            <View style={dueBadge}>
-              <Text style={[typography.label, { color: colors.textInverse }]}>{progress.dueNow}</Text>
-            </View>
-          ) : null}
-        </Row>
-        {deck.description ? <Caption>{deck.description}</Caption> : null}
-        <ProgressBar value={percent} height={4} />
-        <Caption>
-          {deck.itemCount} Vokabeln
-          {progress ? ` · ${progress.new} neu` : ''}
-        </Caption>
       </View>
     </Pressable>
   );
@@ -382,31 +372,3 @@ const stackHint = {
   color: flashcard.inkSoft,
 };
 
-const deckRow = {
-  flexDirection: 'row' as const,
-  alignItems: 'stretch' as const,
-  gap: spacing.md,
-  backgroundColor: colors.surface,
-  borderRadius: radius.md,
-  borderWidth: 1,
-  borderColor: colors.border,
-  padding: spacing.md,
-};
-
-const deckRowSpine = {
-  width: 4,
-  borderRadius: 2,
-  backgroundColor: flashcard.stack,
-  borderWidth: 1,
-  borderColor: flashcard.edge,
-};
-
-const dueBadge = {
-  backgroundColor: colors.warning,
-  minWidth: 26,
-  height: 26,
-  borderRadius: 13,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  paddingHorizontal: 6,
-};

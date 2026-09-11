@@ -111,6 +111,10 @@ export interface DeckProgressDto {
   review: number;
   mastered: number;
   dueNow: number;
+  /** Letzte Antwort war falsch – Basis für den Wiederholen-Stapel, unabhängig von `dueNow`. */
+  needsRepeat: number;
+  /** Letzte Antwort war richtig – Basis für den Gelernt-Stapel, unabhängig von `mastered`. */
+  learned: number;
 }
 
 export interface VocabItemDto {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -11,7 +11,6 @@ import {
   EmptyState,
   ErrorState,
   Loading,
-  ProgressBar,
   Row,
   Screen,
   Title,
@@ -29,21 +28,32 @@ interface SessionSummary {
   xp: number;
 }
 
+/** Fisher-Yates – alle drei Stapel sind durchmischbar, keine feste Reihenfolge. */
+function shuffled<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 /**
  * Lernsitzung des Vokabeltrainers.
  *
- * Die Warteschlange kommt einmal vom Server und wird lokal abgearbeitet; jede
- * Bewertung geht sofort ans Backend, damit ein Abbruch keinen Fortschritt kostet.
- * Die eigentliche SM-2-Rechnung passiert serverseitig – hier zählt nur die Note.
- *
- * Dargestellt wird die Karte als echte Karteikarte (siehe `Flashcard`), und der
- * Reststapel liegt sichtbar darunter: Man sieht beim Lernen, wie er abnimmt.
+ * Jede Karte ist für sich selbstständig, kein fester "Karte X von Y"-Zähler:
+ * Die Warteschlange kommt einmal vom Server, wird aber lokal umsortiert –
+ * „Neue Vokabeln“ verlässt eine falsch beantwortete Karte sofort (serverseitig
+ * steht sie ab sofort im Wiederholen-Stapel, unabhängig vom SM-2-Timer);
+ * „Wiederholen“ und „Gelernt“ legen eine falsch beantwortete Karte ans Ende
+ * der eigenen Warteschlange zurück, bis sie richtig sitzt. Jede Bewertung
+ * geht sofort ans Backend, damit ein Abbruch keinen Fortschritt kostet – die
+ * eigentliche SM-2-Rechnung passiert serverseitig, hier zählt nur die Note.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
   const { deckId, level, queueType } = route.params;
   const queryClient = useQueryClient();
 
-  const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [typedAnswer, setTypedAnswer] = useState('');
   const [choiceIndex, setChoiceIndex] = useState<number | null>(null);
@@ -60,12 +70,28 @@ export default function ReviewScreen({ route, navigation }: Props) {
         // „Neue Vokabeln“: der Wiederholen-Stapel bleibt außen vor, jede Karte
         // kommt als Auswahl mit fünf Bedeutungsvorschlägen (siehe ChoiceMode).
         ...(queueType === 'NEW' ? { dueLimit: 0, newLimit: 20, mode: 'MULTIPLE_CHOICE' as const } : {}),
-        // „Wiederholen“: nur fällige Karten, keine neuen.
-        ...(queueType === 'DUE' ? { newLimit: 0 } : {}),
+        // „Wiederholen“: Karten, deren letzte Antwort falsch war – sofort,
+        // unabhängig vom SM-2-Timer.
+        ...(queueType === 'DUE' ? { onlyNeedsRepeat: true, mode: 'MULTIPLE_CHOICE' as const } : {}),
+        // „Gelernt“: Karten, deren letzte Antwort richtig war – unabhängig
+        // vom Mastery-Intervall.
+        ...(queueType === 'MASTERED' ? { onlyLearned: true, mode: 'MULTIPLE_CHOICE' as const } : {}),
       }),
     staleTime: 0,
     gcTime: 0, // Eine Sitzung ist einmalig – nichts davon soll wiederverwendet werden.
   });
+
+  // Lokale Warteschlange, aus den Serverdaten gemischt abgeleitet (siehe
+  // `shuffled`). Wird neu aufgebaut, sobald `data` sich ändert (Start, Retry
+  // über „Weiter lernen“) – bewusst ohne useEffect, um keinen Frame mit
+  // veralteter Warteschlange zu rendern.
+  const [session, setSession] = useState<{ source: ReviewCardDto[] | undefined; queue: ReviewCardDto[] }>(
+    { source: undefined, queue: [] },
+  );
+  if (data !== session.source) {
+    setSession({ source: data, queue: data ? shuffled(data) : [] });
+  }
+  const queue = session.queue;
 
   const submit = useMutation({
     mutationFn: vocabularyApi.review,
@@ -78,51 +104,47 @@ export default function ReviewScreen({ route, navigation }: Props) {
     },
   });
 
-  const cards = data ?? [];
-  const card = cards[index];
-
-  const advance = useCallback(() => {
-    setRevealed(false);
-    setTypedAnswer('');
-    setChoiceIndex(null);
-    shownAt.current = Date.now();
-    setIndex((value) => value + 1);
-  }, []);
-
-  // Am Ende der Sitzung müssen Decks, Statistik und Dashboard neu geladen werden.
-  useEffect(() => {
-    if (cards.length > 0 && index >= cards.length) {
-      void queryClient.invalidateQueries({ queryKey: ['decks'] });
-      void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    }
-  }, [index, cards.length, queryClient]);
+  const card = queue[0];
 
   function grade(value: number, mode: VocabMode) {
     if (!card) return;
+    const correct = value >= 3;
     submit.mutate({
       cardId: card.cardId,
       grade: value,
       mode,
       durationMs: Date.now() - shownAt.current,
     });
-    advance();
+    setRevealed(false);
+    setTypedAnswer('');
+    setChoiceIndex(null);
+    shownAt.current = Date.now();
+
+    // „Neue Vokabeln“: ein Versuch pro Karte – bei Fehlern wird sie serverseitig
+    // sofort fällig und taucht später im Wiederholen-Stapel auf, statt hier
+    // erneut anzustehen. „Wiederholen“/„Gelernt“: falsch bleibt im Stapel.
+    const requeue = !correct && queueType !== 'NEW';
+    const nextQueue = requeue ? [...queue.slice(1), card] : queue.slice(1);
+    setSession((prev) => ({ ...prev, queue: nextQueue }));
+
+    if (nextQueue.length === 0) {
+      // Sitzung fertig – Decks, Statistik und Dashboard neu laden.
+      void queryClient.invalidateQueries({ queryKey: ['decks'] });
+      void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    }
   }
 
   if (isLoading) return <Loading label="Karten werden geladen …" />;
   if (isError) return <ErrorState message="Die Lernsitzung konnte nicht starten." onRetry={refetch} />;
 
-  if (cards.length === 0) {
+  if ((data ?? []).length === 0) {
     return (
       <Screen>
         <EmptyState
           emoji="🎉"
-          title={queueType === 'NEW' ? 'Keine neuen Vokabeln mehr' : 'Nichts zu wiederholen'}
-          description={
-            queueType === 'NEW'
-              ? 'Für dieses Niveau sind gerade keine neuen Vokabeln mehr da – schau in den Wiederholen-Stapel oder später wieder vorbei.'
-              : 'Der Wiederholen-Stapel ist leer. Schau später wieder vorbei oder lerne neue Vokabeln.'
-          }
+          title={emptyTitle(queueType)}
+          description={emptyDescription(queueType)}
           action={{ label: 'Zurück', onPress: () => navigation.goBack() }}
         />
       </Screen>
@@ -163,7 +185,6 @@ export default function ReviewScreen({ route, navigation }: Props) {
           <Button
             label="Weiter lernen"
             onPress={() => {
-              setIndex(0);
               setSummary({ reviewed: 0, correct: 0, xp: 0 });
               void refetch();
             }}
@@ -174,21 +195,16 @@ export default function ReviewScreen({ route, navigation }: Props) {
     );
   }
 
-  // Wie viele Karten noch unter dieser liegen – der Stapel schrumpft sichtbar.
-  const remaining = cards.length - index - 1;
+  // Wie viele Karten noch im (durchmischten) Stapel liegen – rein visuell,
+  // kein Zähler: jede Karte steht für sich, keine feste Gesamtzahl.
+  const remaining = queue.length - 1;
 
   return (
     <Screen style={{ flex: 1 }}>
-      <View style={{ gap: spacing.sm }}>
-        <Row>
-          <Caption>
-            Karte {index + 1} von {cards.length}
-          </Caption>
-          <View style={{ flex: 1 }} />
-          <Caption>{modeLabel(card.mode)}</Caption>
-        </Row>
-        <ProgressBar value={(index / cards.length) * 100} height={6} />
-      </View>
+      <Row>
+        <View style={{ flex: 1 }} />
+        <Caption>{modeLabel(card.mode)}</Caption>
+      </Row>
 
       {card.mode === 'FLASHCARD' ? (
         <FlashcardMode
@@ -204,6 +220,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
         <ChoiceMode
           card={card}
           remaining={remaining}
+          queueType={queueType}
           selected={choiceIndex}
           onSelect={setChoiceIndex}
           onGrade={grade}
@@ -311,12 +328,14 @@ const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 function ChoiceMode({
   card,
   remaining,
+  queueType,
   selected,
   onSelect,
   onGrade,
 }: {
   card: ReviewCardDto;
   remaining: number;
+  queueType?: 'NEW' | 'DUE' | 'MASTERED';
   selected: number | null;
   onSelect: (index: number) => void;
   onGrade: (grade: number, mode: VocabMode) => void;
@@ -378,24 +397,20 @@ function ChoiceMode({
         </View>
 
         {answered && card.item.exampleSentence ? (
-          <Flashcard variant="back">
-            <View style={{ gap: 4 }}>
-              <Text style={cardEyebrow}>Im Satz</Text>
-              <Text style={exampleText}>{card.item.exampleSentence}</Text>
-              {card.item.exampleTranslation ? (
-                <Text style={cardMeta}>{card.item.exampleTranslation}</Text>
-              ) : null}
-            </View>
-          </Flashcard>
+          <View style={infoBox}>
+            <Text style={infoBoxLabel}>Im Satz</Text>
+            <Text style={infoBoxText}>{card.item.exampleSentence}</Text>
+            {card.item.exampleTranslation ? (
+              <Text style={infoBoxMeta}>{card.item.exampleTranslation}</Text>
+            ) : null}
+          </View>
         ) : null}
       </ScrollView>
 
       {answered ? (
         <View style={{ gap: spacing.sm }}>
           <Text style={[verdictText, { color: isCorrect ? colors.success : colors.danger }]}>
-            {isCorrect
-              ? 'Richtig'
-              : `Falsch – kommt auf den Wiederholen-Stapel`}
+            {isCorrect ? 'Richtig' : wrongLabel(queueType)}
           </Text>
           {/* Auswahlfragen liefern nur richtig/falsch – daraus werden 4 bzw. 1. */}
           <Button
@@ -505,6 +520,29 @@ function modeLabel(mode: VocabMode): string {
     MATCHING: 'Zuordnen',
   };
   return labels[mode];
+}
+
+/** Was mit einer falsch beantworteten Karte passiert – abhängig vom Stapel. */
+function wrongLabel(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
+  if (queueType === 'DUE') return 'Falsch – bleibt im Wiederholen-Stapel';
+  if (queueType === 'MASTERED') return 'Falsch – wandert zurück in den Wiederholen-Stapel';
+  return 'Falsch – kommt auf den Wiederholen-Stapel';
+}
+
+function emptyTitle(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
+  if (queueType === 'NEW') return 'Keine neuen Vokabeln mehr';
+  if (queueType === 'MASTERED') return 'Noch nichts gemeistert';
+  return 'Nichts zu wiederholen';
+}
+
+function emptyDescription(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
+  if (queueType === 'NEW') {
+    return 'Für dieses Niveau sind gerade keine neuen Vokabeln mehr da – schau in den Wiederholen-Stapel oder später wieder vorbei.';
+  }
+  if (queueType === 'MASTERED') {
+    return 'Noch keine Vokabel ist gemeistert – bleib dran, der Gelernt-Stapel füllt sich mit der Zeit.';
+  }
+  return 'Der Wiederholen-Stapel ist leer. Schau später wieder vorbei oder lerne neue Vokabeln.';
 }
 
 // ------------------------------------------------------------------ Styles
@@ -648,4 +686,32 @@ const choiceText = {
   ...typography.body,
   flex: 1,
   color: colors.text,
+};
+
+/** Schlichte Info-Box statt einer zweiten Karteikarte für den Beispielsatz. */
+const infoBox = {
+  gap: 3,
+  borderRadius: radius.md,
+  borderLeftWidth: 3,
+  borderLeftColor: colors.primary,
+  backgroundColor: colors.surfaceAlt,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.md,
+};
+
+const infoBoxLabel = {
+  ...typography.label,
+  letterSpacing: 1,
+  textTransform: 'uppercase' as const,
+  color: colors.textMuted,
+};
+
+const infoBoxText = {
+  ...typography.body,
+  color: colors.text,
+};
+
+const infoBoxMeta = {
+  ...typography.caption,
+  color: colors.textMuted,
 };

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { AiMessageDto } from '@lingua/shared';
 import { Caption, ErrorState, Loading } from '../../components';
@@ -29,6 +30,7 @@ export default function AiChatScreen({ route }: Props) {
   const { conversationId } = route.params;
   const queryClient = useQueryClient();
   const listRef = useRef<FlatList<ChatItem>>(null);
+  const headerHeight = useHeaderHeight();
 
   const [draft, setDraft] = useState('');
   const [optimistic, setOptimistic] = useState<ChatItem[]>([]);
@@ -90,8 +92,8 @@ export default function AiChatScreen({ route }: Props) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={90}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={headerHeight}
       >
         <FlatList
           ref={listRef}

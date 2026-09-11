@@ -91,6 +91,10 @@ export const vocabularyApi = {
     newLimit?: number;
     /** Wie viele fällige Karten geladen werden – 0 blendet den Wiederholen-Stapel aus. */
     dueLimit?: number;
+    /** Nur Karten, deren letzte Antwort falsch war – Wiederholen-Stapel, unabhängig von `dueAt`. */
+    onlyNeedsRepeat?: boolean;
+    /** Nur Karten, deren letzte Antwort richtig war – Gelernt-Stapel, unabhängig vom Mastery-Intervall. */
+    onlyLearned?: boolean;
     mode?: VocabMode;
   }) => api.get<ReviewCardDto[]>('/vocabulary/review/queue', { params }).then((r) => r.data),
   review: (body: { cardId: string; grade: number; mode: string; durationMs?: number }) =>
