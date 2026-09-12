@@ -44,6 +44,13 @@ export default function AiChatScreen({ route }: Props) {
   const [recognizing, setRecognizing] = useState(false);
   const [interimText, setInterimText] = useState('');
 
+  // Ref statt State, damit der 'result'-Listener (geschlossen über useEffect
+  // beim Mount) den aktuellen Sprechstatus sieht, ohne neu registriert zu werden.
+  const speakingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    speakingIdRef.current = speakingId;
+  }, [speakingId]);
+
   const locale = localeForLanguageCode(languageCode);
 
   const messages = useQuery({
@@ -74,6 +81,10 @@ export default function AiChatScreen({ route }: Props) {
     setInterimText('');
   });
   useSpeechRecognitionEvent('result', (event) => {
+    // Während die KI spricht, hört das Mikrofon ihre eigene Stimme über den
+    // Lautsprecher mit – solche Treffer dürfen nie im Textfeld landen.
+    if (speakingIdRef.current) return;
+
     const transcript = event.results[0]?.transcript ?? '';
     if (event.isFinal) {
       if (transcript.trim()) {
@@ -103,6 +114,11 @@ export default function AiChatScreen({ route }: Props) {
   // statt die laufende Ansage zu unterbrechen.
   async function speak(id: string, content: string): Promise<void> {
     const [body] = splitCorrection(content);
+    // Mikrofon zuerst stoppen, sonst hört es die eigene KI-Stimme aus dem
+    // Lautsprecher mit und das landet im Textfeld des Nutzers.
+    if (recognizing) {
+      ExpoSpeechRecognitionModule.stop();
+    }
     await Speech.stop();
     setSpeakingId(id);
     Speech.speak(body, {
@@ -148,6 +164,8 @@ export default function AiChatScreen({ route }: Props) {
   }
 
   async function startRecording(): Promise<void> {
+    if (speakingId) return; // Solange die KI spricht, bleibt das Mikrofon aus.
+
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
       setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
@@ -209,6 +227,10 @@ export default function AiChatScreen({ route }: Props) {
             <View style={recordingDotStyle} />
             <Caption>{interimText ? `„${interimText}“` : 'Ich höre zu …'}</Caption>
           </View>
+        ) : speakingId ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
+            <Caption>🔊 Die KI spricht – das Mikrofon ist währenddessen aus.</Caption>
+          </View>
         ) : null}
 
         <View style={composerStyle}>
@@ -224,7 +246,12 @@ export default function AiChatScreen({ route }: Props) {
             accessibilityRole="button"
             accessibilityLabel={recognizing ? 'Aufnahme beenden' : 'Sprachaufnahme starten'}
             onPress={recognizing ? stopRecording : startRecording}
-            style={[micButtonStyle, recognizing && { backgroundColor: colors.danger }]}
+            disabled={!recognizing && !!speakingId}
+            style={[
+              micButtonStyle,
+              recognizing && { backgroundColor: colors.danger },
+              !recognizing && speakingId && { opacity: 0.4 },
+            ]}
           >
             <Text style={{ fontSize: 18 }}>{recognizing ? '⏹' : '🎙️'}</Text>
           </Pressable>

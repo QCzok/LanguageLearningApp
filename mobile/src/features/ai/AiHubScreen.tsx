@@ -24,7 +24,7 @@ import type { AiStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AiStackParamList, 'AiHub'>;
 
-const DISCUSSION_TOPICS = [
+const TOPIC_SUGGESTIONS = [
   'Reisen und Urlaub',
   'Arbeit und Karriere',
   'Umwelt und Klima',
@@ -37,7 +37,7 @@ export default function AiHubScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
   const isPremium = useIsPremium();
 
-  const [showStarter, setShowStarter] = useState<null | 'CHAT' | 'DISCUSSION'>(null);
+  const [showStarter, setShowStarter] = useState(false);
   const [topic, setTopic] = useState('');
   const [recentExpanded, setRecentExpanded] = useState(false);
 
@@ -49,15 +49,14 @@ export default function AiHubScreen({ navigation }: Props) {
   });
 
   const start = useMutation({
-    mutationFn: (payload: { mode: 'CHAT' | 'DISCUSSION'; topic?: string }) =>
+    mutationFn: (payload: { topic?: string }) =>
       aiApi.createConversation({
-        mode: payload.mode,
         topic: payload.topic,
-        title: payload.topic ?? (payload.mode === 'DISCUSSION' ? 'Diskussion' : 'Gespräch'),
+        title: payload.topic ?? 'Gespräch',
       }),
     onSuccess: async (conversation) => {
       await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
-      setShowStarter(null);
+      setShowStarter(false);
       setTopic('');
       navigation.navigate('AiChat', {
         conversationId: conversation.id,
@@ -93,37 +92,19 @@ export default function AiHubScreen({ navigation }: Props) {
           </Card>
         ) : null}
 
-        <Title>Womit möchtest du üben?</Title>
+        <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md }}>
+          <Text style={{ fontSize: 48 }}>🤖</Text>
+          <Title>Sprich mit deinem KI-Partner</Title>
+          <Caption>Rede oder schreib einfach drauflos – die KI passt sich deinem Niveau an.</Caption>
+        </View>
 
-        <Card onPress={() => setShowStarter('CHAT')}>
-          <Row gap={spacing.md}>
-            <Text style={{ fontSize: 30 }}>💬</Text>
-            <View style={{ flex: 1 }}>
-              <Heading>Gespräch führen</Heading>
-              <Caption>Locker plaudern – die KI passt sich deinem Niveau an.</Caption>
-            </View>
-          </Row>
-        </Card>
-
-        <Card onPress={() => setShowStarter('DISCUSSION')}>
-          <Row gap={spacing.md}>
-            <Text style={{ fontSize: 30 }}>⚖️</Text>
-            <View style={{ flex: 1 }}>
-              <Heading>Diskutieren</Heading>
-              <Caption>Positionen vertreten und begründen – mit Gegenrede.</Caption>
-            </View>
-          </Row>
-        </Card>
-
-        <Card onPress={() => navigation.navigate('Grammar')}>
-          <Row gap={spacing.md}>
-            <Text style={{ fontSize: 30 }}>📐</Text>
-            <View style={{ flex: 1 }}>
-              <Heading>Grammatik & Vokabeln erklären</Heading>
-              <Caption>Stelle jede Frage zu Regeln, Wörtern oder Fehlern.</Caption>
-            </View>
-          </Row>
-        </Card>
+        <Button
+          label="Gespräch starten"
+          variant="premium"
+          loading={start.isPending && !showStarter}
+          onPress={() => start.mutate({})}
+        />
+        <Button label="Eigenes Thema wählen" variant="ghost" onPress={() => setShowStarter(true)} />
 
         <Card onPress={() => navigation.navigate('Recommendations')}>
           <Row gap={spacing.md}>
@@ -160,9 +141,7 @@ export default function AiHubScreen({ navigation }: Props) {
                     }
                   >
                     <Row gap={spacing.sm}>
-                      <Text style={{ fontSize: 20 }}>
-                        {conversation.mode === 'DISCUSSION' ? '⚖️' : '💬'}
-                      </Text>
+                      <Text style={{ fontSize: 20 }}>💬</Text>
                       <View style={{ flex: 1 }}>
                         <Body>{conversation.title}</Body>
                         <Caption>
@@ -179,18 +158,18 @@ export default function AiHubScreen({ navigation }: Props) {
       </Screen>
 
       <Modal
-        visible={showStarter !== null}
+        visible={showStarter}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowStarter(null)}
+        onRequestClose={() => setShowStarter(false)}
       >
         <View style={sheetBackdrop}>
           <SafeAreaView edges={['bottom']} style={sheetStyle}>
-            <Title>{showStarter === 'DISCUSSION' ? 'Diskussion starten' : 'Gespräch starten'}</Title>
+            <Title>Gespräch starten</Title>
             <Caption>Wähle ein Thema oder lass die KI eins vorschlagen.</Caption>
 
             <Row gap={spacing.sm} style={{ flexWrap: 'wrap' }}>
-              {DISCUSSION_TOPICS.map((entry) => (
+              {TOPIC_SUGGESTIONS.map((entry) => (
                 <Button
                   key={entry}
                   label={entry}
@@ -212,11 +191,9 @@ export default function AiHubScreen({ navigation }: Props) {
               label="Starten"
               variant="premium"
               loading={start.isPending}
-              onPress={() =>
-                start.mutate({ mode: showStarter ?? 'CHAT', topic: topic.trim() || undefined })
-              }
+              onPress={() => start.mutate({ topic: topic.trim() || undefined })}
             />
-            <Button label="Abbrechen" variant="ghost" onPress={() => setShowStarter(null)} />
+            <Button label="Abbrechen" variant="ghost" onPress={() => setShowStarter(false)} />
           </SafeAreaView>
         </View>
       </Modal>
@@ -238,9 +215,8 @@ function PremiumTeaser({ quota }: { quota?: { used: number; limit: number } }) {
       </View>
 
       {[
-        { icon: '💬', title: 'Gespräche und Diskussionen', text: 'Frei sprechen auf deinem Niveau, mit Korrekturen.' },
+        { icon: '🎙️', title: 'Sprechen oder schreiben', text: 'Rede frei oder tippe – ganz wie du magst.' },
         { icon: '📝', title: 'Korrektur im Lernheft', text: 'Deine geschriebenen Texte werden geprüft und erklärt.' },
-        { icon: '📐', title: 'Grammatik erklärt', text: 'Antworten auf jede Regel- und Vokabelfrage.' },
         { icon: '🎯', title: 'Persönliche Empfehlungen', text: 'Vorschläge aus deinem echten Lernstand.' },
       ].map((feature) => (
         <Card key={feature.title}>

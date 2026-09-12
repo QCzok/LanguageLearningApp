@@ -31,7 +31,6 @@ import MediaListScreen from '../features/media/MediaListScreen';
 import PlayerScreen from '../features/media/PlayerScreen';
 import AiHubScreen from '../features/ai/AiHubScreen';
 import AiChatScreen from '../features/ai/AiChatScreen';
-import GrammarScreen from '../features/ai/GrammarScreen';
 import RecommendationsScreen from '../features/ai/RecommendationsScreen';
 import ProfileScreen from '../features/profile/ProfileScreen';
 
@@ -210,7 +209,6 @@ function AiNavigator() {
         component={AiChatScreen}
         options={({ route }) => ({ title: route.params.title })}
       />
-      <AiStack.Screen name="Grammar" component={GrammarScreen} options={{ title: t('aiGrammar') }} />
       <AiStack.Screen
         name="Recommendations"
         component={RecommendationsScreen}

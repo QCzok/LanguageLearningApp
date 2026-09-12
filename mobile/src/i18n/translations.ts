@@ -33,7 +33,6 @@ const de = {
   mediaList: 'Mediathek',
 
   aiHub: 'KI-Assistent',
-  aiGrammar: 'Erklären',
   aiRecommendations: 'Empfehlungen',
 } as const;
 
@@ -64,7 +63,6 @@ const en: Record<keyof typeof de, string> = {
   mediaList: 'Media library',
 
   aiHub: 'AI Assistant',
-  aiGrammar: 'Explain',
   aiRecommendations: 'Recommendations',
 };
 
@@ -95,7 +93,6 @@ const es: Record<keyof typeof de, string> = {
   mediaList: 'Mediateca',
 
   aiHub: 'Asistente de IA',
-  aiGrammar: 'Explicar',
   aiRecommendations: 'Recomendaciones',
 };
 
@@ -126,7 +123,6 @@ const fr: Record<keyof typeof de, string> = {
   mediaList: 'Médiathèque',
 
   aiHub: 'Assistant IA',
-  aiGrammar: 'Expliquer',
   aiRecommendations: 'Recommandations',
 };
 
@@ -157,7 +153,6 @@ const it: Record<keyof typeof de, string> = {
   mediaList: 'Mediateca',
 
   aiHub: 'Assistente IA',
-  aiGrammar: 'Spiega',
   aiRecommendations: 'Consigli',
 };
 

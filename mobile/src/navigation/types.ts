@@ -57,7 +57,6 @@ export type MediaStackParamList = {
 export type AiStackParamList = {
   AiHub: undefined;
   AiChat: { conversationId: string; title: string; languageCode?: string };
-  Grammar: undefined;
   Recommendations: undefined;
 };
 

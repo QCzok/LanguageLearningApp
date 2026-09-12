@@ -8,7 +8,6 @@ import type {
   CefrLevel,
   DashboardDto,
   ExerciseResultDto,
-  GrammarExplanationDto,
   LanguageDto,
   LearningProfileDto,
   LibraryContentDto,
@@ -177,8 +176,6 @@ export const aiApi = {
     api.get<AiMessageDto[]>(`/ai/conversations/${id}/messages`).then((r) => r.data),
   send: (id: string, content: string) =>
     api.post<AiMessageDto>(`/ai/conversations/${id}/messages`, { content }).then((r) => r.data),
-  grammar: (question: string) =>
-    api.post<GrammarExplanationDto>('/ai/grammar', { question }).then((r) => r.data),
   recommendations: () => api.get<RecommendationDto>('/ai/recommendations').then((r) => r.data),
   generateVocabDeck: (topic: string) =>
     api.post<VocabDeckDto>('/ai/vocab-decks', { topic }).then((r) => r.data),
