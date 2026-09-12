@@ -21,13 +21,20 @@ import type {
   NotebookAnalysisDto,
   NotebookPageContent,
   RecommendationDto,
+  VocabDeckDto,
 } from '@lingua/shared';
 import { aiConfig } from '../../config/configuration';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
 import { AI_CLIENT, AiClient, TokenUsage } from './ai-client.interface';
-import { correctionSchema, grammarSchema, recommendationSchema } from './ai.schemas';
+import {
+  correctionSchema,
+  grammarSchema,
+  recommendationSchema,
+  vocabDeckGenerationSchema,
+  VOCAB_DECK_GENERATION_COUNT,
+} from './ai.schemas';
 import {
   chatInstructions,
   CORRECTION_INSTRUCTIONS,
@@ -35,8 +42,14 @@ import {
   learnerContext,
   RECOMMENDATION_INSTRUCTIONS,
   TUTOR_SYSTEM_PREFIX,
+  vocabDeckInstructions,
 } from './prompts';
-import { CreateConversationDto, GrammarQuestionDto, SendMessageDto } from './dto/ai.dto';
+import {
+  CreateConversationDto,
+  GenerateVocabDeckDto,
+  GrammarQuestionDto,
+  SendMessageDto,
+} from './dto/ai.dto';
 
 /** So viele frühere Nachrichten gehen als Kontext mit in den Chat. */
 const CHAT_HISTORY_LIMIT = 20;
@@ -419,6 +432,78 @@ export class AiService {
 
     await this.recordUsage(userId, AiFeature.RECOMMENDATIONS, usage);
     return parsed;
+  }
+
+  // ---------------------------------------------- Vokabelstapel generieren (Premium)
+
+  /**
+   * Legt einen eigenes Deck mit `VOCAB_DECK_GENERATION_COUNT` KI-generierten
+   * Vokabeln zu einem frei gewählten Thema an. Das Deck gehört danach dem
+   * Nutzer (wie ein manuell angelegtes Deck über `VocabularyService.createDeck`)
+   * und bleibt ihm erhalten – es zählt nicht als Systemdeck.
+   */
+  async generateVocabDeck(userId: string, dto: GenerateVocabDeckDto): Promise<VocabDeckDto> {
+    await this.assertQuota(userId);
+
+    const [user, profile] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { nativeLanguage: true },
+      }),
+      this.users.getActiveProfileOrThrow(userId),
+    ]);
+
+    const topic = dto.topic.trim();
+
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: vocabDeckGenerationSchema,
+      systemPrefix: TUTOR_SYSTEM_PREFIX,
+      systemSuffix: `${learnerContext({
+        targetLanguage: profile.language.nativeName,
+        nativeLanguage: user.nativeLanguage,
+        level: profile.level as CefrLevel,
+      })}\n\n${vocabDeckInstructions(topic, VOCAB_DECK_GENERATION_COUNT)}`,
+      userContent: topic,
+      effort: 'medium',
+    });
+
+    const deck = await this.prisma.vocabDeck.create({
+      data: {
+        languageId: profile.languageId,
+        level: profile.level,
+        title: topic,
+        description: `KI-generiert · ${VOCAB_DECK_GENERATION_COUNT} Vokabeln zum Thema „${topic}“`,
+        iconEmoji: '✨',
+        isSystem: false,
+        ownerId: userId,
+        items: {
+          create: parsed.items.map((item, index) => ({
+            term: item.term,
+            translation: item.translation,
+            phonetic: item.phonetic,
+            partOfSpeech: item.partOfSpeech,
+            exampleSentence: item.exampleSentence,
+            exampleTranslation: item.exampleTranslation,
+            tags: [],
+            sortOrder: index,
+          })),
+        },
+      },
+      include: { language: true, _count: { select: { items: true } } },
+    });
+
+    await this.recordUsage(userId, AiFeature.VOCAB_GENERATION, usage);
+    await this.users.trackActivity(userId, { xp: 10 });
+
+    return {
+      id: deck.id,
+      title: deck.title,
+      description: deck.description,
+      level: deck.level,
+      language: toLanguageDto(deck.language),
+      itemCount: deck._count.items,
+      isSystem: false,
+    };
   }
 
   // ---------------------------------------------------------------- Helfer

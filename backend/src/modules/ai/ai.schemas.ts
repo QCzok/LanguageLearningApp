@@ -38,6 +38,31 @@ export const grammarSchema = z.object({
 });
 export type GrammarResult = z.infer<typeof grammarSchema>;
 
+/** Feste Größe eines KI-generierten Vokabelstapels (siehe Aufgabenstellung: 30 Vokabeln pro Thema). */
+export const VOCAB_DECK_GENERATION_COUNT = 30;
+
+export const vocabDeckGenerationSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        term: z.string().describe('Wort oder Wendung in der Zielsprache'),
+        translation: z.string().describe('Übersetzung in die Muttersprache des Lernenden'),
+        phonetic: z
+          .string()
+          .nullable()
+          .describe('Aussprachehilfe, nur falls sinnvoll (z. B. unregelmäßige Aussprache), sonst null'),
+        partOfSpeech: z
+          .string()
+          .nullable()
+          .describe('Wortart, kurz (z. B. "Nomen", "Verb"), sonst null'),
+        exampleSentence: z.string().describe('Kurzer Beispielsatz in der Zielsprache mit dem Wort'),
+        exampleTranslation: z.string().describe('Übersetzung des Beispielsatzes'),
+      }),
+    )
+    .length(VOCAB_DECK_GENERATION_COUNT),
+});
+export type VocabDeckGenerationResult = z.infer<typeof vocabDeckGenerationSchema>;
+
 export const recommendationSchema = z.object({
   summary: z.string(),
   focusAreas: z.array(z.string()),

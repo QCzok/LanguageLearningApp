@@ -15,7 +15,12 @@ import type { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPremium } from '../../common/decorators/premium.decorator';
 import { AiService } from './ai.service';
-import { CreateConversationDto, GrammarQuestionDto, SendMessageDto } from './dto/ai.dto';
+import {
+  CreateConversationDto,
+  GenerateVocabDeckDto,
+  GrammarQuestionDto,
+  SendMessageDto,
+} from './dto/ai.dto';
 
 @ApiTags('ai')
 @Controller('ai')
@@ -118,5 +123,13 @@ export class AiController {
   @ApiOperation({ summary: 'Premium: personalisierte Lernempfehlungen' })
   recommendations(@CurrentUser('id') userId: string) {
     return this.ai.getRecommendations(userId);
+  }
+
+  @RequiresPremium()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Post('vocab-decks')
+  @ApiOperation({ summary: 'Premium: eigenes Vokabeldeck mit 30 Vokabeln zu einem Thema generieren' })
+  generateVocabDeck(@CurrentUser('id') userId: string, @Body() dto: GenerateVocabDeckDto) {
+    return this.ai.generateVocabDeck(userId, dto);
   }
 }

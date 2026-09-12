@@ -160,13 +160,18 @@ export class VocabularyService {
     const limit = query.limit ?? 20;
     const now = new Date();
 
+    // Eine Sitzung ohne `deckId` gilt für ein ganzes Niveau – dort zählen nur
+    // Systemdecks. Eigene Decks (KI-generiert oder manuell) haben ihren
+    // eigenen Platz in der App und werden ausschließlich über ihre `deckId`
+    // gelernt, sonst würden ihre Karten unsichtbar in der Niveau-Summe
+    // aufgehen statt als eigener Stapel zu erscheinen (siehe DeckListScreen).
     const deckFilter: Prisma.VocabItemWhereInput = query.deckId
       ? { deckId: query.deckId }
       : {
           deck: {
             languageId: profile.languageId,
             ...(query.level ? { level: query.level } : {}),
-            OR: [{ isSystem: true }, { ownerId: userId }],
+            isSystem: true,
           },
         };
 

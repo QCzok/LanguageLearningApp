@@ -180,6 +180,8 @@ export const aiApi = {
   grammar: (question: string) =>
     api.post<GrammarExplanationDto>('/ai/grammar', { question }).then((r) => r.data),
   recommendations: () => api.get<RecommendationDto>('/ai/recommendations').then((r) => r.data),
+  generateVocabDeck: (topic: string) =>
+    api.post<VocabDeckDto>('/ai/vocab-decks', { topic }).then((r) => r.data),
 };
 
 export const progressApi = {

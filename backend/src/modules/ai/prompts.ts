@@ -78,6 +78,18 @@ export const GRAMMAR_INSTRUCTIONS = `Erkläre das angefragte Grammatikthema für
 - commonMistakes: typische Fehler von Lernenden mit dieser Muttersprache.
 - relatedTopics: 2–4 sinnvolle Anschlussthemen.`;
 
+export function vocabDeckInstructions(topic: string, count: number): string {
+  return [
+    `Erstelle einen Vokabelstapel mit genau ${count} Vokabeln zum Thema "${topic}".`,
+    'Wähle Wörter und Wendungen, die zu diesem Thema und zum angegebenen Niveau passen – solche, die',
+    'ein Lernender in diesem Zusammenhang tatsächlich braucht. Keine Dopplungen und keine Vokabeln,',
+    'die inhaltlich nichts mit dem Thema zu tun haben.',
+    'exampleSentence nutzt das Wort in einem für das Thema typischen Kontext, in der Zielsprache;',
+    'exampleTranslation ist dessen Übersetzung.',
+    'phonetic nur bei sinnvoller Aussprachehilfe angeben, sonst null. partOfSpeech kurz angeben, sonst null.',
+  ].join(' ');
+}
+
 export const RECOMMENDATION_INSTRUCTIONS = `Erstelle aus den Lernstatistiken eine persönliche Empfehlung.
 
 - focusAreas: 2–4 Bereiche, an denen der Lernende als Nächstes arbeiten sollte.

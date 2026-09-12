@@ -34,3 +34,10 @@ export class GrammarQuestionDto {
   @Length(3, 500)
   question!: string;
 }
+
+export class GenerateVocabDeckDto {
+  @ApiProperty({ example: 'Kochen', description: 'Thema, zu dem 30 Vokabeln generiert werden' })
+  @IsString()
+  @Length(2, 80)
+  topic!: string;
+}
