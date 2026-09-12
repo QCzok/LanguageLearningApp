@@ -307,6 +307,10 @@ export interface AiMessageDto {
   createdAt: string;
 }
 
+export interface TranscriptionResultDto {
+  text: string;
+}
+
 export interface GrammarExplanationDto {
   topic: string;
   explanation: string;

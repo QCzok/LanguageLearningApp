@@ -39,6 +39,7 @@ export default function AiHubScreen({ navigation }: Props) {
 
   const [showStarter, setShowStarter] = useState<null | 'CHAT' | 'DISCUSSION'>(null);
   const [topic, setTopic] = useState('');
+  const [recentExpanded, setRecentExpanded] = useState(false);
 
   const quota = useQuery({ queryKey: ['ai-quota'], queryFn: aiApi.quota });
   const conversations = useQuery({
@@ -61,6 +62,7 @@ export default function AiHubScreen({ navigation }: Props) {
       navigation.navigate('AiChat', {
         conversationId: conversation.id,
         title: conversation.title,
+        languageCode: conversation.language.code,
       });
     },
   });
@@ -135,31 +137,43 @@ export default function AiHubScreen({ navigation }: Props) {
 
         {conversations.data && conversations.data.length > 0 ? (
           <>
-            <Heading>Zuletzt</Heading>
-            {conversations.data.map((conversation) => (
-              <Card
-                key={conversation.id}
-                onPress={() =>
-                  navigation.navigate('AiChat', {
-                    conversationId: conversation.id,
-                    title: conversation.title,
-                  })
-                }
-              >
-                <Row gap={spacing.sm}>
-                  <Text style={{ fontSize: 20 }}>
-                    {conversation.mode === 'DISCUSSION' ? '⚖️' : '💬'}
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Body>{conversation.title}</Body>
-                    <Caption>
-                      {conversation.messageCount} Nachrichten ·{' '}
-                      {new Date(conversation.updatedAt).toLocaleDateString('de-DE')}
-                    </Caption>
-                  </View>
-                </Row>
-              </Card>
-            ))}
+            <Card onPress={() => setRecentExpanded((value) => !value)}>
+              <Row gap={spacing.sm}>
+                <Heading>Zuletzt</Heading>
+                <View style={{ flex: 1 }} />
+                <Caption>{conversations.data.length}</Caption>
+                <Text style={{ fontSize: 16, color: colors.textMuted }}>
+                  {recentExpanded ? '▾' : '▸'}
+                </Text>
+              </Row>
+            </Card>
+            {recentExpanded
+              ? conversations.data.map((conversation) => (
+                  <Card
+                    key={conversation.id}
+                    onPress={() =>
+                      navigation.navigate('AiChat', {
+                        conversationId: conversation.id,
+                        title: conversation.title,
+                        languageCode: conversation.language.code,
+                      })
+                    }
+                  >
+                    <Row gap={spacing.sm}>
+                      <Text style={{ fontSize: 20 }}>
+                        {conversation.mode === 'DISCUSSION' ? '⚖️' : '💬'}
+                      </Text>
+                      <View style={{ flex: 1 }}>
+                        <Body>{conversation.title}</Body>
+                        <Caption>
+                          {conversation.messageCount} Nachrichten ·{' '}
+                          {new Date(conversation.updatedAt).toLocaleDateString('de-DE')}
+                        </Caption>
+                      </View>
+                    </Row>
+                  </Card>
+                ))
+              : null}
           </>
         ) : null}
       </Screen>

@@ -36,4 +36,10 @@ export const aiConfig = registerAs('ai', () => ({
    * bleibt "api" für den echten API-Key-Pfad.
    */
   provider: (process.env.AI_PROVIDER ?? 'api') as 'api' | 'subscription',
+  /**
+   * Für die Sprachaufnahme im Chat (Alternative zum Tippen). Läuft separat
+   * über die OpenAI-Whisper-API, da Anthropic keine Audio-Transkription anbietet.
+   */
+  transcriptionApiKey: process.env.OPENAI_API_KEY ?? '',
+  transcriptionModel: process.env.OPENAI_TRANSCRIBE_MODEL ?? 'whisper-1',
 }));

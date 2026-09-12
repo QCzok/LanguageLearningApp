@@ -8,10 +8,14 @@ import {
   Param,
   Post,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
+import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequiresPremium } from '../../common/decorators/premium.decorator';
 import { AiService } from './ai.service';
@@ -105,6 +109,22 @@ export class AiController {
     } finally {
       res.end();
     }
+  }
+
+  /** Sprachaufnahme in Text umwandeln – Alternative zum Tippen im Chat. */
+  @RequiresPremium()
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  @Post('transcribe')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Premium: Sprachaufnahme in Text umwandeln' })
+  @UseInterceptors(
+    FileInterceptor('audio', {
+      storage: memoryStorage(),
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
+  transcribe(@CurrentUser('id') userId: string, @UploadedFile() file: Express.Multer.File) {
+    return this.ai.transcribeAudio(userId, file);
   }
 
   // ---------------------------------------------------- Weitere Funktionen

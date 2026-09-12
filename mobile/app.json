@@ -2,6 +2,7 @@
   "expo": {
     "name": "Lingua",
     "slug": "lingua",
+    "owner": "languageappexpo",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "lingua",
@@ -11,13 +12,20 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.lingua.mobile"
+      "bundleIdentifier": "app.lingua.mobile",
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Lingua benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
+        "NSMicrophoneUsageDescription": "Lingua benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst."
+      }
     },
     "android": {
       "package": "app.lingua.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#73030D"
-      }
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -26,15 +34,29 @@
       "expo-secure-store",
       "expo-font",
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Lingua benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst.",
+          "speechRecognitionPermission": "Lingua benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
         "expo-splash-screen",
         {
+          "image": "./assets/splash-logo.png",
           "backgroundColor": "#73030D",
           "imageResizeMode": "contain"
         }
       ]
     ],
     "extra": {
-      "apiUrl": "http://localhost:3000/api/v1"
+      "apiUrl": "http://192.168.54.115:3000/api/v1",
+      "eas": {
+        "projectId": "4f675313-77f3-4c10-8990-8d5b739addd8"
+      }
     }
   }
 }

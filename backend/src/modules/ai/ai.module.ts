@@ -6,6 +6,7 @@ import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AnthropicClient } from './anthropic.client';
 import { ClaudeCliClient } from './claude-cli.client';
+import { WhisperClient } from './whisper.client';
 import { AI_CLIENT } from './ai-client.interface';
 
 @Module({
@@ -15,6 +16,7 @@ import { AI_CLIENT } from './ai-client.interface';
     AiService,
     AnthropicClient,
     ClaudeCliClient,
+    WhisperClient,
     {
       provide: AI_CLIENT,
       // `AI_PROVIDER=subscription` schaltet auf die claude-CLI (Claude-Abo)

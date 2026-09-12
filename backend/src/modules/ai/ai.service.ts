@@ -28,6 +28,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
 import { AI_CLIENT, AiClient, TokenUsage } from './ai-client.interface';
+import { WhisperClient } from './whisper.client';
 import {
   correctionSchema,
   grammarSchema,
@@ -63,6 +64,7 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(AI_CLIENT) private readonly aiClient: AiClient,
+    private readonly whisper: WhisperClient,
     private readonly users: UsersService,
     @Inject(aiConfig.KEY) private readonly config: ConfigType<typeof aiConfig>,
   ) {}
@@ -110,12 +112,17 @@ export class AiService {
     }
   }
 
-  private async recordUsage(userId: string, feature: AiFeature, usage: TokenUsage): Promise<void> {
+  private async recordUsage(
+    userId: string,
+    feature: AiFeature,
+    usage: TokenUsage,
+    model: string = this.aiClient.model,
+  ): Promise<void> {
     await this.prisma.aiUsage.create({
       data: {
         userId,
         feature,
-        model: this.aiClient.model,
+        model,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
         cachedTokens: usage.cachedTokens,
@@ -311,6 +318,32 @@ export class AiService {
       await this.users.trackActivity(userId, { xp: 5, minutes: 1 });
       yield { type: 'done', message: reply };
     }
+  }
+
+  /**
+   * Wandelt eine Sprachaufnahme in Text um – Alternative zum Tippen im Chat.
+   * Zählt wie die anderen KI-Funktionen gegen das monatliche Kontingent.
+   */
+  async transcribeAudio(userId: string, file?: Express.Multer.File): Promise<{ text: string }> {
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Keine Audiodatei erhalten.');
+    }
+    await this.assertQuota(userId);
+
+    const text = await this.whisper.transcribe(
+      file.buffer,
+      file.originalname || 'recording.m4a',
+      file.mimetype || 'audio/m4a',
+    );
+
+    await this.recordUsage(
+      userId,
+      AiFeature.VOICE_TRANSCRIPTION,
+      { inputTokens: 0, outputTokens: 0, cachedTokens: 0 },
+      this.whisper.model,
+    );
+
+    return { text };
   }
 
   // ------------------------------------------------ Grammatik & Empfehlungen
