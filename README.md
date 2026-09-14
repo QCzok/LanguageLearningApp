@@ -93,23 +93,29 @@ Auswahl, Eintippen, Hören, Zuordnen) und ein SM-2-Wiederholungssystem. Die
 Intervallberechnung läuft serverseitig, die App schickt nur die Bewertung.
 Statistik mit Statusverteilung, Trefferquote und 7-Tage-Verlauf.
 
-**Digitales Lernheft** – Ein interaktives Lehrwerk nach dem Muster Kursbuch /
-Arbeitsbuch. Sechs Kapitel je Niveau von A1 bis C2; jedes Kapitel führt im
-Kursbuchteil neue Inhalte ein (Dialoge, Wortschatz, Grammatikkästen) und übt sie
-im Arbeitsbuchteil nach.
+**Digitales Lehrwerk** – Vier Bücher in einem Regal: **Beginner**,
+**Intermediate** und **Advanced** mit je zwölf Kapiteln entlang des Könnens,
+dazu ein **Grammatikbuch** mit zwölf Kapiteln quer dazu, eines je Thema. Die
+GER-Stufen stecken weiter in den Daten – je zwei bilden ein Buch –, ordnen aber
+nicht mehr die Navigation: Man nimmt ein Buch und schlägt es auf, das Buch weiß
+selbst, auf welcher Seite es weitergeht.
 
-Eine Lerneinheit wird als **Buchseite** dargestellt, nicht als Bildschirmliste:
-Papierfläche mit Rand und Schatten, farbiges Griffregister am Seitenrand,
-Kolumnentitel mit Niveau, Kapitel und Buchteil, Seitenzahl in der Fußzeile,
-Serifenschrift im Fließtext, nummerierte Aufgaben und Lücken als Schreiblinien.
-Die Seite ist in Buch-Einheiten aufgebaut und wird als Ganzes skaliert – beim
-Zoomen fließt der Text nicht um, die Seite bleibt Seite.
+Auf einer Seite folgt die **Übung direkt auf die Erklärung**, zu der sie gehört:
+erst der Kasten zu „du oder Sie?", zwei Zeilen weiter die Frage, wie man die
+Chefin anspricht. Eine Trennung in Kursbuch und Arbeitsbuch gibt es nicht mehr –
+sie zwang dazu, für jede Aufgabe in einen anderen Teil zurückzublättern.
 
-Darüber liegt die **Werkzeugleiste** mit zwei Modi. „Bearbeiten" lässt Tipp- und
-Auswahlfelder durch, sodass Aufgaben ausgefüllt werden. Stift, Marker, Textfeld
-oder Radierer legen eine Zeichenebene über die Seite – mit Farb- und
-Größenauswahl, Rückgängig und Zoom von 100 % bis 250 %. Notizen werden pro
-Lerneinheit gespeichert. Daneben bleiben freie Notizhefte erhalten.
+Eine Seite wird als **Buchseite** dargestellt, nicht als Bildschirmliste:
+Papierfläche mit Rand und Schatten, Kolumnentitel mit Buch, Kapitel und Niveau,
+Seitenzahl und Blätterpfeile in der Fußzeile, Serifenschrift im Fließtext,
+nummerierte Aufgaben und Lücken als Schreiblinien. Die Seite fließt in der
+Breite des Geräts und ist in echten Gerätepunkten gesetzt – kein Zoom, kein
+seitliches Schieben.
+
+Darüber liegt die **Werkzeugleiste**. Ohne Werkzeug in der Hand lässt sie Tipp-
+und Auswahlfelder durch, sodass Aufgaben ausgefüllt werden; Stift, Marker oder
+Radierer legen eine Zeichenebene exakt über die Seite. Notizen werden pro Seite
+gespeichert. Daneben bleiben freie Notizhefte erhalten.
 
 Die Aufgaben sind blockbasiert und einzeln prüfbar: Lückentext mit Wortkasten,
 Einfach- und Mehrfachauswahl, Zuordnung, Reihenfolge und freie Schreibaufgaben.
@@ -195,16 +201,16 @@ Weitere Dokumente:
 ## Stand
 
 Fertig und geprüft: Datenmodell, alle Backend-Module, die komplette App, 40
-automatisierte Tests (SM-2-Algorithmus, Aufgabenauswertung des Arbeitsbuchs und
+automatisierte Tests (SM-2-Algorithmus, Aufgabenauswertung des Lehrwerks und
 HTTP-Boot-Test über den gesamten Modulgraphen), Typprüfung und Produktionsbuild
 beider Seiten.
 
 Gegen eine echte PostgreSQL-Instanz durchgespielt: Migration, Seed, Registrierung
 inklusive Fehlerfällen, Login, Token-Guard, Einstufungstest mit korrekter
 stufenweiser Auswertung, SRS-Bewertung in beide Richtungen, Übungsauswertung,
-Lesefortschritt, Speichern und Zurücklesen einer Lernheft-Seite mit Strichen,
+Lesefortschritt, Speichern und Zurücklesen einer Lehrwerksseite mit Strichen,
 Marker und Text, Premium-Sperre (402) und das Verhalten ohne KI-Schlüssel (503).
-Für das Arbeitsbuch zusätzlich: Auslieferung ohne Lösungslecks, Zwischenprüfung
+Für das Lehrwerk zusätzlich: Auslieferung ohne Lösungslecks, Zwischenprüfung
 einzelner Aufgaben, Abgabe einer ganzen Einheit mit XP-Vergabe nur beim ersten
 Abschluss, stabile Mischung der Reihenfolge-Aufgaben und die Notizebene.
 

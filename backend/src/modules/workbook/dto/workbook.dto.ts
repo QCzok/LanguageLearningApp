@@ -1,25 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CefrLevel } from '@prisma/client';
-import { Transform } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsObject, IsOptional, IsString } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsObject, IsOptional, IsString } from 'class-validator';
 import type { NotebookPageContent, UnitAnswers } from '@lingua/shared';
 
-export class ListChaptersQueryDto {
+export class ListBooksQueryDto {
   @ApiPropertyOptional({ description: 'Standard: Sprache des aktiven Lernprofils' })
   @IsOptional()
   @IsString()
   languageId?: string;
-
-  @ApiPropertyOptional({ enum: CefrLevel })
-  @IsOptional()
-  @IsEnum(CefrLevel)
-  level?: CefrLevel;
-
-  @ApiPropertyOptional({ description: 'Auch unveroeffentlichte Kapitel anzeigen' })
-  @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  includeUnpublished?: boolean;
 }
 
 export class SaveAnswersDto {

@@ -1,20 +1,24 @@
-import { UnitSection } from '@prisma/client';
 import type { UnitContent } from '@lingua/shared';
 
 /**
- * A1, Kapitel 1: „Guten Tag!"
+ * Beginner, Kapitel 1: „Guten Tag!“
  *
- * Vollständig ausgearbeitetes Musterkapitel. Aufbau wie in einem Lehrwerk:
- * vier Kursbucheinheiten führen neue Inhalte ein, fünf Arbeitsbucheinheiten
- * üben genau diese Inhalte nach.
+ * Vollständig ausgearbeitetes Musterkapitel, fünf Seiten lang.
  *
- * Die Einheiten sind einsprachig deutsch gehalten – bei A1 üblich, weil die
- * Muttersprachen der Lernenden auseinandergehen. Nur die Wortschatzlisten
- * tragen eine englische Übersetzung als Verständnishilfe (Glossarkonvention).
- * Sämtliche Texte sind eigenständig verfasst.
+ * Aufbau jeder Seite: Die Aufgabe steht direkt hinter der Erklärung, zu der
+ * sie gehört. Wer den Kasten zu „du oder Sie?“ gelesen hat, entscheidet zwei
+ * Zeilen weiter, wie man die Chefin anspricht; die Wortschatzliste wird gleich
+ * darunter zugeordnet. Vorher lagen dieselben Inhalte in zwei Heften – vier
+ * Kursbuchseiten mit den Erklärungen, fünf Arbeitsbuchseiten mit den Übungen
+ * dazu –, sodass man für jede Aufgabe zurückblättern musste, um nachzusehen,
+ * worum es überhaupt ging.
+ *
+ * Die Seiten sind einsprachig deutsch gehalten – bei A1 üblich, weil die
+ * Muttersprachen der Lernenden auseinandergehen. Erklärkästen und Fließtext
+ * tragen eine Übersetzung in die vier Oberflächensprachen, die in der App
+ * aufklappbar ist. Sämtliche Texte sind eigenständig verfasst.
  */
 export interface UnitSeed {
-  section: UnitSection;
   order: number;
   title: string;
   subtitle: string;
@@ -24,14 +28,14 @@ export interface UnitSeed {
 
 const v = 1;
 
-export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
-  // ============================================================ KURSBUCH 1
+export const BEGINNER_1_UNITS: UnitSeed[] = [
+  // ====================================================== SEITE 1
+  // Seite 1 – Begrüßung: Wörter, dann die Anrede, dann die Tageszeit.
   {
-    section: UnitSection.KURSBUCH,
     order: 1,
     title: 'Guten Tag!',
     subtitle: 'Begrüßen und verabschieden',
-    estimatedMinutes: 12,
+    estimatedMinutes: 22,
     content: {
       version: v,
       blocks: [
@@ -77,6 +81,46 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           ],
         },
         {
+          id: 'k1-vocab',
+          type: 'VOCAB_LIST',
+          title: 'Wortschatz: Begrüßung und Verabschiedung',
+          items: [
+            { term: 'Guten Morgen', translation: 'good morning', example: 'Guten Morgen, Frau Behrens!' },
+            { term: 'Guten Tag', translation: 'hello / good day', example: 'Guten Tag, Herr Okafor!' },
+            { term: 'Guten Abend', translation: 'good evening' },
+            { term: 'Hallo', translation: 'hi / hello', example: 'Hallo, Jonas!' },
+            { term: 'Auf Wiedersehen', translation: 'goodbye (formal)' },
+            { term: 'Tschüss', translation: 'bye (informal)' },
+            { term: 'Bis später', translation: 'see you later' },
+            { term: 'Wie geht es Ihnen?', translation: 'how are you? (formal)' },
+            { term: 'Wie geht’s?', translation: 'how are you? (informal)' },
+            { term: 'danke', translation: 'thank you' },
+          ],
+        },
+        {
+          id: 'a1-match',
+          type: 'MATCHING',
+          instruction: 'Ordnen Sie zu: Was passt zusammen?',
+          left: [
+            { id: 'l1', text: 'Guten Morgen!' },
+            { id: 'l2', text: 'Wie geht es Ihnen?' },
+            { id: 'l3', text: 'Auf Wiedersehen!' },
+            { id: 'l4', text: 'Wie geht’s?' },
+          ],
+          right: [
+            { id: 'r1', text: 'Guten Morgen!' },
+            { id: 'r2', text: 'Danke, sehr gut. Und Ihnen?' },
+            { id: 'r3', text: 'Auf Wiedersehen!' },
+            { id: 'r4', text: 'Gut, danke. Und dir?' },
+          ],
+          solution: [
+            { leftId: 'l1', rightId: 'r1' },
+            { leftId: 'l2', rightId: 'r2' },
+            { leftId: 'l3', rightId: 'r3' },
+            { leftId: 'l4', rightId: 'r4' },
+          ],
+        },
+        {
           id: 'k1-info-duSie',
           type: 'INFO',
           variant: 'IMPORTANT',
@@ -102,21 +146,24 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           },
         },
         {
-          id: 'k1-vocab',
-          type: 'VOCAB_LIST',
-          title: 'Wortschatz: Begrüßung und Verabschiedung',
-          items: [
-            { term: 'Guten Morgen', translation: 'good morning', example: 'Guten Morgen, Frau Behrens!' },
-            { term: 'Guten Tag', translation: 'hello / good day', example: 'Guten Tag, Herr Okafor!' },
-            { term: 'Guten Abend', translation: 'good evening' },
-            { term: 'Hallo', translation: 'hi / hello', example: 'Hallo, Jonas!' },
-            { term: 'Auf Wiedersehen', translation: 'goodbye (formal)' },
-            { term: 'Tschüss', translation: 'bye (informal)' },
-            { term: 'Bis später', translation: 'see you later' },
-            { term: 'Wie geht es Ihnen?', translation: 'how are you? (formal)' },
-            { term: 'Wie geht’s?', translation: 'how are you? (informal)' },
-            { term: 'danke', translation: 'thank you' },
+          id: 'a1-choice-formell',
+          type: 'CHOICE',
+          instruction: 'Sie sprechen mit Ihrer Chefin. Welche Frage ist richtig?',
+          multiple: false,
+          options: [
+            { id: 'o1', text: 'Wie geht’s dir?' },
+            { id: 'o2', text: 'Wie geht es Ihnen?' },
+            { id: 'o3', text: 'Wie geht es du?' },
           ],
+          solution: ['o2'],
+          explanation:
+            'Zur Chefin sagt man „Sie". Zu „Sie" gehört die Form „Ihnen": Wie geht es Ihnen?',
+          explanationTranslations: {
+            en: 'You say „Sie" to your boss. „Sie" goes with the form „Ihnen": Wie geht es Ihnen?',
+            es: 'A la jefa se le habla de „Sie". A „Sie" le corresponde la forma „Ihnen": Wie geht es Ihnen?',
+            fr: 'On dit « Sie » à sa cheffe. À « Sie » correspond la forme « Ihnen » : Wie geht es Ihnen?',
+            it: 'Alla propria capa si dà del „Sie". A „Sie" corrisponde la forma „Ihnen": Wie geht es Ihnen?',
+          },
         },
         {
           id: 'k1-info-tageszeit',
@@ -141,6 +188,27 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           },
         },
         {
+          id: 'a1-choice-zeit',
+          type: 'CHOICE',
+          instruction: 'Es ist 19 Uhr. Welche Begrüßungen passen? (Mehrfachauswahl)',
+          multiple: true,
+          options: [
+            { id: 'z1', text: 'Guten Abend!' },
+            { id: 'z2', text: 'Guten Morgen!' },
+            { id: 'z3', text: 'Hallo!' },
+            { id: 'z4', text: 'Gute Nacht!' },
+          ],
+          solution: ['z1', 'z3'],
+          explanation:
+            'Ab etwa 18 Uhr sagt man „Guten Abend". „Hallo" geht immer, wenn man sich duzt. „Gute Nacht" sagt man nur beim Schlafengehen.',
+          explanationTranslations: {
+            en: 'From about 6 pm you say „Guten Abend". „Hallo" always works if you’re on du-terms. „Gute Nacht" is only said when going to bed.',
+            es: 'A partir de las 18 h aprox. se dice „Guten Abend". „Hallo" vale siempre si se tutea. „Gute Nacht" solo se dice al irse a dormir.',
+            fr: 'À partir d’environ 18 h, on dit « Guten Abend ». « Hallo » convient toujours si l’on se tutoie. « Gute Nacht » ne se dit qu’au moment d’aller se coucher.',
+            it: 'Da circa le 18 si dice „Guten Abend". „Hallo" va sempre bene se si usa il tu. „Gute Nacht" si dice solo quando si va a dormire.',
+          },
+        },
+        {
           id: 'k1-audio',
           type: 'AUDIO',
           title: 'Hören Sie: Vier Begrüßungen',
@@ -149,17 +217,47 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           transcript:
             'Guten Morgen! – Guten Tag! – Guten Abend! – Hallo!\nSprechen Sie die vier Begrüßungen laut nach. Achten Sie auf die Melodie: Die Stimme geht am Satzende leicht nach unten.',
         },
+        {
+          id: 'a1-order',
+          type: 'ORDERING',
+          instruction: 'Ziehen Sie die Wortkarten in die richtige Reihenfolge.',
+          items: [
+            { id: 'g1', text: 'Guten' },
+            { id: 'g2', text: 'Abend,' },
+            { id: 'g3', text: 'Frau' },
+            { id: 'g4', text: 'Weber!' },
+          ],
+          solution: ['g1', 'g2', 'g3', 'g4'],
+        },
+        {
+          id: 'a1-cloze',
+          type: 'CLOZE',
+          instruction: 'Ergänzen Sie den Dialog. Die Wörter im Kasten helfen.',
+          wordBank: ['Guten', 'geht', 'danke', 'Tschüss'],
+          caseSensitive: false,
+          segments: [
+            { kind: 'TEXT', text: '▸ ' },
+            { kind: 'GAP', gapId: 'g1', solution: ['Guten'], width: 8 },
+            { kind: 'TEXT', text: ' Tag, Frau Weber! Wie ' },
+            { kind: 'GAP', gapId: 'g2', solution: ['geht'], width: 6 },
+            { kind: 'TEXT', text: ' es Ihnen?\n▸ Sehr gut, ' },
+            { kind: 'GAP', gapId: 'g3', solution: ['danke'], width: 7 },
+            { kind: 'TEXT', text: '. Bis morgen!\n▸ ' },
+            { kind: 'GAP', gapId: 'g4', solution: ['Tschüss', 'Tschüs'], width: 9 },
+            { kind: 'TEXT', text: '!' },
+          ],
+        },
       ],
     },
   },
 
-  // ============================================================ KURSBUCH 2
+  // ====================================================== SEITE 2
+  // Seite 2 – erst die Verbendungen üben, dann die W-Frage.
   {
-    section: UnitSection.KURSBUCH,
     order: 2,
     title: 'Ich heiße …',
     subtitle: 'Sich vorstellen, Verben im Präsens',
-    estimatedMinutes: 15,
+    estimatedMinutes: 27,
     content: {
       version: v,
       blocks: [
@@ -193,6 +291,21 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
             { speaker: 'Teilnehmer', text: 'H-A-D-D-A-D.' },
             { speaker: 'Lehrerin', text: 'Danke. Und wer sind Sie?' },
             { speaker: 'Teilnehmerin', text: 'Mein Name ist Elif Yildiz.' },
+          ],
+        },
+        {
+          id: 'k2-vocab',
+          type: 'VOCAB_LIST',
+          title: 'Wortschatz: Sich vorstellen',
+          items: [
+            { term: 'heißen', translation: 'to be called', example: 'Ich heiße Samir.' },
+            { term: 'der Name', translation: 'name', article: 'der', plural: 'die Namen', example: 'Mein Name ist Elif.' },
+            { term: 'Freut mich.', translation: 'nice to meet you' },
+            { term: 'buchstabieren', translation: 'to spell' },
+            { term: 'wer', translation: 'who' },
+            { term: 'wie', translation: 'how' },
+            { term: 'woher', translation: 'where from' },
+            { term: 'wo', translation: 'where' },
           ],
         },
         {
@@ -232,6 +345,25 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           },
         },
         {
+          id: 'a2-cloze-konj',
+          type: 'CLOZE',
+          instruction: 'Ergänzen Sie die richtige Verbform.',
+          caseSensitive: false,
+          segments: [
+            { kind: 'TEXT', text: '1. Ich ' },
+            { kind: 'GAP', gapId: 'v1', solution: ['heiße'], hint: 'heißen', width: 7 },
+            { kind: 'TEXT', text: ' Mira.\n2. Wie ' },
+            { kind: 'GAP', gapId: 'v2', solution: ['heißen'], hint: 'heißen', width: 7 },
+            { kind: 'TEXT', text: ' Sie?\n3. Er ' },
+            { kind: 'GAP', gapId: 'v3', solution: ['kommt'], hint: 'kommen', width: 7 },
+            { kind: 'TEXT', text: ' aus Polen.\n4. Wir ' },
+            { kind: 'GAP', gapId: 'v4', solution: ['sind'], hint: 'sein', width: 6 },
+            { kind: 'TEXT', text: ' im Kurs.\n5. Du ' },
+            { kind: 'GAP', gapId: 'v5', solution: ['bist'], hint: 'sein', width: 6 },
+            { kind: 'TEXT', text: ' aus Brasilien.' },
+          ],
+        },
+        {
           id: 'k2-grammar-wfragen',
           type: 'INFO',
           variant: 'GRAMMAR',
@@ -266,31 +398,84 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           },
         },
         {
-          id: 'k2-vocab',
-          type: 'VOCAB_LIST',
-          title: 'Wortschatz: Sich vorstellen',
-          items: [
-            { term: 'heißen', translation: 'to be called', example: 'Ich heiße Samir.' },
-            { term: 'der Name', translation: 'name', article: 'der', plural: 'die Namen', example: 'Mein Name ist Elif.' },
-            { term: 'Freut mich.', translation: 'nice to meet you' },
-            { term: 'buchstabieren', translation: 'to spell' },
-            { term: 'wer', translation: 'who' },
-            { term: 'wie', translation: 'how' },
-            { term: 'woher', translation: 'where from' },
-            { term: 'wo', translation: 'where' },
+          id: 'a2-match-wfragen',
+          type: 'MATCHING',
+          instruction: 'Verbinden Sie Fragewort und Bedeutung.',
+          left: [
+            { id: 'wf1', text: 'Wer' },
+            { id: 'wf2', text: 'Wie' },
+            { id: 'wf3', text: 'Woher' },
+            { id: 'wf4', text: 'Wo' },
           ],
+          right: [
+            { id: 'wb1', text: 'fragt nach einer Person' },
+            { id: 'wb2', text: 'fragt nach der Art oder dem Namen' },
+            { id: 'wb3', text: 'fragt nach der Herkunft' },
+            { id: 'wb4', text: 'fragt nach dem Ort' },
+          ],
+          solution: [
+            { leftId: 'wf1', rightId: 'wb1' },
+            { leftId: 'wf2', rightId: 'wb2' },
+            { leftId: 'wf3', rightId: 'wb3' },
+            { leftId: 'wf4', rightId: 'wb4' },
+          ],
+        },
+        {
+          id: 'a2-choice-wfrage',
+          type: 'CHOICE',
+          instruction: 'Welches Fragewort passt? „___ ist das?" – „Das ist Herr Okafor."',
+          multiple: false,
+          options: [
+            { id: 'f1', text: 'Wie' },
+            { id: 'f2', text: 'Wo' },
+            { id: 'f3', text: 'Wer' },
+            { id: 'f4', text: 'Woher' },
+          ],
+          solution: ['f3'],
+          explanation: 'Nach einer Person fragt man mit „wer". „wie" fragt nach der Art, „wo" nach dem Ort, „woher" nach der Herkunft.',
+          explanationTranslations: {
+            en: 'You ask about a person with „wer". „wie" asks about how something is, „wo" about the place, „woher" about origin.',
+            es: 'Por una persona se pregunta con „wer". „wie" pregunta por el modo, „wo" por el lugar, „woher" por el origen.',
+            fr: 'On demande une personne avec « wer ». « wie » interroge sur la manière, « wo » sur le lieu, « woher » sur l’origine.',
+            it: 'Per una persona si chiede con „wer". „wie" chiede il modo, „wo" il luogo, „woher" la provenienza.',
+          },
+        },
+        {
+          id: 'a2-order-1',
+          type: 'ORDERING',
+          instruction: 'Bringen Sie die Wörter in die richtige Reihenfolge.',
+          items: [
+            { id: 'w1', text: 'Wie' },
+            { id: 'w2', text: 'heißen' },
+            { id: 'w3', text: 'Sie' },
+            { id: 'w4', text: '?' },
+          ],
+          solution: ['w1', 'w2', 'w3', 'w4'],
+        },
+        {
+          id: 'a2-order-2',
+          type: 'ORDERING',
+          instruction: 'Bilden Sie einen Satz.',
+          items: [
+            { id: 'x1', text: 'Mein' },
+            { id: 'x2', text: 'Name' },
+            { id: 'x3', text: 'ist' },
+            { id: 'x4', text: 'Elif' },
+            { id: 'x5', text: 'Yildiz.' },
+          ],
+          solution: ['x1', 'x2', 'x3', 'x4', 'x5'],
         },
       ],
     },
   },
 
-  // ============================================================ KURSBUCH 3
+  // ====================================================== SEITE 3
+  // Seite 3 – Präposition, Länder, zum Schluss der Kulturkasten.
   {
-    section: UnitSection.KURSBUCH,
     order: 3,
     title: 'Woher kommen Sie?',
     subtitle: 'Herkunft und Wohnort',
-    estimatedMinutes: 15,
+    estimatedMinutes: 27,
     content: {
       version: v,
       blocks: [
@@ -349,6 +534,23 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           },
         },
         {
+          id: 'a3-cloze-praep',
+          type: 'CLOZE',
+          instruction: 'Ergänzen Sie: aus, in, aus der oder in der.',
+          caseSensitive: false,
+          segments: [
+            { kind: 'TEXT', text: '1. Ich komme ' },
+            { kind: 'GAP', gapId: 'p1', solution: ['aus'], width: 4 },
+            { kind: 'TEXT', text: ' Brasilien.\n2. Elif kommt ' },
+            { kind: 'GAP', gapId: 'p2', solution: ['aus der'], width: 8 },
+            { kind: 'TEXT', text: ' Türkei.\n3. Wir wohnen ' },
+            { kind: 'GAP', gapId: 'p3', solution: ['in'], width: 4 },
+            { kind: 'TEXT', text: ' Leipzig.\n4. Sie arbeitet ' },
+            { kind: 'GAP', gapId: 'p4', solution: ['in der'], width: 7 },
+            { kind: 'TEXT', text: ' Schweiz.' },
+          ],
+        },
+        {
           id: 'k3-vocab',
           type: 'VOCAB_LIST',
           title: 'Wortschatz: Länder und Sprachen',
@@ -364,6 +566,63 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
             { term: 'kommen', translation: 'to come', example: 'Ich komme aus Polen.' },
             { term: 'die Sprache', translation: 'language', article: 'die', plural: 'die Sprachen' },
           ],
+        },
+        {
+          id: 'a3-match-land',
+          type: 'MATCHING',
+          instruction: 'Ordnen Sie Stadt und Land zu.',
+          left: [
+            { id: 'c1', text: 'Wien' },
+            { id: 'c2', text: 'Zürich' },
+            { id: 'c3', text: 'Izmir' },
+            { id: 'c4', text: 'Warschau' },
+          ],
+          right: [
+            { id: 'n1', text: 'Österreich' },
+            { id: 'n2', text: 'die Schweiz' },
+            { id: 'n3', text: 'die Türkei' },
+            { id: 'n4', text: 'Polen' },
+          ],
+          solution: [
+            { leftId: 'c1', rightId: 'n1' },
+            { leftId: 'c2', rightId: 'n2' },
+            { leftId: 'c3', rightId: 'n3' },
+            { leftId: 'c4', rightId: 'n4' },
+          ],
+        },
+        {
+          id: 'a3-choice-artikel',
+          type: 'CHOICE',
+          instruction: 'Welche Länder brauchen einen Artikel? (Mehrfachauswahl)',
+          multiple: true,
+          options: [
+            { id: 'a-1', text: 'Türkei' },
+            { id: 'a-2', text: 'Japan' },
+            { id: 'a-3', text: 'Schweiz' },
+            { id: 'a-4', text: 'Polen' },
+            { id: 'a-5', text: 'Ukraine' },
+          ],
+          solution: ['a-1', 'a-3', 'a-5'],
+          explanation:
+            'Die meisten Länder stehen ohne Artikel. Ausnahmen sind unter anderem die Türkei, die Schweiz, die Ukraine und der Libanon – diese lernt man einzeln mit.',
+          explanationTranslations: {
+            en: 'Most countries have no article. Exceptions include die Türkei, die Schweiz, die Ukraine and der Libanon – these have to be learned individually.',
+            es: 'La mayoría de los países no llevan artículo. Son excepción, entre otros, die Türkei, die Schweiz, die Ukraine y der Libanon – hay que aprenderlos aparte.',
+            fr: 'La plupart des pays n’ont pas d’article. Font exception, entre autres, die Türkei, die Schweiz, die Ukraine et der Libanon – à apprendre à part.',
+            it: 'La maggior parte dei paesi non ha l’articolo. Fanno eccezione, tra gli altri, die Türkei, die Schweiz, die Ukraine e der Libanon – vanno imparati singolarmente.',
+          },
+        },
+        {
+          id: 'a3-order',
+          type: 'ORDERING',
+          instruction: 'Ziehen Sie die Wortkarten in die richtige Reihenfolge.',
+          items: [
+            { id: 's1', text: 'Ich' },
+            { id: 's2', text: 'wohne' },
+            { id: 's3', text: 'in' },
+            { id: 's4', text: 'Leipzig.' },
+          ],
+          solution: ['s1', 's2', 's3', 's4'],
         },
         {
           id: 'k3-info-sprachen',
@@ -394,13 +653,13 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
     },
   },
 
-  // ============================================================ KURSBUCH 4
+  // ====================================================== SEITE 4
+  // Seite 4 – Buchstaben mit Umlauten, danach die Zahlen.
   {
-    section: UnitSection.KURSBUCH,
     order: 4,
     title: 'Alphabet und Zahlen',
     subtitle: 'Buchstabieren und zählen von 0 bis 20',
-    estimatedMinutes: 12,
+    estimatedMinutes: 22,
     content: {
       version: v,
       blocks: [
@@ -459,6 +718,25 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           ],
         },
         {
+          id: 'a4-choice-umlaut',
+          type: 'CHOICE',
+          instruction: 'Wie buchstabiert man „ö"?',
+          multiple: false,
+          options: [
+            { id: 'u1', text: 'O-Umlaut' },
+            { id: 'u2', text: 'O-Strich' },
+            { id: 'u3', text: 'Doppel-O' },
+          ],
+          solution: ['u1'],
+          explanation: 'Ä, Ö und Ü heißen beim Buchstabieren A-Umlaut, O-Umlaut und U-Umlaut. ß heißt Eszett.',
+          explanationTranslations: {
+            en: 'Ä, Ö and Ü are called A-Umlaut, O-Umlaut and U-Umlaut when spelling. ß is called Eszett.',
+            es: 'Al deletrear, Ä, Ö y Ü se llaman A-Umlaut, O-Umlaut y U-Umlaut. ß se llama Eszett.',
+            fr: 'En épelant, Ä, Ö et Ü se disent A-Umlaut, O-Umlaut et U-Umlaut. ß se dit Eszett.',
+            it: 'Nello spelling, Ä, Ö e Ü si chiamano A-Umlaut, O-Umlaut e U-Umlaut. ß si chiama Eszett.',
+          },
+        },
+        {
           id: 'k4-info-zahlen',
           type: 'INFO',
           variant: 'GRAMMAR',
@@ -508,321 +786,6 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           transcript:
             'null, eins, zwei, drei, vier, fünf, sechs, sieben, acht, neun, zehn, elf, zwölf, dreizehn, vierzehn, fünfzehn, sechzehn, siebzehn, achtzehn, neunzehn, zwanzig.\nHören Sie zweimal: erst normal, dann langsam. Sprechen Sie beim zweiten Mal mit.',
         },
-      ],
-    },
-  },
-
-  // ========================================================= ARBEITSBUCH 1
-  {
-    section: UnitSection.ARBEITSBUCH,
-    order: 1,
-    title: 'Übungen: Begrüßen',
-    subtitle: 'Zu Kursbuch 1',
-    estimatedMinutes: 10,
-    content: {
-      version: v,
-      blocks: [
-        { id: 'a1-h1', type: 'HEADING', level: 1, text: 'Begrüßen und verabschieden' },
-        {
-          id: 'a1-match',
-          type: 'MATCHING',
-          instruction: 'Ordnen Sie zu: Was passt zusammen?',
-          left: [
-            { id: 'l1', text: 'Guten Morgen!' },
-            { id: 'l2', text: 'Wie geht es Ihnen?' },
-            { id: 'l3', text: 'Auf Wiedersehen!' },
-            { id: 'l4', text: 'Wie geht’s?' },
-          ],
-          right: [
-            { id: 'r1', text: 'Guten Morgen!' },
-            { id: 'r2', text: 'Danke, sehr gut. Und Ihnen?' },
-            { id: 'r3', text: 'Auf Wiedersehen!' },
-            { id: 'r4', text: 'Gut, danke. Und dir?' },
-          ],
-          solution: [
-            { leftId: 'l1', rightId: 'r1' },
-            { leftId: 'l2', rightId: 'r2' },
-            { leftId: 'l3', rightId: 'r3' },
-            { leftId: 'l4', rightId: 'r4' },
-          ],
-        },
-        {
-          id: 'a1-choice-formell',
-          type: 'CHOICE',
-          instruction: 'Sie sprechen mit Ihrer Chefin. Welche Frage ist richtig?',
-          multiple: false,
-          options: [
-            { id: 'o1', text: 'Wie geht’s dir?' },
-            { id: 'o2', text: 'Wie geht es Ihnen?' },
-            { id: 'o3', text: 'Wie geht es du?' },
-          ],
-          solution: ['o2'],
-          explanation:
-            'Zur Chefin sagt man „Sie". Zu „Sie" gehört die Form „Ihnen": Wie geht es Ihnen?',
-          explanationTranslations: {
-            en: 'You say „Sie" to your boss. „Sie" goes with the form „Ihnen": Wie geht es Ihnen?',
-            es: 'A la jefa se le habla de „Sie". A „Sie" le corresponde la forma „Ihnen": Wie geht es Ihnen?',
-            fr: 'On dit « Sie » à sa cheffe. À « Sie » correspond la forme « Ihnen » : Wie geht es Ihnen?',
-            it: 'Alla propria capa si dà del „Sie". A „Sie" corrisponde la forma „Ihnen": Wie geht es Ihnen?',
-          },
-        },
-        {
-          id: 'a1-choice-zeit',
-          type: 'CHOICE',
-          instruction: 'Es ist 19 Uhr. Welche Begrüßungen passen? (Mehrfachauswahl)',
-          multiple: true,
-          options: [
-            { id: 'z1', text: 'Guten Abend!' },
-            { id: 'z2', text: 'Guten Morgen!' },
-            { id: 'z3', text: 'Hallo!' },
-            { id: 'z4', text: 'Gute Nacht!' },
-          ],
-          solution: ['z1', 'z3'],
-          explanation:
-            'Ab etwa 18 Uhr sagt man „Guten Abend". „Hallo" geht immer, wenn man sich duzt. „Gute Nacht" sagt man nur beim Schlafengehen.',
-          explanationTranslations: {
-            en: 'From about 6 pm you say „Guten Abend". „Hallo" always works if you’re on du-terms. „Gute Nacht" is only said when going to bed.',
-            es: 'A partir de las 18 h aprox. se dice „Guten Abend". „Hallo" vale siempre si se tutea. „Gute Nacht" solo se dice al irse a dormir.',
-            fr: 'À partir d’environ 18 h, on dit « Guten Abend ». « Hallo » convient toujours si l’on se tutoie. « Gute Nacht » ne se dit qu’au moment d’aller se coucher.',
-            it: 'Da circa le 18 si dice „Guten Abend". „Hallo" va sempre bene se si usa il tu. „Gute Nacht" si dice solo quando si va a dormire.',
-          },
-        },
-        {
-          id: 'a1-order',
-          type: 'ORDERING',
-          instruction: 'Ziehen Sie die Wortkarten in die richtige Reihenfolge.',
-          items: [
-            { id: 'g1', text: 'Guten' },
-            { id: 'g2', text: 'Abend,' },
-            { id: 'g3', text: 'Frau' },
-            { id: 'g4', text: 'Weber!' },
-          ],
-          solution: ['g1', 'g2', 'g3', 'g4'],
-        },
-        {
-          id: 'a1-cloze',
-          type: 'CLOZE',
-          instruction: 'Ergänzen Sie den Dialog. Die Wörter im Kasten helfen.',
-          wordBank: ['Guten', 'geht', 'danke', 'Tschüss'],
-          caseSensitive: false,
-          segments: [
-            { kind: 'TEXT', text: '▸ ' },
-            { kind: 'GAP', gapId: 'g1', solution: ['Guten'], width: 8 },
-            { kind: 'TEXT', text: ' Tag, Frau Weber! Wie ' },
-            { kind: 'GAP', gapId: 'g2', solution: ['geht'], width: 6 },
-            { kind: 'TEXT', text: ' es Ihnen?\n▸ Sehr gut, ' },
-            { kind: 'GAP', gapId: 'g3', solution: ['danke'], width: 7 },
-            { kind: 'TEXT', text: '. Bis morgen!\n▸ ' },
-            { kind: 'GAP', gapId: 'g4', solution: ['Tschüss', 'Tschüs'], width: 9 },
-            { kind: 'TEXT', text: '!' },
-          ],
-        },
-      ],
-    },
-  },
-
-  // ========================================================= ARBEITSBUCH 2
-  {
-    section: UnitSection.ARBEITSBUCH,
-    order: 2,
-    title: 'Übungen: Sich vorstellen',
-    subtitle: 'Zu Kursbuch 2',
-    estimatedMinutes: 12,
-    content: {
-      version: v,
-      blocks: [
-        { id: 'a2-h1', type: 'HEADING', level: 1, text: 'Name und Verbformen' },
-        {
-          id: 'a2-cloze-konj',
-          type: 'CLOZE',
-          instruction: 'Ergänzen Sie die richtige Verbform.',
-          caseSensitive: false,
-          segments: [
-            { kind: 'TEXT', text: '1. Ich ' },
-            { kind: 'GAP', gapId: 'v1', solution: ['heiße'], hint: 'heißen', width: 7 },
-            { kind: 'TEXT', text: ' Mira.\n2. Wie ' },
-            { kind: 'GAP', gapId: 'v2', solution: ['heißen'], hint: 'heißen', width: 7 },
-            { kind: 'TEXT', text: ' Sie?\n3. Er ' },
-            { kind: 'GAP', gapId: 'v3', solution: ['kommt'], hint: 'kommen', width: 7 },
-            { kind: 'TEXT', text: ' aus Polen.\n4. Wir ' },
-            { kind: 'GAP', gapId: 'v4', solution: ['sind'], hint: 'sein', width: 6 },
-            { kind: 'TEXT', text: ' im Kurs.\n5. Du ' },
-            { kind: 'GAP', gapId: 'v5', solution: ['bist'], hint: 'sein', width: 6 },
-            { kind: 'TEXT', text: ' aus Brasilien.' },
-          ],
-        },
-        {
-          id: 'a2-order-1',
-          type: 'ORDERING',
-          instruction: 'Bringen Sie die Wörter in die richtige Reihenfolge.',
-          items: [
-            { id: 'w1', text: 'Wie' },
-            { id: 'w2', text: 'heißen' },
-            { id: 'w3', text: 'Sie' },
-            { id: 'w4', text: '?' },
-          ],
-          solution: ['w1', 'w2', 'w3', 'w4'],
-        },
-        {
-          id: 'a2-order-2',
-          type: 'ORDERING',
-          instruction: 'Bilden Sie einen Satz.',
-          items: [
-            { id: 'x1', text: 'Mein' },
-            { id: 'x2', text: 'Name' },
-            { id: 'x3', text: 'ist' },
-            { id: 'x4', text: 'Elif' },
-            { id: 'x5', text: 'Yildiz.' },
-          ],
-          solution: ['x1', 'x2', 'x3', 'x4', 'x5'],
-        },
-        {
-          id: 'a2-match-wfragen',
-          type: 'MATCHING',
-          instruction: 'Verbinden Sie Fragewort und Bedeutung.',
-          left: [
-            { id: 'wf1', text: 'Wer' },
-            { id: 'wf2', text: 'Wie' },
-            { id: 'wf3', text: 'Woher' },
-            { id: 'wf4', text: 'Wo' },
-          ],
-          right: [
-            { id: 'wb1', text: 'fragt nach einer Person' },
-            { id: 'wb2', text: 'fragt nach der Art oder dem Namen' },
-            { id: 'wb3', text: 'fragt nach der Herkunft' },
-            { id: 'wb4', text: 'fragt nach dem Ort' },
-          ],
-          solution: [
-            { leftId: 'wf1', rightId: 'wb1' },
-            { leftId: 'wf2', rightId: 'wb2' },
-            { leftId: 'wf3', rightId: 'wb3' },
-            { leftId: 'wf4', rightId: 'wb4' },
-          ],
-        },
-        {
-          id: 'a2-choice-wfrage',
-          type: 'CHOICE',
-          instruction: 'Welches Fragewort passt? „___ ist das?" – „Das ist Herr Okafor."',
-          multiple: false,
-          options: [
-            { id: 'f1', text: 'Wie' },
-            { id: 'f2', text: 'Wo' },
-            { id: 'f3', text: 'Wer' },
-            { id: 'f4', text: 'Woher' },
-          ],
-          solution: ['f3'],
-          explanation: 'Nach einer Person fragt man mit „wer". „wie" fragt nach der Art, „wo" nach dem Ort, „woher" nach der Herkunft.',
-          explanationTranslations: {
-            en: 'You ask about a person with „wer". „wie" asks about how something is, „wo" about the place, „woher" about origin.',
-            es: 'Por una persona se pregunta con „wer". „wie" pregunta por el modo, „wo" por el lugar, „woher" por el origen.',
-            fr: 'On demande une personne avec « wer ». « wie » interroge sur la manière, « wo » sur le lieu, « woher » sur l’origine.',
-            it: 'Per una persona si chiede con „wer". „wie" chiede il modo, „wo" il luogo, „woher" la provenienza.',
-          },
-        },
-      ],
-    },
-  },
-
-  // ========================================================= ARBEITSBUCH 3
-  {
-    section: UnitSection.ARBEITSBUCH,
-    order: 3,
-    title: 'Übungen: Herkunft',
-    subtitle: 'Zu Kursbuch 3',
-    estimatedMinutes: 12,
-    content: {
-      version: v,
-      blocks: [
-        { id: 'a3-h1', type: 'HEADING', level: 1, text: 'Woher? Wo?' },
-        {
-          id: 'a3-match-land',
-          type: 'MATCHING',
-          instruction: 'Ordnen Sie Stadt und Land zu.',
-          left: [
-            { id: 'c1', text: 'Wien' },
-            { id: 'c2', text: 'Zürich' },
-            { id: 'c3', text: 'Izmir' },
-            { id: 'c4', text: 'Warschau' },
-          ],
-          right: [
-            { id: 'n1', text: 'Österreich' },
-            { id: 'n2', text: 'die Schweiz' },
-            { id: 'n3', text: 'die Türkei' },
-            { id: 'n4', text: 'Polen' },
-          ],
-          solution: [
-            { leftId: 'c1', rightId: 'n1' },
-            { leftId: 'c2', rightId: 'n2' },
-            { leftId: 'c3', rightId: 'n3' },
-            { leftId: 'c4', rightId: 'n4' },
-          ],
-        },
-        {
-          id: 'a3-cloze-praep',
-          type: 'CLOZE',
-          instruction: 'Ergänzen Sie: aus, in, aus der oder in der.',
-          caseSensitive: false,
-          segments: [
-            { kind: 'TEXT', text: '1. Ich komme ' },
-            { kind: 'GAP', gapId: 'p1', solution: ['aus'], width: 4 },
-            { kind: 'TEXT', text: ' Brasilien.\n2. Elif kommt ' },
-            { kind: 'GAP', gapId: 'p2', solution: ['aus der'], width: 8 },
-            { kind: 'TEXT', text: ' Türkei.\n3. Wir wohnen ' },
-            { kind: 'GAP', gapId: 'p3', solution: ['in'], width: 4 },
-            { kind: 'TEXT', text: ' Leipzig.\n4. Sie arbeitet ' },
-            { kind: 'GAP', gapId: 'p4', solution: ['in der'], width: 7 },
-            { kind: 'TEXT', text: ' Schweiz.' },
-          ],
-        },
-        {
-          id: 'a3-order',
-          type: 'ORDERING',
-          instruction: 'Ziehen Sie die Wortkarten in die richtige Reihenfolge.',
-          items: [
-            { id: 's1', text: 'Ich' },
-            { id: 's2', text: 'wohne' },
-            { id: 's3', text: 'in' },
-            { id: 's4', text: 'Leipzig.' },
-          ],
-          solution: ['s1', 's2', 's3', 's4'],
-        },
-        {
-          id: 'a3-choice-artikel',
-          type: 'CHOICE',
-          instruction: 'Welche Länder brauchen einen Artikel? (Mehrfachauswahl)',
-          multiple: true,
-          options: [
-            { id: 'a-1', text: 'Türkei' },
-            { id: 'a-2', text: 'Japan' },
-            { id: 'a-3', text: 'Schweiz' },
-            { id: 'a-4', text: 'Polen' },
-            { id: 'a-5', text: 'Ukraine' },
-          ],
-          solution: ['a-1', 'a-3', 'a-5'],
-          explanation:
-            'Die meisten Länder stehen ohne Artikel. Ausnahmen sind unter anderem die Türkei, die Schweiz, die Ukraine und der Libanon – diese lernt man einzeln mit.',
-          explanationTranslations: {
-            en: 'Most countries have no article. Exceptions include die Türkei, die Schweiz, die Ukraine and der Libanon – these have to be learned individually.',
-            es: 'La mayoría de los países no llevan artículo. Son excepción, entre otros, die Türkei, die Schweiz, die Ukraine y der Libanon – hay que aprenderlos aparte.',
-            fr: 'La plupart des pays n’ont pas d’article. Font exception, entre autres, die Türkei, die Schweiz, die Ukraine et der Libanon – à apprendre à part.',
-            it: 'La maggior parte dei paesi non ha l’articolo. Fanno eccezione, tra gli altri, die Türkei, die Schweiz, die Ukraine e der Libanon – vanno imparati singolarmente.',
-          },
-        },
-      ],
-    },
-  },
-
-  // ========================================================= ARBEITSBUCH 4
-  {
-    section: UnitSection.ARBEITSBUCH,
-    order: 4,
-    title: 'Übungen: Alphabet und Zahlen',
-    subtitle: 'Zu Kursbuch 4',
-    estimatedMinutes: 10,
-    content: {
-      version: v,
-      blocks: [
-        { id: 'a4-h1', type: 'HEADING', level: 1, text: 'Buchstabieren und zählen' },
         {
           id: 'a4-cloze-zahlen',
           type: 'CLOZE',
@@ -863,25 +826,6 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
           ],
         },
         {
-          id: 'a4-choice-umlaut',
-          type: 'CHOICE',
-          instruction: 'Wie buchstabiert man „ö"?',
-          multiple: false,
-          options: [
-            { id: 'u1', text: 'O-Umlaut' },
-            { id: 'u2', text: 'O-Strich' },
-            { id: 'u3', text: 'Doppel-O' },
-          ],
-          solution: ['u1'],
-          explanation: 'Ä, Ö und Ü heißen beim Buchstabieren A-Umlaut, O-Umlaut und U-Umlaut. ß heißt Eszett.',
-          explanationTranslations: {
-            en: 'Ä, Ö and Ü are called A-Umlaut, O-Umlaut and U-Umlaut when spelling. ß is called Eszett.',
-            es: 'Al deletrear, Ä, Ö y Ü se llaman A-Umlaut, O-Umlaut y U-Umlaut. ß se llama Eszett.',
-            fr: 'En épelant, Ä, Ö et Ü se disent A-Umlaut, O-Umlaut et U-Umlaut. ß se dit Eszett.',
-            it: 'Nello spelling, Ä, Ö e Ü si chiamano A-Umlaut, O-Umlaut e U-Umlaut. ß si chiama Eszett.',
-          },
-        },
-        {
           id: 'a4-order-zahlen',
           type: 'ORDERING',
           instruction: 'Sortieren Sie die Zahlen von klein nach groß.',
@@ -897,12 +841,12 @@ export const CHAPTER_A1_1_UNITS: UnitSeed[] = [
     },
   },
 
-  // ========================================================= ARBEITSBUCH 5
+  // ====================================================== SEITE 5
+  // Seite 5 – Rückblick über alle vier Seiten, am Ende ein eigener Text.
   {
-    section: UnitSection.ARBEITSBUCH,
     order: 5,
     title: 'Kannst du das schon?',
-    subtitle: 'Abschluss des Kapitels',
+    subtitle: 'Rückblick auf das ganze Kapitel',
     estimatedMinutes: 15,
     content: {
       version: v,

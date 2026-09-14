@@ -164,18 +164,23 @@ wird erst die vollständige Antwort – ein Abbruch hinterlässt keinen Torso.
 | POST    | `/subscription/cancel`     | Premium beenden |
 | GET     | `/health`                  | **öffentlich** · Liveness und Datenbankcheck |
 
-## Arbeitsbuch (Lernheft)
+## Lehrwerk
+
+Vier Bücher: `BEGINNER` (A1/A2), `INTERMEDIATE` (B1/B2), `ADVANCED` (C1/C2) und
+`GRAMMAR`. Ein Buch enthält durchnummerierte Kapitel, ein Kapitel
+durchnummerierte Seiten; eine Seite trägt Erklärung und Aufgaben zusammen.
 
 | Methode | Pfad                                | Beschreibung |
 | ------- | ----------------------------------- | ------------ |
-| GET     | `/workbook/chapters`                | Kapitel inkl. Fortschritt. Filter: `languageId`, `level`, `includeUnpublished` |
-| GET     | `/workbook/chapters/:id`            | Kapitel mit allen Lerneinheiten, getrennt nach Kursbuch und Arbeitsbuch |
-| GET     | `/workbook/units/:id`               | Einheit mit Blöcken – **ohne Lösungen** – plus eigenem Zwischenstand |
+| GET     | `/workbook/books`                   | Das Regal: vier Bücher mit Stand und Einstiegsseite (`resume`) |
+| GET     | `/workbook/books/:book`             | Inhaltsverzeichnis eines Buchs: alle Kapitel mit allen Seiten, inkl. der noch unveröffentlichten |
+| GET     | `/workbook/chapters/:id`            | Ein Kapitel mit allen Seiten – die Blätterreihenfolge einer Seite |
+| GET     | `/workbook/units/:id`               | Seite mit Blöcken – **ohne Lösungen** – plus eigenem Zwischenstand |
 | PUT     | `/workbook/units/:id/answers`       | Antworten zwischenspeichern (Autosave, keine Bewertung) |
 | PUT     | `/workbook/units/:id/annotations`   | Freihand-Notizebene über den Blöcken speichern |
 | POST    | `/workbook/units/:id/check`         | Auswerten – siehe unten |
-| POST    | `/workbook/units/:id/complete`      | Kursbuchteil ohne Aufgaben als erledigt markieren |
-| POST    | `/workbook/units/:id/reset`         | Einheit zurücksetzen und neu bearbeiten |
+| POST    | `/workbook/units/:id/complete`      | Seite ohne Aufgaben als erledigt markieren |
+| POST    | `/workbook/units/:id/reset`         | Seite zurücksetzen und neu bearbeiten |
 
 **Prüfen vs. Abgeben.** `POST /check` kennt zwei Modi. Mit `blockIds` ist es eine
 Zwischenprüfung einzelner Aufgaben: Ergebnis und Lösung kommen zurück, der Status

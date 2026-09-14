@@ -107,8 +107,24 @@ export default function NotebookEditorScreen({ route }: Props) {
     }
   }, [currentPage, content, isDirty, savePage]);
 
-  // Beim Verlassen des Screens wird ein ausstehender Speichervorgang sofort ausgeführt.
-  useEffect(() => flushSave, [flushSave]);
+  /*
+    Beim Verlassen der Seite wird ein ausstehendes Speichern sofort ausgeführt.
+
+    Der Effekt hat bewusst keine Abhängigkeiten und holt sich die jeweils
+    aktuelle Fassung von `flushSave` über eine Ref. Vorher stand hier
+    `useEffect(() => flushSave, [flushSave])` – der Rückgabewert eines Effekts
+    ist seine Aufräumfunktion, und `flushSave` änderte seine Identität bei
+    jedem Rendern, weil `useMutation` sein Ergebnis als frisches Objekt zurückgibt
+    (`{ ...result, mutate }`, siehe @tanstack/react-query). Damit lief das
+    „Aufräumen" nach jedem Rendern statt beim Verlassen: Speichern →
+    Zustandswechsel der Mutation → Rendern → wieder speichern. React brach
+    diese Schleife nach 50 Durchläufen mit „Maximum update depth exceeded" ab.
+    Nebenbei löschte sie bei jedem Rendern den Timer, sodass die Verzögerung
+    des Autosave nie ablief.
+  */
+  const flushRef = useRef(flushSave);
+  flushRef.current = flushSave;
+  useEffect(() => () => flushRef.current(), []);
 
   function handleChange(next: NotebookPageContent): void {
     setHistory((previous) => {

@@ -43,7 +43,7 @@ function GreetingOfficeScene() {
 
       {/* Figur links – hebt zur Begrüßung die Hand. */}
       <Circle cx={95} cy={92} r={16} fill="#3A2E2B" />
-      <Path d="M79 108 q16 -10 32 0 l0 60 l-32 0 Z" fill={book.kursbuch} />
+      <Path d="M79 108 q16 -10 32 0 l0 60 l-32 0 Z" fill={book.printRed} />
       <Path d="M111 118 q22 -6 26 -30" stroke="#3A2E2B" strokeWidth={7} strokeLinecap="round" fill="none" />
 
       {/* Figur rechts – winkt zurück. */}
@@ -55,12 +55,12 @@ function GreetingOfficeScene() {
       <Path
         d="M118 40 h70 a8 8 0 0 1 8 8 v18 a8 8 0 0 1 -8 8 h-40 l-12 12 v-12 h-18 a8 8 0 0 1 -8 -8 v-18 a8 8 0 0 1 8 -8 Z"
         fill="#FFFFFF"
-        stroke={book.kursbuch}
+        stroke={book.printRed}
         strokeWidth={1.5}
       />
-      <Circle cx={136} cy={58} r={3} fill={book.kursbuch} />
-      <Circle cx={150} cy={58} r={3} fill={book.kursbuch} />
-      <Circle cx={164} cy={58} r={3} fill={book.kursbuch} />
+      <Circle cx={136} cy={58} r={3} fill={book.printRed} />
+      <Circle cx={150} cy={58} r={3} fill={book.printRed} />
+      <Circle cx={164} cy={58} r={3} fill={book.printRed} />
     </Frame>
   );
 }
@@ -83,29 +83,29 @@ function IntroductionScene() {
 
       {/* Namensschild links. */}
       <Rect x={54} y={96} width={92} height={44} rx={4} fill="#FFFFFF" stroke={book.rule} strokeWidth={1.5} transform="rotate(-4 100 118)" />
-      <Path d="M70 112 h30" stroke={book.kursbuch} strokeWidth={3} strokeLinecap="round" transform="rotate(-4 100 118)" />
+      <Path d="M70 112 h30" stroke={book.printRed} strokeWidth={3} strokeLinecap="round" transform="rotate(-4 100 118)" />
       <Path d="M70 122 h50" stroke={book.rule} strokeWidth={2} strokeLinecap="round" transform="rotate(-4 100 118)" />
 
       {/* Namensschild rechts. */}
       <Rect x={172} y={92} width={92} height={44} rx={4} fill="#FFFFFF" stroke={book.rule} strokeWidth={1.5} transform="rotate(4 218 114)" />
-      <Path d="M188 108 h30" stroke={book.arbeitsbuch} strokeWidth={3} strokeLinecap="round" transform="rotate(4 218 114)" />
+      <Path d="M188 108 h30" stroke={book.printSlate} strokeWidth={3} strokeLinecap="round" transform="rotate(4 218 114)" />
       <Path d="M188 118 h50" stroke={book.rule} strokeWidth={2} strokeLinecap="round" transform="rotate(4 218 114)" />
 
       {/* Sprechblase „?" mittig darüber. */}
       <Path
         d="M136 30 h48 a8 8 0 0 1 8 8 v20 a8 8 0 0 1 -8 8 h-16 l-8 10 v-10 h-24 a8 8 0 0 1 -8 -8 v-20 a8 8 0 0 1 8 -8 Z"
         fill="#FFFFFF"
-        stroke={book.kursbuch}
+        stroke={book.printRed}
         strokeWidth={1.5}
       />
       <Path
         d="M155 45 q0 -6 6 -6 q6 0 6 5 q0 4 -4 5.5 t-2 5.5"
-        stroke={book.kursbuch}
+        stroke={book.printRed}
         strokeWidth={2.4}
         fill="none"
         strokeLinecap="round"
       />
-      <Circle cx={161} cy={62} r={1.6} fill={book.kursbuch} />
+      <Circle cx={161} cy={62} r={1.6} fill={book.printRed} />
     </Frame>
   );
 }
@@ -113,8 +113,8 @@ function IntroductionScene() {
 /** Stilisierte Europakarte mit Orten aus den Dialogen und einer Reiselinie. */
 function WorldMapScene() {
   const pins: Array<{ x: number; y: number; color: string }> = [
-    { x: 150, y: 78, color: book.kursbuch }, // Leipzig
-    { x: 108, y: 108, color: book.arbeitsbuch }, // Schweiz
+    { x: 150, y: 78, color: book.printRed }, // Leipzig
+    { x: 108, y: 108, color: book.printSlate }, // Schweiz
     { x: 232, y: 140, color: '#8A5A1E' }, // Türkei
     { x: 210, y: 168, color: '#3F5163' }, // Libanon
   ];
@@ -190,7 +190,7 @@ function AlphabetNumbersScene() {
       <Circle cx={262} cy={160} r={26} fill="#FFFFFF" stroke={book.rule} strokeWidth={1.5} />
       <Path
         d="M251 150 q4 -6 9 -2 l3 3 q-2 4 1 7 l6 6 q3 3 7 1 l3 3 q4 5 -2 9 q-10 6 -18 -2 t-11 -19 Z"
-        fill={book.kursbuch}
+        fill={book.printRed}
       />
     </Frame>
   );
@@ -219,7 +219,7 @@ function GenericBookScene() {
         stroke={book.rule}
         strokeWidth={1.5}
       />
-      <Polygon points="196,40 212,40 212,74 204,66 196,74" fill={book.kursbuch} />
+      <Polygon points="196,40 212,40 212,74 204,66 196,74" fill={book.printRed} />
     </Frame>
   );
 }

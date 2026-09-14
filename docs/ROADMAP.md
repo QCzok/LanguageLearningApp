@@ -22,13 +22,18 @@ Der Seed enthält Beispielmaterial: vier Vokabeldecks, drei Texte mit Übungen,
 vier Mediathek-Einträge und 24 Einstufungsfragen für Englisch (plus drei für
 Spanisch). Das zeigt die Struktur, ersetzt aber keine Redaktion.
 
-**Das Lehrwerk Deutsch** steht mit 36 Kapiteln (A1–C2, je sechs) als Gerüst
-bereit: Titel, Untertitel, Beschreibung und Kann-Beschreibungen sind formuliert,
-Inhalte hat bislang nur A1 Kapitel 1 (vier Kursbuch- und fünf
-Arbeitsbucheinheiten). Die übrigen 35 sind auf `isPublished: false` gesetzt und
-erscheinen in der App ausgegraut als „In Vorbereitung". Zum Ausarbeiten legt man
-eine Datei nach dem Muster von `prisma/seed/chapter-a1-1.ts` an und veröffentlicht
-das Kapitel in `prisma/seed/workbook.ts`.
+**Das Lehrwerk Deutsch** steht mit 48 Kapiteln als Gerüst bereit: je zwölf in
+Beginner, Intermediate und Advanced sowie zwölf im Grammatikbuch. Titel,
+Untertitel, Beschreibung und Kann-Beschreibungen sind formuliert, Inhalte haben
+bislang Beginner Kapitel 1 (fünf Seiten) und Grammatik Kapitel 1 (drei Seiten).
+Die übrigen 46 sind auf `isPublished: false` gesetzt und erscheinen in der App
+ausgegraut als „In Vorbereitung". Zum Ausarbeiten legt man eine Datei nach dem
+Muster von `prisma/seed/chapter-beginner-1.ts` an und trägt das Kapitel in
+`SHOWCASE_UNITS` in `prisma/seed/workbook.ts` ein.
+
+Beim Schreiben gilt die Regel des neuen Aufbaus: Die Aufgabe steht direkt hinter
+der Erklärung, zu der sie gehört – nicht gesammelt am Seitenende und erst recht
+nicht in einem eigenen Übungskapitel.
 
 Offen bleibt außerdem: Audioaufnahmen zu den Dialogen (die Blöcke tragen bereits
 `audioUrl`), Bilder für `IMAGE`-Blöcke und ein zweisprachiges Glossar. Kapitel 1

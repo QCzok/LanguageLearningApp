@@ -3,6 +3,7 @@ import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BOOK_LABELS } from '@lingua/shared';
 import { Loading } from '../components';
 import { colors } from '../theme';
 import { useAuthStore } from '../store/auth.store';
@@ -19,8 +20,8 @@ import DeckListScreen from '../features/vocabulary/DeckListScreen';
 import DeckDetailScreen from '../features/vocabulary/DeckDetailScreen';
 import ReviewScreen from '../features/vocabulary/ReviewScreen';
 import VocabStatsScreen from '../features/vocabulary/VocabStatsScreen';
-import ChapterListScreen from '../features/workbook/ChapterListScreen';
-import ChapterScreen from '../features/workbook/ChapterScreen';
+import BookshelfScreen from '../features/workbook/BookshelfScreen';
+import BookContentsScreen from '../features/workbook/BookContentsScreen';
 import UnitScreen from '../features/workbook/UnitScreen';
 import NotebookListScreen from '../features/notebook/NotebookListScreen';
 import NotebookEditorScreen from '../features/notebook/NotebookEditorScreen';
@@ -127,14 +128,14 @@ function NotebookNavigator() {
   return (
     <NotebookStack.Navigator screenOptions={defaultStackOptions}>
       <NotebookStack.Screen
-        name="ChapterList"
-        component={ChapterListScreen}
-        options={{ title: t('notebookChapterList') }}
+        name="Bookshelf"
+        component={BookshelfScreen}
+        options={{ title: t('notebookBookshelf') }}
       />
       <NotebookStack.Screen
-        name="Chapter"
-        component={ChapterScreen}
-        options={({ route }) => ({ title: route.params.title })}
+        name="BookContents"
+        component={BookContentsScreen}
+        options={({ route }) => ({ title: BOOK_LABELS[route.params.book].label })}
       />
       <NotebookStack.Screen
         name="Unit"

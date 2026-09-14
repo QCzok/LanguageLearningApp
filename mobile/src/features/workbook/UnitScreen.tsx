@@ -19,7 +19,7 @@ import { workbookApi } from '../../api/endpoints';
 import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
 import { DEFAULT_TOOL, ToolDock, ToolState } from '../notebook/ToolDock';
-import { BookPage, SECTION_THEME } from './BookPage';
+import { BookPage, bookTheme } from './BookPage';
 import type { PageFooterNav } from './BookPage';
 import { useContentWidth } from '../../navigation/WebLayout';
 import {
@@ -90,11 +90,10 @@ export default function UnitScreen({ route, navigation }: Props) {
   });
 
   /*
-    Die Reihenfolge aller Seiten des Kapitels – erst Kursbuch, dann
-    Arbeitsbuch, jeweils nach Nummer (siehe workbook.service.ts). Damit lässt
-    sich blättern, ohne zur Kapitelübersicht zurückzukehren. Trägt dieselbe
-    Query-Kennung wie `ChapterScreen`, sodass ein dort schon geladenes Kapitel
-    hier nicht erneut geholt werden muss.
+    Die Seiten des Kapitels der Reihe nach. Damit lässt sich blättern, ohne
+    ins Inhaltsverzeichnis zurückzukehren – und weil Erklärung und Übung
+    inzwischen auf derselben Seite stehen, führt das Blättern auch nicht mehr
+    über die Grenze zwischen zwei Buchteilen.
   */
   const chapterId = data?.chapterId;
   const { data: chapter } = useQuery({
@@ -133,7 +132,8 @@ export default function UnitScreen({ route, navigation }: Props) {
           correct: result.correctBlocks,
           total: result.totalBlocks,
         });
-        void queryClient.invalidateQueries({ queryKey: ['workbook-chapters'] });
+        void queryClient.invalidateQueries({ queryKey: ['workbook-books'] });
+        void queryClient.invalidateQueries({ queryKey: ['workbook-book'] });
         void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       }
     },
@@ -146,7 +146,8 @@ export default function UnitScreen({ route, navigation }: Props) {
   const complete = useMutation({
     mutationFn: () => workbookApi.complete(unitId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['workbook-chapters'] });
+      await queryClient.invalidateQueries({ queryKey: ['workbook-books'] });
+      void queryClient.invalidateQueries({ queryKey: ['workbook-book'] });
       // Weiter im Kapitel statt zurück zur Übersicht – nur die letzte Seite
       // eines Kapitels führt zurück, weil dort nichts mehr zum Umblättern ist.
       if (nextUnit) goToUnit(nextUnit);
@@ -197,7 +198,24 @@ export default function UnitScreen({ route, navigation }: Props) {
     if (isDirty) saveAnswers.mutate(answers);
   }, [answers, isDirty, saveAnswers]);
 
-  useEffect(() => flushAnswers, [flushAnswers]);
+  /*
+    Beim Verlassen der Seite wird ein ausstehendes Speichern sofort ausgeführt.
+
+    Der Effekt hat bewusst keine Abhängigkeiten und holt sich die jeweils
+    aktuelle Fassung von `flushAnswers` über eine Ref. Vorher stand hier
+    `useEffect(() => flushAnswers, [flushAnswers])` – der Rückgabewert eines
+    Effekts ist seine Aufräumfunktion, und `flushAnswers` änderte seine Identität bei
+    jedem Rendern, weil `useMutation` sein Ergebnis als frisches Objekt zurückgibt
+    (`{ ...result, mutate }`, siehe @tanstack/react-query). Damit lief das
+    „Aufräumen" nach jedem Rendern statt beim Verlassen: Speichern →
+    Zustandswechsel der Mutation → Rendern → wieder speichern. React brach
+    diese Schleife nach 50 Durchläufen mit „Maximum update depth exceeded" ab.
+    Nebenbei löschte sie bei jedem Rendern den Timer, sodass die Verzögerung
+    des Autosave nie ablief.
+  */
+  const flushRef = useRef(flushAnswers);
+  flushRef.current = flushAnswers;
+  useEffect(() => () => flushRef.current(), []);
 
   /** Zur angegebenen Seite des Kapitels blättern, ohne über die Kapitelübersicht zu gehen. */
   function goToUnit(unit: UnitSummaryDto): void {
@@ -260,9 +278,10 @@ export default function UnitScreen({ route, navigation }: Props) {
     return <ErrorState message="Die Lerneinheit konnte nicht geladen werden." onRetry={refetch} />;
   }
 
-  const theme = SECTION_THEME[data.section];
+  const theme = bookTheme(data.book);
   const isDrawing = tool.mode === 'DRAW';
-  const isCourseUnit = exerciseBlocks.length === 0;
+  // Eine Seite ganz ohne Aufgaben – im Lehrwerk selten, aber möglich.
+  const isReadingPage = exerciseBlocks.length === 0;
   const alreadyDone = data.status === 'COMPLETED';
 
   // Nummerierung der Aufgaben über die ganze Einheit hinweg.
@@ -279,8 +298,6 @@ export default function UnitScreen({ route, navigation }: Props) {
           accent: theme.accent,
           hasPrevious: Boolean(previousUnit),
           hasNext: Boolean(nextUnit),
-          nextSectionLabel:
-            nextUnit && nextUnit.section !== data.section ? SECTION_THEME[nextUnit.section].label : null,
           onPrevious: () => previousUnit && goToUnit(previousUnit),
           onNext: () => nextUnit && goToUnit(nextUnit),
         }
@@ -297,7 +314,7 @@ export default function UnitScreen({ route, navigation }: Props) {
       >
         <View style={{ width: pageWidth, ...paperShadow }}>
           <BookPage
-            section={data.section}
+            book={data.book}
             chapterTitle={data.chapterTitle}
             level={data.level}
             chapterOrder={data.chapterOrder}
@@ -332,7 +349,7 @@ export default function UnitScreen({ route, navigation }: Props) {
 
             <PageActions
               accent={theme.accent}
-              isCourseUnit={isCourseUnit}
+              isReadingPage={isReadingPage}
               alreadyDone={alreadyDone}
               hasResults={Object.keys(results).length > 0}
               allChecked={exerciseBlocks.length > 0 && exerciseBlocks.every((b) => results[b.id])}
@@ -431,7 +448,7 @@ export default function UnitScreen({ route, navigation }: Props) {
 
 function PageActions({
   accent,
-  isCourseUnit,
+  isReadingPage,
   alreadyDone,
   hasResults,
   allChecked,
@@ -447,7 +464,7 @@ function PageActions({
   onReset,
 }: {
   accent: string;
-  isCourseUnit: boolean;
+  isReadingPage: boolean;
   alreadyDone: boolean;
   hasResults: boolean;
   /** Alle Aufgaben der Seite sind kontrolliert – dann ist Weiterblättern der nächste Schritt. */
@@ -467,7 +484,7 @@ function PageActions({
     <View style={{ marginTop: 6, gap: 12 }}>
       <View style={{ height: 1, backgroundColor: book.rule }} />
 
-      {isCourseUnit ? (
+      {isReadingPage ? (
         <Pressable
           onPress={onComplete}
           disabled={alreadyDone || isCompleting || locked}
@@ -498,7 +515,7 @@ function PageActions({
               style={[primaryAction, { backgroundColor: accent }, locked && { opacity: 0.45 }]}
             >
               <Text style={primaryActionText}>
-                {hasNext ? 'Nächste Seite' : 'Zurück zum Kapitel'}
+                {hasNext ? 'Nächste Seite' : 'Zurück zum Inhalt'}
               </Text>
             </Pressable>
           ) : (

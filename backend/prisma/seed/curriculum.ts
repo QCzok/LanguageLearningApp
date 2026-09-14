@@ -1,18 +1,29 @@
-import { CefrLevel } from '@prisma/client';
+import { CefrLevel, WorkbookBook } from '@prisma/client';
+import { GRAMMAR_CURRICULUM } from './grammar-curriculum';
 
 /**
- * Lehrplan Deutsch als Fremdsprache – sechs Kapitel je Niveau von A1 bis C2.
+ * Lehrplan Deutsch als Fremdsprache – drei Kursbücher zu je zwölf Kapiteln.
  *
- * Der Aufbau folgt dem üblichen Lehrwerksmuster (Kursbuchteil mit neuen
- * Inhalten, Arbeitsbuchteil mit Übungen dazu). Titel, Themen und
- * Kann-Beschreibungen sind eigenständig formuliert und orientieren sich an den
- * GER-Deskriptoren, nicht an einem bestimmten Verlagswerk.
+ * Die sechs GER-Stufen sind dabei nicht verschwunden, sie ordnen nur nicht
+ * mehr die Navigation: Je zwei Stufen bilden ein Buch (A1/A2 Beginner, B1/B2
+ * Intermediate, C1/C2 Advanced), und die Kapitel laufen darin von 1 bis 12
+ * durch. Wer ein Buch aufschlägt, arbeitet es der Reihe nach durch, statt
+ * vorher eine von sechs Stufen zu wählen.
  *
- * Ausgearbeitet ist bisher A1 Kapitel 1 (siehe chapter-a1-1.ts); die übrigen
- * Kapitel stehen als Gerüst bereit und sind noch nicht veröffentlicht.
+ * Titel, Themen und Kann-Beschreibungen sind eigenständig formuliert und
+ * orientieren sich an den GER-Deskriptoren, nicht an einem bestimmten
+ * Verlagswerk. Unten in dieser Datei stehen sie noch nach Stufe gruppiert –
+ * das ist die Sicht, in der ein Lehrplan geschrieben wird; die Zählung im Buch
+ * entsteht daraus (siehe `CURRICULUM`).
+ *
+ * Ausgearbeitet sind Beginner Kapitel 1 (siehe chapter-beginner-1.ts) und
+ * Grammatik Kapitel 1 (siehe chapter-grammar-1.ts); die übrigen Kapitel stehen
+ * als Gerüst bereit und sind noch nicht veröffentlicht.
  */
 export interface ChapterSeed {
+  book: WorkbookBook;
   level: CefrLevel;
+  /** Fortlaufend innerhalb des Buchs, nicht innerhalb der Stufe. */
   order: number;
   title: string;
   subtitle: string;
@@ -22,11 +33,39 @@ export interface ChapterSeed {
   estimatedMinutes: number;
 }
 
-export const CURRICULUM: ChapterSeed[] = [
+/** Ein Kapitel, wie der Lehrplan es notiert: nach Stufe, darin nummeriert. */
+type LevelChapterSeed = Omit<ChapterSeed, 'book' | 'order'> & {
+  level: CefrLevel;
+  orderInLevel: number;
+};
+
+const BOOK_BY_LEVEL: Record<CefrLevel, WorkbookBook> = {
+  A1: WorkbookBook.BEGINNER,
+  A2: WorkbookBook.BEGINNER,
+  B1: WorkbookBook.INTERMEDIATE,
+  B2: WorkbookBook.INTERMEDIATE,
+  C1: WorkbookBook.ADVANCED,
+  C2: WorkbookBook.ADVANCED,
+};
+
+/** Kapitel je Stufe – der Versatz der oberen Stufe im Buch ergibt sich daraus. */
+const CHAPTERS_PER_LEVEL = 6;
+
+/** Die obere der beiden Stufen eines Buchs beginnt bei Kapitel 7. */
+const IS_UPPER_LEVEL: Record<CefrLevel, boolean> = {
+  A1: false,
+  A2: true,
+  B1: false,
+  B2: true,
+  C1: false,
+  C2: true,
+};
+
+const COURSE_CHAPTERS: LevelChapterSeed[] = [
   // ------------------------------------------------------------------- A1
   {
     level: 'A1',
-    order: 1,
+    orderInLevel: 1,
     title: 'Guten Tag!',
     subtitle: 'Begrüßen, sich vorstellen, buchstabieren',
     description:
@@ -42,7 +81,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A1',
-    order: 2,
+    orderInLevel: 2,
     title: 'Meine Familie und ich',
     subtitle: 'Personen beschreiben, Possessivartikel',
     description:
@@ -58,7 +97,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A1',
-    order: 3,
+    orderInLevel: 3,
     title: 'Essen und Trinken',
     subtitle: 'Im Café bestellen, Akkusativ',
     description:
@@ -74,7 +113,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A1',
-    order: 4,
+    orderInLevel: 4,
     title: 'Wohnen',
     subtitle: 'Wohnung beschreiben, Präpositionen mit Dativ',
     description:
@@ -90,7 +129,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A1',
-    order: 5,
+    orderInLevel: 5,
     title: 'Mein Tag',
     subtitle: 'Uhrzeit, Tagesablauf, trennbare Verben',
     description:
@@ -106,7 +145,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A1',
-    order: 6,
+    orderInLevel: 6,
     title: 'Einkaufen und Freizeit',
     subtitle: 'Kleidung, Preise, Modalverben',
     description:
@@ -124,7 +163,7 @@ export const CURRICULUM: ChapterSeed[] = [
   // ------------------------------------------------------------------- A2
   {
     level: 'A2',
-    order: 1,
+    orderInLevel: 1,
     title: 'Gesundheit und Körper',
     subtitle: 'Beim Arzt, Imperativ',
     description:
@@ -140,7 +179,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A2',
-    order: 2,
+    orderInLevel: 2,
     title: 'Arbeit und Beruf',
     subtitle: 'Berufe, Perfekt, Nebensätze mit weil',
     description:
@@ -156,7 +195,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A2',
-    order: 3,
+    orderInLevel: 3,
     title: 'Reisen und Verkehr',
     subtitle: 'Wegbeschreibung, Wechselpräpositionen',
     description:
@@ -172,7 +211,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A2',
-    order: 4,
+    orderInLevel: 4,
     title: 'Feste und Traditionen',
     subtitle: 'Einladungen, Dativ, höfliche Bitten',
     description:
@@ -188,7 +227,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A2',
-    order: 5,
+    orderInLevel: 5,
     title: 'Medien und Kommunikation',
     subtitle: 'Telefonieren, Nebensätze mit dass',
     description:
@@ -204,7 +243,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'A2',
-    order: 6,
+    orderInLevel: 6,
     title: 'Umwelt und Wetter',
     subtitle: 'Wetter, Vergleiche, Komparativ',
     description:
@@ -222,7 +261,7 @@ export const CURRICULUM: ChapterSeed[] = [
   // ------------------------------------------------------------------- B1
   {
     level: 'B1',
-    order: 1,
+    orderInLevel: 1,
     title: 'Bildung und Lernen',
     subtitle: 'Schulsysteme, indirekte Fragen',
     description:
@@ -238,7 +277,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B1',
-    order: 2,
+    orderInLevel: 2,
     title: 'Wohnen und Zusammenleben',
     subtitle: 'Konflikte klären, Relativsätze',
     description:
@@ -254,7 +293,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B1',
-    order: 3,
+    orderInLevel: 3,
     title: 'Arbeitswelt im Wandel',
     subtitle: 'Bewerbung, Passiv',
     description:
@@ -270,7 +309,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B1',
-    order: 4,
+    orderInLevel: 4,
     title: 'Gesundheit und Lebensstil',
     subtitle: 'Ernährung, Konjunktiv II',
     description:
@@ -286,7 +325,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B1',
-    order: 5,
+    orderInLevel: 5,
     title: 'Kultur und Medien',
     subtitle: 'Filme und Bücher besprechen',
     description:
@@ -302,7 +341,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B1',
-    order: 6,
+    orderInLevel: 6,
     title: 'Gesellschaft und Engagement',
     subtitle: 'Ehrenamt, Finalsätze',
     description:
@@ -320,7 +359,7 @@ export const CURRICULUM: ChapterSeed[] = [
   // ------------------------------------------------------------------- B2
   {
     level: 'B2',
-    order: 1,
+    orderInLevel: 1,
     title: 'Identität und Zugehörigkeit',
     subtitle: 'Biografien, Nominalisierung',
     description:
@@ -336,7 +375,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B2',
-    order: 2,
+    orderInLevel: 2,
     title: 'Wissenschaft und Technik',
     subtitle: 'Erklären, Partizipialattribute',
     description:
@@ -352,7 +391,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B2',
-    order: 3,
+    orderInLevel: 3,
     title: 'Wirtschaft und Konsum',
     subtitle: 'Argumentieren, Konnektoren',
     description:
@@ -368,7 +407,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B2',
-    order: 4,
+    orderInLevel: 4,
     title: 'Recht und Ordnung',
     subtitle: 'Regeln, Passiversatzformen',
     description:
@@ -384,7 +423,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B2',
-    order: 5,
+    orderInLevel: 5,
     title: 'Kunst und Ästhetik',
     subtitle: 'Beschreiben und deuten',
     description:
@@ -400,7 +439,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'B2',
-    order: 6,
+    orderInLevel: 6,
     title: 'Globalisierung und Migration',
     subtitle: 'Komplexe Zusammenhänge darstellen',
     description:
@@ -418,7 +457,7 @@ export const CURRICULUM: ChapterSeed[] = [
   // ------------------------------------------------------------------- C1
   {
     level: 'C1',
-    order: 1,
+    orderInLevel: 1,
     title: 'Sprache und Denken',
     subtitle: 'Sprachreflexion, Modalpartikeln',
     description:
@@ -434,7 +473,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C1',
-    order: 2,
+    orderInLevel: 2,
     title: 'Forschung und Ethik',
     subtitle: 'Abwägen, Konjunktiv I',
     description:
@@ -450,7 +489,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C1',
-    order: 3,
+    orderInLevel: 3,
     title: 'Politik und Öffentlichkeit',
     subtitle: 'Debatte, rhetorische Mittel',
     description:
@@ -466,7 +505,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C1',
-    order: 4,
+    orderInLevel: 4,
     title: 'Literatur und Interpretation',
     subtitle: 'Texte deuten',
     description:
@@ -482,7 +521,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C1',
-    order: 5,
+    orderInLevel: 5,
     title: 'Nachhaltigkeit und Verantwortung',
     subtitle: 'Zielkonflikte darstellen',
     description:
@@ -498,7 +537,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C1',
-    order: 6,
+    orderInLevel: 6,
     title: 'Digitalisierung und Gesellschaft',
     subtitle: 'Prognosen und Bewertungen',
     description:
@@ -516,7 +555,7 @@ export const CURRICULUM: ChapterSeed[] = [
   // ------------------------------------------------------------------- C2
   {
     level: 'C2',
-    order: 1,
+    orderInLevel: 1,
     title: 'Rhetorik und Argumentation',
     subtitle: 'Überzeugen auf hohem Niveau',
     description:
@@ -532,7 +571,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C2',
-    order: 2,
+    orderInLevel: 2,
     title: 'Wissenschaftliches Schreiben',
     subtitle: 'Präzision und Struktur',
     description:
@@ -548,7 +587,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C2',
-    order: 3,
+    orderInLevel: 3,
     title: 'Stil und Register',
     subtitle: 'Zwischen Ebenen wechseln',
     description:
@@ -564,7 +603,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C2',
-    order: 4,
+    orderInLevel: 4,
     title: 'Idiomatik und Nuancen',
     subtitle: 'Redewendungen sicher verwenden',
     description:
@@ -580,7 +619,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C2',
-    order: 5,
+    orderInLevel: 5,
     title: 'Diskurs und Debatte',
     subtitle: 'Moderieren und vermitteln',
     description:
@@ -596,7 +635,7 @@ export const CURRICULUM: ChapterSeed[] = [
   },
   {
     level: 'C2',
-    order: 6,
+    orderInLevel: 6,
     title: 'Fachsprache und Vermittlung',
     subtitle: 'Komplexes verständlich machen',
     description:
@@ -610,4 +649,21 @@ export const CURRICULUM: ChapterSeed[] = [
     ],
     estimatedMinutes: 155,
   },
+];
+
+/**
+ * Der vollständige Lehrplan: die drei Kursbücher, dann das Grammatikbuch.
+ *
+ * Aus der Lehrplansicht (Stufe + Nummer in der Stufe) wird hier die Sicht des
+ * Buchs: A1 füllt Beginner 1–6, A2 schließt mit 7–12 an, entsprechend in den
+ * anderen beiden Büchern.
+ */
+export const CURRICULUM: ChapterSeed[] = [
+  ...COURSE_CHAPTERS.map(({ level, orderInLevel, ...rest }) => ({
+    ...rest,
+    level,
+    book: BOOK_BY_LEVEL[level],
+    order: orderInLevel + (IS_UPPER_LEVEL[level] ? CHAPTERS_PER_LEVEL : 0),
+  })),
+  ...GRAMMAR_CURRICULUM,
 ];

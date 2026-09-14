@@ -1,9 +1,21 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseEnumPipe,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
+import { WorkbookBook } from '@prisma/client';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   CheckUnitDto,
-  ListChaptersQueryDto,
+  ListBooksQueryDto,
   SaveAnnotationsDto,
   SaveAnswersDto,
 } from './dto/workbook.dto';
@@ -14,14 +26,24 @@ import { WorkbookService } from './workbook.service';
 export class WorkbookController {
   constructor(private readonly workbook: WorkbookService) {}
 
-  @Get('chapters')
-  @ApiOperation({ summary: 'Kapitelübersicht nach Sprache und Niveau, inkl. Fortschritt' })
-  chapters(@CurrentUser('id') userId: string, @Query() query: ListChaptersQueryDto) {
-    return this.workbook.listChapters(userId, query);
+  @Get('books')
+  @ApiOperation({ summary: 'Die vier Bücher mit Stand und Einstiegsseite' })
+  books(@CurrentUser('id') userId: string, @Query() query: ListBooksQueryDto) {
+    return this.workbook.listBooks(userId, query.languageId);
+  }
+
+  @Get('books/:book')
+  @ApiOperation({ summary: 'Inhaltsverzeichnis eines Buchs: Kapitel mit allen Seiten' })
+  bookContents(
+    @CurrentUser('id') userId: string,
+    @Param('book', new ParseEnumPipe(WorkbookBook)) book: WorkbookBook,
+    @Query() query: ListBooksQueryDto,
+  ) {
+    return this.workbook.getBook(userId, book, query.languageId);
   }
 
   @Get('chapters/:id')
-  @ApiOperation({ summary: 'Kapitel mit allen Lerneinheiten (Kursbuch und Arbeitsbuch)' })
+  @ApiOperation({ summary: 'Kapitel mit allen Seiten' })
   chapter(@CurrentUser('id') userId: string, @Param('id') chapterId: string) {
     return this.workbook.getChapter(userId, chapterId);
   }
@@ -67,7 +89,7 @@ export class WorkbookController {
   }
 
   @Post('units/:id/complete')
-  @ApiOperation({ summary: 'Kursbuchteil ohne Aufgaben als erledigt markieren' })
+  @ApiOperation({ summary: 'Seite ohne Aufgaben als erledigt markieren' })
   complete(@CurrentUser('id') userId: string, @Param('id') unitId: string) {
     return this.workbook.markComplete(userId, unitId);
   }

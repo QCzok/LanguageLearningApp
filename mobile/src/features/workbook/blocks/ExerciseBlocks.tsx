@@ -18,7 +18,7 @@ import { useAuthStore } from '../../../store/auth.store';
 import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
 
 /**
- * Aufgabenblöcke im Arbeitsbuch-Stil.
+ * Die Aufgabenblöcke einer Seite, gesetzt wie gedruckte Übungen.
  *
  * Gedruckte Optik: nummerierte Aufgaben, Lücken als Schreiblinien statt
  * Eingabefelder mit Rahmen, Ankreuzkästchen statt App-Buttons. Korrekturen
@@ -234,8 +234,8 @@ export function Choice(props: BlockProps<ChoiceBlock>) {
             >
               {/*
                 Angekreuzt wird ins Kästchen hinein – der Haken steht im Feld,
-                das Feld färbt sich nicht ein. So sieht ein ausgefülltes
-                Arbeitsbuch aus.
+                das Feld färbt sich nicht ein. So sieht eine ausgefüllte
+                Buchseite aus.
               */}
               <View
                 style={[

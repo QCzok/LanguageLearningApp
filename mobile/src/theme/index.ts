@@ -86,12 +86,15 @@ export const typography = {
 } as const;
 
 /**
- * Eigene Tokens für die Lehrwerksseite. Das Lernheft soll weiterhin nach
+ * Eigene Tokens für die Lehrwerksseite. Das Lehrwerk soll weiterhin nach
  * Papier aussehen, nicht nach App-Oberfläche – aber in denselben Farben wie
  * der Rest der App: „Tinte“ ist exakt die App-Textfarbe, das Papier reines
- * Weiß wie jede andere Fläche, der Buchteil-Akzent (Kursbuch) die
- * Leitfarbe. Das Arbeitsbuch bekommt einen ruhigen Kohleton als Gegenpart –
- * unterscheidbar von Kursbuch, ohne eine dritte, fremde Farbe einzuführen.
+ * Weiß wie jede andere Fläche.
+ *
+ * Farbe trägt hier nur eines: das Buch. Jedes der vier Bücher hat einen
+ * eigenen Rückenton (siehe `bookColors`), und der taucht auf jeder Seite des
+ * Buchs als Haarlinie unter dem Kolumnentitel wieder auf – so wie ein
+ * gedruckter Band seine Farbe vom Regal bis zur letzten Seite mitnimmt.
  */
 export const book = {
   /**
@@ -123,11 +126,19 @@ export const book = {
   inkSoft: '#6B6B6B',
   inkFaint: '#9A9A9A',
 
-  /** Akzent je Buchteil – Kursbuch trägt die Leitfarbe, Arbeitsbuch einen ruhigen Kohleton. */
-  kursbuch: '#73030D',
-  kursbuchSoft: '#F3D9DB',
-  arbeitsbuch: '#33363B',
-  arbeitsbuchSoft: '#E4E4E5',
+
+  /**
+   * Zwei weitere Druckfarben, mit denen die Seite auskommt: die Leitfarbe und
+   * ein ruhiger Schieferton. Sie tragen, was auf jeder Seite gleich aussehen
+   * muss, egal aus welchem Buch sie stammt – die Artikelfarben der/die/das,
+   * die Figuren der Illustrationen, die Etiketten der Kästen. (Vorher hießen
+   * sie `kursbuch` und `arbeitsbuch`; benannt war damit ein Buchteil, den es
+   * nicht mehr gibt, gemeint war immer schon die Farbe.)
+   */
+  printRed: '#73030D',
+  printRedSoft: '#F3D9DB',
+  printSlate: '#33363B',
+  printSlateSoft: '#E4E4E5',
 
   /** Korrekturfarben – dieselben wie überall in der App (Erfolg/Warnung/Fehler). */
   correct: '#2F6F4F',
@@ -201,3 +212,19 @@ export const levelColors: Record<string, string> = {
   C1: '#73030D',
   C2: '#4D0209',
 };
+
+/**
+ * Farbe pro Buch – der Rückenton, an dem man einen Band im Regal wiedererkennt.
+ *
+ * Die drei Kursbücher folgen derselben Verdichtung wie die Niveaus, aus denen
+ * sie entstanden sind: Beginner der hellste Ton, Advanced die Leitfarbe in
+ * ihrer vollen Tiefe. Das Grammatikbuch steht quer zu dieser Reihe und
+ * bekommt deshalb als einziges eine andere Farbe – ein ruhiges Tintenblau,
+ * das sich nicht in die Stufenfolge einreiht, weil es keine Stufe ist.
+ */
+export const bookColors = {
+  BEGINNER: { accent: '#B35A63', soft: '#F4E1E3' },
+  INTERMEDIATE: { accent: '#8E2833', soft: '#F1D7D9' },
+  ADVANCED: { accent: '#5E040D', soft: '#EBD2D4' },
+  GRAMMAR: { accent: '#2B4B6F', soft: '#DCE5EF' },
+} as const;

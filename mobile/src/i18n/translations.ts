@@ -24,7 +24,7 @@ const de = {
   vocabularyReviewBackTitle: 'Ende',
   vocabularyStats: 'Statistik',
 
-  notebookChapterList: 'Lernheft',
+  notebookBookshelf: 'Lehrwerk',
   notebookList: 'Eigene Notizhefte',
 
   libraryList: 'Bibliothek',
@@ -54,7 +54,7 @@ const en: Record<keyof typeof de, string> = {
   vocabularyReviewBackTitle: 'Done',
   vocabularyStats: 'Statistics',
 
-  notebookChapterList: 'Workbook',
+  notebookBookshelf: 'Course books',
   notebookList: 'My notebooks',
 
   libraryList: 'Library',
@@ -84,7 +84,7 @@ const es: Record<keyof typeof de, string> = {
   vocabularyReviewBackTitle: 'Terminar',
   vocabularyStats: 'Estadísticas',
 
-  notebookChapterList: 'Cuaderno de ejercicios',
+  notebookBookshelf: 'Libros de curso',
   notebookList: 'Mis cuadernos',
 
   libraryList: 'Biblioteca',
@@ -114,7 +114,7 @@ const fr: Record<keyof typeof de, string> = {
   vocabularyReviewBackTitle: 'Terminer',
   vocabularyStats: 'Statistiques',
 
-  notebookChapterList: "Cahier d'exercices",
+  notebookBookshelf: 'Manuels',
   notebookList: 'Mes cahiers',
 
   libraryList: 'Bibliothèque',
@@ -144,7 +144,7 @@ const it: Record<keyof typeof de, string> = {
   vocabularyReviewBackTitle: 'Fine',
   vocabularyStats: 'Statistiche',
 
-  notebookChapterList: 'Quaderno di esercizi',
+  notebookBookshelf: 'Manuali',
   notebookList: 'I miei quaderni',
 
   libraryList: 'Biblioteca',

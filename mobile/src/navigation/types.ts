@@ -1,5 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
-import type { CefrLevel } from '@lingua/shared';
+import type { CefrLevel, WorkbookBook } from '@lingua/shared';
 
 /** Zentrale Routen-Typen – jede navigation.navigate()-Nutzung ist damit typgeprüft. */
 
@@ -35,9 +35,10 @@ export type VocabularyStackParamList = {
 };
 
 export type NotebookStackParamList = {
-  /** Einstieg: die Kapitelübersicht des Lehrwerks. */
-  ChapterList: undefined;
-  Chapter: { chapterId: string; title: string };
+  /** Einstieg: das Regal mit den vier Büchern. */
+  Bookshelf: undefined;
+  /** Das Inhaltsverzeichnis eines Buchs – Kapitel mit allen Seiten. */
+  BookContents: { book: WorkbookBook };
   Unit: { unitId: string; title: string };
   NotebookList: undefined;
   NotebookEditor: { notebookId: string; title: string };

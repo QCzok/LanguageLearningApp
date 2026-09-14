@@ -1,17 +1,25 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { PrismaClient, Prisma, WorkbookBook } from '@prisma/client';
 import { CURRICULUM } from './curriculum';
-import { CHAPTER_A1_1_UNITS } from './chapter-a1-1';
+import { BEGINNER_1_UNITS, type UnitSeed } from './chapter-beginner-1';
+import { GRAMMAR_1_UNITS } from './chapter-grammar-1';
 
 /**
- * Legt den Lehrplan für Deutsch als Fremdsprache an.
+ * Legt das Lehrwerk Deutsch als Fremdsprache an: drei Kursbücher zu je zwölf
+ * Kapiteln und ein Grammatikbuch mit zwölf Kapiteln.
  *
- * Idempotent: Kapitel werden über (languageId, level, order) gefunden und
- * aktualisiert, Einheiten des ausgearbeiteten Kapitels vor dem Neuschreiben
+ * Idempotent: Kapitel werden über (languageId, book, order) gefunden und
+ * aktualisiert, Seiten der ausgearbeiteten Kapitel vor dem Neuschreiben
  * gelöscht. Ein zweiter Lauf erzeugt keine Duplikate.
  *
- * Veröffentlicht wird nur, was auch Inhalt hat – die übrigen 35 Kapitel bleiben
- * als Gerüst unveröffentlicht und tauchen in der App noch nicht auf.
+ * Veröffentlicht wird nur, was auch Inhalt hat – die übrigen Kapitel bleiben
+ * als Gerüst unveröffentlicht und stehen in der App ausgegraut im
+ * Inhaltsverzeichnis, damit der Aufbau des Buchs von Anfang an sichtbar ist.
  */
+const SHOWCASE_UNITS: Array<{ book: WorkbookBook; order: number; units: UnitSeed[] }> = [
+  { book: WorkbookBook.BEGINNER, order: 1, units: BEGINNER_1_UNITS },
+  { book: WorkbookBook.GRAMMAR, order: 1, units: GRAMMAR_1_UNITS },
+];
+
 export async function seedWorkbook(prisma: PrismaClient): Promise<void> {
   const german = await prisma.language.upsert({
     where: { code: 'de' },
@@ -27,54 +35,46 @@ export async function seedWorkbook(prisma: PrismaClient): Promise<void> {
 
   let created = 0;
   let published = 0;
+  let pages = 0;
 
   for (const seed of CURRICULUM) {
-    const isShowcase = seed.level === 'A1' && seed.order === 1;
+    const showcase = SHOWCASE_UNITS.find(
+      (entry) => entry.book === seed.book && entry.order === seed.order,
+    );
+
+    const data = {
+      title: seed.title,
+      subtitle: seed.subtitle,
+      description: seed.description,
+      coverEmoji: seed.coverEmoji,
+      goals: seed.goals,
+      estimatedMinutes: seed.estimatedMinutes,
+      isPublished: Boolean(showcase),
+    };
 
     const chapter = await prisma.chapter.upsert({
       where: {
-        languageId_level_order: {
+        languageId_book_order: {
           languageId: german.id,
-          level: seed.level,
+          book: seed.book,
           order: seed.order,
         },
       },
-      create: {
-        languageId: german.id,
-        level: seed.level,
-        order: seed.order,
-        title: seed.title,
-        subtitle: seed.subtitle,
-        description: seed.description,
-        coverEmoji: seed.coverEmoji,
-        goals: seed.goals,
-        estimatedMinutes: seed.estimatedMinutes,
-        isPublished: isShowcase,
-      },
-      update: {
-        title: seed.title,
-        subtitle: seed.subtitle,
-        description: seed.description,
-        coverEmoji: seed.coverEmoji,
-        goals: seed.goals,
-        estimatedMinutes: seed.estimatedMinutes,
-        isPublished: isShowcase,
-      },
+      create: { languageId: german.id, book: seed.book, level: seed.level, order: seed.order, ...data },
+      update: { level: seed.level, ...data },
     });
 
     created += 1;
-    if (isShowcase) published += 1;
+    if (!showcase) continue;
+    published += 1;
 
-    if (!isShowcase) continue;
-
-    // Einheiten vollständig ersetzen – so wirken Textkorrekturen sofort.
+    // Seiten vollständig ersetzen – so wirken Textkorrekturen sofort.
     await prisma.chapterUnit.deleteMany({ where: { chapterId: chapter.id } });
 
-    for (const unit of CHAPTER_A1_1_UNITS) {
+    for (const unit of showcase.units) {
       await prisma.chapterUnit.create({
         data: {
           chapterId: chapter.id,
-          section: unit.section,
           order: unit.order,
           title: unit.title,
           subtitle: unit.subtitle,
@@ -82,10 +82,9 @@ export async function seedWorkbook(prisma: PrismaClient): Promise<void> {
           content: unit.content as unknown as Prisma.InputJsonValue,
         },
       });
+      pages += 1;
     }
   }
 
-  console.log(
-    `  Lehrplan Deutsch: ${created} Kapitel (${published} veröffentlicht, ${CHAPTER_A1_1_UNITS.length} Lerneinheiten)`,
-  );
+  console.log(`  Lehrwerk Deutsch: ${created} Kapitel (${published} veröffentlicht, ${pages} Seiten)`);
 }

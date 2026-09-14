@@ -1,9 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, UnitStatus } from '@prisma/client';
+import { Prisma, UnitStatus, WorkbookBook } from '@prisma/client';
 import {
+  WORKBOOK_BOOKS,
   countExercises,
   isExerciseBlock,
   type BlockAnswer,
+  type BookDetailDto,
+  type BookSummaryDto,
   type CefrLevel,
   type ChapterDetailDto,
   type ChapterSummaryDto,
@@ -13,11 +16,12 @@ import {
   type UnitContent,
   type UnitDetailDto,
   type UnitSummaryDto,
+  type WorkbookBook as WorkbookBookName,
 } from '@lingua/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { evaluateBlock, stripSolutions } from './evaluation';
-import { CheckUnitDto, ListChaptersQueryDto, SaveAnnotationsDto, SaveAnswersDto } from './dto/workbook.dto';
+import { CheckUnitDto, SaveAnnotationsDto, SaveAnswersDto } from './dto/workbook.dto';
 
 /** XP für eine vollständig abgeschlossene Lerneinheit, skaliert mit dem Ergebnis. */
 const XP_PER_UNIT = 30;
@@ -29,76 +33,110 @@ export class WorkbookService {
     private readonly users: UsersService,
   ) {}
 
-  // ------------------------------------------------------------- Kapitel
+  // --------------------------------------------------------------- Regal
 
-  async listChapters(userId: string, query: ListChaptersQueryDto): Promise<ChapterSummaryDto[]> {
+  /**
+   * Das Bücherregal: die vier Bücher mit ihrem Stand und der Seite, auf der es
+   * weitergeht.
+   *
+   * Der Einstiegspunkt jedes Buchs wird hier berechnet und nicht in der App –
+   * „die erste Seite, die noch nicht abgeschlossen ist“ braucht den Stand
+   * aller Seiten aller Kapitel, und den hat nur der Server ohne weitere
+   * Anfragen beisammen.
+   */
+  async listBooks(userId: string, languageId?: string): Promise<BookSummaryDto[]> {
     const profile = await this.users.getActiveProfileOrThrow(userId);
-    const languageId = query.languageId ?? profile.languageId;
+    const language = languageId ?? profile.languageId;
 
     const chapters = await this.prisma.chapter.findMany({
-      where: {
-        languageId,
-        ...(query.level ? { level: query.level } : {}),
-        ...(query.includeUnpublished ? {} : { isPublished: true }),
+      where: { languageId: language },
+      include: {
+        units: { select: { id: true, order: true, title: true }, orderBy: { order: 'asc' } },
       },
-      include: { _count: { select: { units: true } } },
-      orderBy: [{ level: 'asc' }, { order: 'asc' }],
+      orderBy: { order: 'asc' },
     });
 
-    const progress = await this.progressByChapter(
-      userId,
-      chapters.map((chapter) => chapter.id),
-    );
+    const unitIds = chapters.flatMap((chapter) => chapter.units.map((unit) => unit.id));
+    const rows = await this.prisma.unitProgress.findMany({
+      where: { userId, unitId: { in: unitIds } },
+      select: { unitId: true, status: true },
+    });
+    const statusByUnit = new Map(rows.map((row) => [row.unitId, row.status]));
 
-    return chapters.map((chapter) => ({
-      ...this.toSummary(chapter, chapter._count.units),
-      progress: progress.get(chapter.id),
-    }));
+    return WORKBOOK_BOOKS.map((book) => {
+      const ofBook = chapters.filter((chapter) => chapter.book === book);
+      const publishedChapters = ofBook.filter((chapter) => chapter.isPublished);
+      const pages = publishedChapters.flatMap((chapter) =>
+        chapter.units.map((unit) => ({ chapter, unit })),
+      );
+      const completed = pages.filter(
+        (page) => statusByUnit.get(page.unit.id) === UnitStatus.COMPLETED,
+      );
+      const next = pages.find((page) => statusByUnit.get(page.unit.id) !== UnitStatus.COMPLETED);
+      // Alles erledigt: Das Buch führt zum Wiederholen wieder auf Seite eins.
+      const resumeAt = next ?? pages[0];
+
+      return {
+        book: book as WorkbookBookName,
+        chapterCount: ofBook.length,
+        publishedChapterCount: publishedChapters.length,
+        completedUnits: completed.length,
+        totalUnits: pages.length,
+        percent: pages.length ? Math.round((completed.length / pages.length) * 100) : 0,
+        resume: resumeAt
+          ? {
+              unitId: resumeAt.unit.id,
+              unitTitle: resumeAt.unit.title,
+              chapterOrder: resumeAt.chapter.order,
+              chapterTitle: resumeAt.chapter.title,
+              isStart: completed.length === 0,
+            }
+          : undefined,
+      };
+    });
   }
+
+  /**
+   * Das Inhaltsverzeichnis eines Buchs: alle Kapitel mit allen Seiten.
+   *
+   * Auch die noch nicht veröffentlichten Kapitel sind dabei – sie stehen in
+   * der App ausgegraut im Verzeichnis, damit der Aufbau des Buchs von Anfang
+   * an sichtbar ist und nicht der Eindruck entsteht, es sei zu Ende.
+   */
+  async getBook(userId: string, book: WorkbookBook, languageId?: string): Promise<BookDetailDto> {
+    const profile = await this.users.getActiveProfileOrThrow(userId);
+
+    const chapters = await this.prisma.chapter.findMany({
+      where: { languageId: languageId ?? profile.languageId, book },
+      include: { units: { orderBy: { order: 'asc' } } },
+      orderBy: { order: 'asc' },
+    });
+
+    const rows = await this.prisma.unitProgress.findMany({
+      where: { userId, unitId: { in: chapters.flatMap((c) => c.units.map((unit) => unit.id)) } },
+    });
+    const byUnit = new Map(rows.map((row) => [row.unitId, row]));
+
+    return {
+      book: book as WorkbookBookName,
+      chapters: chapters.map((chapter) => this.toDetail(chapter, chapter.units, byUnit)),
+    };
+  }
+
+  // ------------------------------------------------------------- Kapitel
 
   async getChapter(userId: string, chapterId: string): Promise<ChapterDetailDto> {
     const chapter = await this.prisma.chapter.findUnique({
       where: { id: chapterId },
-      include: { units: { orderBy: [{ section: 'asc' }, { order: 'asc' }] } },
+      include: { units: { orderBy: { order: 'asc' } } },
     });
     if (!chapter) throw new NotFoundException('Kapitel nicht gefunden');
 
     const progressRows = await this.prisma.unitProgress.findMany({
       where: { userId, unitId: { in: chapter.units.map((unit) => unit.id) } },
     });
-    const byUnit = new Map(progressRows.map((row) => [row.unitId, row]));
 
-    const units: UnitSummaryDto[] = chapter.units.map((unit) => {
-      const state = byUnit.get(unit.id);
-      return {
-        id: unit.id,
-        section: unit.section,
-        order: unit.order,
-        title: unit.title,
-        subtitle: unit.subtitle,
-        estimatedMinutes: unit.estimatedMinutes,
-        exerciseCount: countExercises(unit.content as unknown as UnitContent),
-        status: state?.status ?? UnitStatus.NOT_STARTED,
-        scorePercent: state?.scorePercent ?? null,
-      };
-    });
-
-    const completed = units.filter((unit) => unit.status === UnitStatus.COMPLETED);
-    const scored = completed.filter((unit) => unit.scorePercent !== null);
-
-    return {
-      ...this.toSummary(chapter, chapter.units.length),
-      description: chapter.description,
-      units,
-      progress: {
-        completedUnits: completed.length,
-        totalUnits: units.length,
-        percent: units.length ? Math.round((completed.length / units.length) * 100) : 0,
-        scorePercent: scored.length
-          ? Math.round(scored.reduce((sum, u) => sum + (u.scorePercent ?? 0), 0) / scored.length)
-          : null,
-      },
-    };
+    return this.toDetail(chapter, chapter.units, new Map(progressRows.map((r) => [r.unitId, r])));
   }
 
   // --------------------------------------------------------- Lerneinheit
@@ -126,8 +164,8 @@ export class WorkbookService {
       chapterId: unit.chapterId,
       chapterTitle: unit.chapter.title,
       chapterOrder: unit.chapter.order,
+      book: unit.chapter.book as WorkbookBookName,
       level: unit.chapter.level as CefrLevel,
-      section: unit.section,
       order: unit.order,
       title: unit.title,
       subtitle: unit.subtitle,
@@ -269,7 +307,7 @@ export class WorkbookService {
     };
   }
 
-  /** Kursbuchteile enthalten keine Aufgaben – sie werden manuell abgehakt. */
+  /** Reine Leseseiten enthalten keine Aufgaben – sie werden manuell abgehakt. */
   async markComplete(userId: string, unitId: string): Promise<{ status: UnitStatus; xpEarned: number }> {
     const unit = await this.prisma.chapterUnit.findUnique({ where: { id: unitId } });
     if (!unit) throw new NotFoundException('Lerneinheit nicht gefunden');
@@ -312,45 +350,53 @@ export class WorkbookService {
     if (exists === 0) throw new NotFoundException('Lerneinheit nicht gefunden');
   }
 
-  private async progressByChapter(userId: string, chapterIds: string[]) {
-    const map = new Map<string, NonNullable<ChapterSummaryDto['progress']>>();
-    if (chapterIds.length === 0) return map;
-
-    const units = await this.prisma.chapterUnit.findMany({
-      where: { chapterId: { in: chapterIds } },
-      select: { id: true, chapterId: true },
+  /**
+   * Kapitel plus Seiten plus Stand – die Form, in der sowohl das
+   * Inhaltsverzeichnis eines Buchs als auch ein einzelnes Kapitel geliefert
+   * werden. `progressByUnit` bringt den schon geladenen Stand mit, damit für
+   * ein ganzes Buch nicht pro Kapitel eine eigene Abfrage läuft.
+   */
+  private toDetail(
+    chapter: Prisma.ChapterGetPayload<{ include: { units: true } }>,
+    units: Prisma.ChapterUnitGetPayload<Record<string, never>>[],
+    progressByUnit: Map<string, { status: UnitStatus; scorePercent: number | null }>,
+  ): ChapterDetailDto {
+    const summaries: UnitSummaryDto[] = units.map((unit) => {
+      const state = progressByUnit.get(unit.id);
+      return {
+        id: unit.id,
+        order: unit.order,
+        title: unit.title,
+        subtitle: unit.subtitle,
+        estimatedMinutes: unit.estimatedMinutes,
+        exerciseCount: countExercises(unit.content as unknown as UnitContent),
+        status: state?.status ?? UnitStatus.NOT_STARTED,
+        scorePercent: state?.scorePercent ?? null,
+      };
     });
 
-    const rows = await this.prisma.unitProgress.findMany({
-      where: { userId, unitId: { in: units.map((unit) => unit.id) } },
-      select: { unitId: true, status: true, scorePercent: true },
-    });
-    const byUnit = new Map(rows.map((row) => [row.unitId, row]));
+    const completed = summaries.filter((unit) => unit.status === UnitStatus.COMPLETED);
+    const scored = completed.filter((unit) => unit.scorePercent !== null);
 
-    for (const chapterId of chapterIds) {
-      const chapterUnits = units.filter((unit) => unit.chapterId === chapterId);
-      const done = chapterUnits.filter(
-        (unit) => byUnit.get(unit.id)?.status === UnitStatus.COMPLETED,
-      );
-      const scores = done
-        .map((unit) => byUnit.get(unit.id)?.scorePercent)
-        .filter((value): value is number => typeof value === 'number');
-
-      map.set(chapterId, {
-        completedUnits: done.length,
-        totalUnits: chapterUnits.length,
-        percent: chapterUnits.length ? Math.round((done.length / chapterUnits.length) * 100) : 0,
-        scorePercent: scores.length
-          ? Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length)
+    return {
+      ...this.toSummary(chapter, summaries.length),
+      description: chapter.description,
+      units: summaries,
+      progress: {
+        completedUnits: completed.length,
+        totalUnits: summaries.length,
+        percent: summaries.length ? Math.round((completed.length / summaries.length) * 100) : 0,
+        scorePercent: scored.length
+          ? Math.round(scored.reduce((sum, u) => sum + (u.scorePercent ?? 0), 0) / scored.length)
           : null,
-      });
-    }
-    return map;
+      },
+    };
   }
 
   private toSummary(
     chapter: {
       id: string;
+      book: WorkbookBook;
       level: string;
       order: number;
       title: string;
@@ -364,6 +410,7 @@ export class WorkbookService {
   ): ChapterSummaryDto {
     return {
       id: chapter.id,
+      book: chapter.book as WorkbookBookName,
       level: chapter.level as CefrLevel,
       order: chapter.order,
       title: chapter.title,

@@ -92,9 +92,13 @@ enum PageBackground {
   DOTTED
 }
 
-enum UnitSection {
-  KURSBUCH
-  ARBEITSBUCH
+/// Die vier Bücher des Lehrwerks: drei Kursbücher entlang des Könnens und
+/// ein Grammatikbuch quer dazu (siehe WORKBOOK_BOOKS in @lingua/shared).
+enum WorkbookBook {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  GRAMMAR
 }
 
 enum UnitStatus {
@@ -382,53 +386,53 @@ model NotebookAnalysis {
   @@map("notebook_analyses")
 }
 
-// ============================================================ Arbeitsbuch
+// ============================================================ Lehrwerk
 
-/// Ein Kapitel des Lehrwerks. Pro Sprache und Niveau sechs Stück, über
-/// `order` (1–6) sortiert.
+/// Ein Kapitel eines Buchs. Die Kapitel laufen innerhalb des Buchs durch
+/// (1 … n); `level` bleibt als GER-Angabe erhalten, ordnet aber nicht mehr.
 model Chapter {
-  id               String    @id @default(cuid())
+  id               String       @id @default(cuid())
   languageId       String
-  language         Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  language         Language     @relation(fields: [languageId], references: [id], onDelete: Cascade)
+  book             WorkbookBook
   level            CefrLevel
   order            Int
   title            String
   subtitle         String
   description      String
-  coverEmoji       String    @default("📗")
+  coverEmoji       String       @default("📗")
   /// Kann-Beschreibungen im Sinne des GER.
   goals            String[]
-  estimatedMinutes Int       @default(0)
-  isPublished      Boolean   @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  estimatedMinutes Int          @default(0)
+  isPublished      Boolean      @default(false)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
 
   units ChapterUnit[]
 
-  @@unique([languageId, level, order])
-  @@index([languageId, level])
+  @@unique([languageId, book, order])
+  @@index([languageId, book])
   @@map("chapters")
 }
 
-/// Eine Lerneinheit innerhalb eines Kapitels – entweder Kursbuchteil
-/// (neue Inhalte) oder Arbeitsbuchteil (Übungen dazu).
+/// Eine Seite eines Kapitels: Erklärung und die Aufgaben dazu in einem
+/// Block-Array, in der Reihenfolge, in der man sie bearbeitet.
 model ChapterUnit {
-  id               String      @id @default(cuid())
+  id               String   @id @default(cuid())
   chapterId        String
-  chapter          Chapter     @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  section          UnitSection
+  chapter          Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   order            Int
   title            String
   subtitle         String?
-  estimatedMinutes Int         @default(10)
+  estimatedMinutes Int      @default(10)
   /// UnitContent aus @lingua/shared – versioniertes Block-Array inkl. Lösungen.
   content          Json
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   progress UnitProgress[]
 
-  @@unique([chapterId, section, order])
+  @@unique([chapterId, order])
   @@index([chapterId])
   @@map("chapter_units")
 }
@@ -590,21 +594,21 @@ model AiConversation {
 }
 
 model AiMessage {
-  id             String         @id @default(cuid())
-  conversationId String
-  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  role           String // "user" | "assistant"
-  content        String
+  id              String         @id @default(cuid())
+  conversationId  String
+  conversation    AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            String // "user" | "assistant"
+  content         String
   /// Nur bei role = "user": "VOICE" (gesprochen) oder "TEXT" (getippt). Die
   /// Korrektur faellt je nach Quelle unterschiedlich streng aus – gesprochene
   /// Beitraege enthalten keine Zeichensetzung, die man bemaengeln koennte.
-  source         String?
+  source          String?
   /// Nur bei role = "user": der Beitrag in korrigierter Fassung, vollstaendig.
   /// null, wenn es nichts zu verbessern gab.
-  correctedText  String?
+  correctedText   String?
   /// Kurze Begruendungen zur Korrektur, passend zu `correctedText`.
-  correctionNotes String[]      @default([])
-  createdAt      DateTime       @default(now())
+  correctionNotes String[]       @default([])
+  createdAt       DateTime       @default(now())
 
   @@index([conversationId, createdAt])
   @@map("ai_messages")

@@ -18,7 +18,7 @@ import { useAuthStore } from '../../../store/auth.store';
 import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
 
 /**
- * Darstellungsblöcke des Kursbuchs, gesetzt wie eine gedruckte Lehrwerksseite:
+ * Die Darstellungsblöcke einer Seite, gesetzt wie eine gedruckte Lehrwerksseite:
  * Fließtext in Lesegröße, Kästen mit farbigem Rand statt Karten mit Schatten,
  * Tabellen mit Linien statt Hintergrundflächen.
  *
@@ -119,9 +119,9 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
  * Pastellblau, Pastellgelb und Pastellgrün nebeneinander.
  */
 const INFO_STYLES: Record<InfoBlock['variant'], { label: string; background: string; accent: string }> = {
-  GRAMMAR: { label: 'Grammatik', background: '#F1F3F8', accent: book.kursbuch },
+  GRAMMAR: { label: 'Grammatik', background: '#F1F3F8', accent: book.printRed },
   TIP: { label: 'Tipp', background: book.tint, accent: book.attention },
-  CULTURE: { label: 'Landeskunde', background: '#EFF3F1', accent: book.arbeitsbuch },
+  CULTURE: { label: 'Landeskunde', background: '#EFF3F1', accent: book.printSlate },
   IMPORTANT: { label: 'Wichtig', background: '#F8F0EE', accent: book.wrong },
 };
 
@@ -256,9 +256,9 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
  * und helfen beim Einprägen des Genus.
  */
 const ARTICLE_COLORS: Record<'der' | 'die' | 'das', string> = {
-  der: book.kursbuch,
+  der: book.printRed,
   die: book.wrong,
-  das: book.arbeitsbuch,
+  das: book.printSlate,
 };
 
 export function AudioPlaceholder({ block, accent }: BlockProps<AudioBlock>) {

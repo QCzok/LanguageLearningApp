@@ -1,7 +1,7 @@
 import type { CefrLevel } from './cefr';
 
 /**
- * Datenformat des Arbeitsbuchs.
+ * Datenformat des Lehrwerks.
  *
  * Eine Lerneinheit ist eine geordnete Liste von Blöcken – Darstellungsblöcke
  * (Text, Dialog, Wortschatz, Grammatikkasten) und Aufgabenblöcke (Lückentext,
@@ -250,26 +250,93 @@ export interface UnitCheckResult {
 
 // -------------------------------------------------------------- Struktur
 
-export const UNIT_SECTIONS = ['KURSBUCH', 'ARBEITSBUCH'] as const;
-export type UnitSection = (typeof UNIT_SECTIONS)[number];
+/**
+ * Die Bücher des Lehrwerks.
+ *
+ * Vorher war das Heft nach den sechs GER-Stufen sortiert und jede Stufe noch
+ * einmal in Kursbuch (neue Inhalte) und Arbeitsbuch (Übungen dazu) geteilt.
+ * Wer eine Seite aufschlagen wollte, entschied damit dreimal, bevor er las:
+ * Niveau, Buchteil, Kapitel – und musste danach zwischen den beiden Teilen
+ * hin- und herspringen, weil Erklärung und passende Aufgabe in verschiedenen
+ * Heften standen.
+ *
+ * Jetzt gibt es vier Bücher: drei Kursbücher entlang des Könnens und ein
+ * Grammatikbuch quer dazu. Ein Buch enthält durchnummerierte Kapitel, ein
+ * Kapitel durchnummerierte Seiten, und auf einer Seite folgt die Übung direkt
+ * auf die Erklärung, zu der sie gehört.
+ */
+export const WORKBOOK_BOOKS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'GRAMMAR'] as const;
+export type WorkbookBook = (typeof WORKBOOK_BOOKS)[number];
 
-export const SECTION_LABELS: Record<UnitSection, { label: string; description: string }> = {
-  KURSBUCH: {
-    label: 'Kursbuch',
-    description: 'Neue Inhalte kennenlernen: Dialoge, Wortschatz, Grammatik',
+export const BOOK_LABELS: Record<
+  WorkbookBook,
+  { label: string; subtitle: string; description: string; levels: CefrLevel[] }
+> = {
+  BEGINNER: {
+    label: 'Beginner',
+    subtitle: 'Erste Schritte bis Alltag',
+    description:
+      'Vom ersten Gruß bis zum Gespräch über Arbeit, Reisen und Gesundheit. Jede Seite führt etwas Neues ein und lässt es sofort üben.',
+    levels: ['A1', 'A2'],
   },
-  ARBEITSBUCH: {
-    label: 'Arbeitsbuch',
-    description: 'Üben und festigen: Aufgaben zu allem aus dem Kursbuch',
+  INTERMEDIATE: {
+    label: 'Intermediate',
+    subtitle: 'Selbstständig und sicher',
+    description:
+      'Zusammenhängend erzählen, begründen und diskutieren – über Bildung, Arbeitswelt, Kultur und Gesellschaft.',
+    levels: ['B1', 'B2'],
+  },
+  ADVANCED: {
+    label: 'Advanced',
+    subtitle: 'Differenziert und präzise',
+    description:
+      'Anspruchsvolle Texte verstehen, Standpunkte ausarbeiten, Stil und Register bewusst wählen.',
+    levels: ['C1', 'C2'],
+  },
+  GRAMMAR: {
+    label: 'Grammatik',
+    subtitle: 'Regeln zum Nachschlagen und Üben',
+    description:
+      'Ein Thema pro Kapitel, von den Artikeln bis zum Konjunktiv. Zu jeder Regel stehen die Aufgaben direkt daneben.',
+    levels: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
   },
 };
+
+/** Das Kursbuch, in dem eine GER-Stufe liegt. Das Grammatikbuch steht quer dazu. */
+export function bookForLevel(level: CefrLevel): WorkbookBook {
+  if (level === 'A1' || level === 'A2') return 'BEGINNER';
+  if (level === 'B1' || level === 'B2') return 'INTERMEDIATE';
+  return 'ADVANCED';
+}
 
 export const UNIT_STATUSES = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];
 
+/** Ein Buch im Regal – so viel, wie die Übersicht über ein Buch wissen muss. */
+export interface BookSummaryDto {
+  book: WorkbookBook;
+  chapterCount: number;
+  publishedChapterCount: number;
+  completedUnits: number;
+  totalUnits: number;
+  percent: number;
+  /** Die Seite, auf der es weitergeht – fehlt, solange das Buch leer ist. */
+  resume?: {
+    unitId: string;
+    unitTitle: string;
+    chapterOrder: number;
+    chapterTitle: string;
+    /** Noch keine Seite bearbeitet: Das Buch wird begonnen, nicht fortgesetzt. */
+    isStart: boolean;
+  };
+}
+
 export interface ChapterSummaryDto {
   id: string;
+  book: WorkbookBook;
+  /** Die GER-Stufe bleibt als Angabe erhalten, ordnet aber nicht mehr die Navigation. */
   level: CefrLevel;
+  /** Fortlaufend innerhalb des Buchs, nicht mehr innerhalb der Stufe. */
   order: number;
   title: string;
   subtitle: string;
@@ -289,7 +356,6 @@ export interface ChapterSummaryDto {
 
 export interface UnitSummaryDto {
   id: string;
-  section: UnitSection;
   order: number;
   title: string;
   subtitle: string | null;
@@ -304,14 +370,26 @@ export interface ChapterDetailDto extends ChapterSummaryDto {
   units: UnitSummaryDto[];
 }
 
+/**
+ * Das Inhaltsverzeichnis eines Buchs: alle Kapitel mit allen Seiten.
+ *
+ * Bewusst in einer Antwort und nicht kapitelweise nachgeladen – ein
+ * Inhaltsverzeichnis, das sich erst beim Aufklappen füllt, ist keines. Die
+ * Seiten kommen dabei ohne Inhalt, nur als Zeilen (`UnitSummaryDto`).
+ */
+export interface BookDetailDto {
+  book: WorkbookBook;
+  chapters: ChapterDetailDto[];
+}
+
 export interface UnitDetailDto {
   id: string;
   chapterId: string;
   chapterTitle: string;
   /** Für die Kopfzeile der Buchseite. */
   chapterOrder: number;
+  book: WorkbookBook;
   level: CefrLevel;
-  section: UnitSection;
   order: number;
   title: string;
   subtitle: string | null;

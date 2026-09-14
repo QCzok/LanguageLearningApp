@@ -1,13 +1,14 @@
 import type {
   AiConversationDto,
-  ChapterDetailDto,
-  ChapterSummaryDto,
   AiMessageDto,
   AiMessageSource,
   AiTurnDto,
   AiQuotaDto,
   AuthResponse,
+  BookDetailDto,
+  BookSummaryDto,
   CefrLevel,
+  ChapterDetailDto,
   DashboardDto,
   ExerciseResultDto,
   LanguageDto,
@@ -32,6 +33,7 @@ import type {
   VocabItemDto,
   VocabMode,
   VocabStatsDto,
+  WorkbookBook,
 } from '@lingua/shared';
 import { api } from './client';
 
@@ -130,8 +132,11 @@ export const notebookApi = {
 };
 
 export const workbookApi = {
-  chapters: (params?: { level?: CefrLevel; includeUnpublished?: boolean }) =>
-    api.get<ChapterSummaryDto[]>('/workbook/chapters', { params }).then((r) => r.data),
+  /** Das Regal: die vier Bücher mit Stand und Einstiegsseite. */
+  books: () => api.get<BookSummaryDto[]>('/workbook/books').then((r) => r.data),
+  /** Das Inhaltsverzeichnis eines Buchs – Kapitel samt Seiten in einer Antwort. */
+  bookContents: (book: WorkbookBook) =>
+    api.get<BookDetailDto>(`/workbook/books/${book}`).then((r) => r.data),
   chapter: (id: string) =>
     api.get<ChapterDetailDto>(`/workbook/chapters/${id}`).then((r) => r.data),
   unit: (id: string) => api.get<UnitDetailDto>(`/workbook/units/${id}`).then((r) => r.data),

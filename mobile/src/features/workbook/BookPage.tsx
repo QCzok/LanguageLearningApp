@@ -1,34 +1,22 @@
 import React, { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import type { UnitSection } from '@lingua/shared';
-import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
+import { BOOK_LABELS } from '@lingua/shared';
+import type { WorkbookBook } from '@lingua/shared';
+import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { CheckMark, ChevronLeftIcon, ChevronRightIcon } from './BookIcons';
 
 /**
- * Die Heftseite.
+ * Akzentfarbe und Name eines Buchs – alles, was eine Seite von ihrem Band
+ * wissen muss.
  *
- * Rendert Papier statt App-Oberfläche: weißes Blatt mit Kante, gedruckter
- * Kopfzeile, echten Seitenrändern und einer Fußzeile mit Seitenzahl.
- *
- * Wichtigste Änderung gegenüber der ersten Fassung: Die Seite ist kein
- * verkleinertes DIN-A4-Blatt mehr. Vorher wurde alles in festen
- * „Buch-Einheiten“ von 820 Punkten Breite gesetzt und als Ganzes auf die
- * Bildschirmbreite geschrumpft – auf einem Telefon landete der Fließtext damit
- * bei rund neun Punkten Schriftgröße, also am Rand der Lesbarkeit, und musste
- * über eine Zoomstufe wieder herangeholt werden. Wer allein mit der App übt,
- * soll aber einfach lesen und schreiben können. Deshalb fließt die Seite jetzt
- * in der Breite des Geräts und ist in echten Gerätepunkten gesetzt: kein Zoom,
- * kein seitliches Schieben, keine Lupe.
- *
- * Die Gestaltung folgt weiter der Arbeitsteilung eines gedruckten Lehrwerks:
- * Fließtext in der Lesegröße, der ganze „Apparat“ ringsum – Kolumnentitel,
- * Etiketten, Aufgabennummern – klein und gesperrt. Farbe trägt nur der
- * Buchteil, und auch der nur als Haarlinie unter dem Kolumnentitel.
+ * Vorher hieß das `SECTION_THEME` und trug den Buchteil: rot im Kursbuch,
+ * kohlegrau im Arbeitsbuch. Die Farbe sprang damit mitten im Kapitel um,
+ * sobald man von der Erklärung zur Übung blätterte. Jetzt stehen beide auf
+ * derselben Seite, und die Farbe gehört dem Band (siehe `bookColors`).
  */
-export const SECTION_THEME: Record<UnitSection, { accent: string; soft: string; label: string }> = {
-  KURSBUCH: { accent: book.kursbuch, soft: book.kursbuchSoft, label: 'Kursbuch' },
-  ARBEITSBUCH: { accent: book.arbeitsbuch, soft: book.arbeitsbuchSoft, label: 'Arbeitsbuch' },
-};
+export function bookTheme(id: WorkbookBook) {
+  return { ...bookColors[id], label: BOOK_LABELS[id].label };
+}
 
 /**
  * Blättern innerhalb des Kapitels – als Teil der Fußzeile, nicht als
@@ -41,14 +29,32 @@ export interface PageFooterNav {
   accent: string;
   hasPrevious: boolean;
   hasNext: boolean;
-  /** Wird gesetzt, wenn die nächste Seite in den anderen Buchteil wechselt. */
-  nextSectionLabel?: string | null;
   onPrevious: () => void;
   onNext: () => void;
 }
 
+/**
+ * Die Heftseite.
+ *
+ * Rendert Papier statt App-Oberfläche: weißes Blatt mit Kante, gedruckter
+ * Kopfzeile, echten Seitenrändern und einer Fußzeile mit Seitenzahl.
+ *
+ * Die Seite ist kein verkleinertes DIN-A4-Blatt: Vorher wurde alles in festen
+ * „Buch-Einheiten“ von 820 Punkten Breite gesetzt und als Ganzes auf die
+ * Bildschirmbreite geschrumpft – auf einem Telefon landete der Fließtext damit
+ * bei rund neun Punkten Schriftgröße, also am Rand der Lesbarkeit, und musste
+ * über eine Zoomstufe wieder herangeholt werden. Wer allein mit der App übt,
+ * soll aber einfach lesen und schreiben können. Deshalb fließt die Seite in
+ * der Breite des Geräts und ist in echten Gerätepunkten gesetzt: kein Zoom,
+ * kein seitliches Schieben, keine Lupe.
+ *
+ * Die Gestaltung folgt der Arbeitsteilung eines gedruckten Lehrwerks:
+ * Fließtext in der Lesegröße, der ganze „Apparat“ ringsum – Kolumnentitel,
+ * Etiketten, Aufgabennummern – klein und gesperrt. Farbe trägt nur das Buch,
+ * und auch die nur als Haarlinie unter dem Kolumnentitel.
+ */
 export function BookPage({
-  section,
+  book: bookId,
   chapterTitle,
   level,
   chapterOrder,
@@ -59,7 +65,7 @@ export function BookPage({
   nav,
   onLayoutHeight,
 }: {
-  section: UnitSection;
+  book: WorkbookBook;
   chapterTitle: string;
   level: string;
   chapterOrder: number;
@@ -71,7 +77,7 @@ export function BookPage({
   nav?: PageFooterNav;
   onLayoutHeight?: (height: number) => void;
 }) {
-  const theme = SECTION_THEME[section];
+  const theme = bookTheme(bookId);
 
   return (
     <View
@@ -80,7 +86,7 @@ export function BookPage({
     >
       <View style={{ paddingHorizontal: book.margin, paddingTop: 22, paddingBottom: 4 }}>
         {/*
-          Kolumnentitel: links der Buchteil und das Kapitel, rechts das Niveau.
+          Kolumnentitel: links das Buch und das Kapitel, rechts das Niveau.
           Eine Zeile, klein und gesperrt gesetzt – im Buch führt diese Zeile,
           sie ruft nicht. Vorher standen Buchteil, Niveau, Kapitelnummer,
           Kapiteltitel und eine große Kapitelziffer im Rahmen übereinander;
@@ -150,17 +156,13 @@ export function BookPage({
         ) : (
           <Text style={pageNumberStyle}>{pageNumber}</Text>
         )}
-
-        {nav?.nextSectionLabel ? (
-          <Text style={[footerHint, { color: nav.accent }]}>weiter im {nav.nextSectionLabel}</Text>
-        ) : null}
       </View>
     </View>
   );
 }
 
 /**
- * Nummerierter Aufgabenkopf, wie in einem Arbeitsbuch: Ziffer im Kreis,
+ * Nummerierter Aufgabenkopf, wie im Lehrwerk: Ziffer im Kreis,
  * daneben die Arbeitsanweisung. Die Anweisung steht im kräftigeren Schnitt –
  * sie ist Anleitung, nicht Lesetext, und hebt sich dadurch vom Übungsmaterial
  * ab.
@@ -345,12 +347,6 @@ const footerCounter = {
   letterSpacing: 0.4,
   color: book.inkFaint,
   marginTop: 1,
-};
-
-const footerHint = {
-  fontFamily: bookSans,
-  fontSize: 11,
-  letterSpacing: 0.3,
 };
 
 export { spacing, colors };

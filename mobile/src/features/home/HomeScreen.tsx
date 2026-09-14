@@ -68,10 +68,10 @@ export default function HomeScreen() {
     {
       key: 'notebook',
       Cover: NotebookCover,
-      label: 'Lernheft',
-      subtitle: 'Kursbuch & Arbeitsbuch',
+      label: 'Lehrwerk',
+      subtitle: 'Vier Bücher',
       accent: colors.warning,
-      onPress: () => navigation.navigate('Notebook', { screen: 'ChapterList' }),
+      onPress: () => navigation.navigate('Notebook', { screen: 'Bookshelf' }),
     },
     {
       key: 'library',
