@@ -37,14 +37,26 @@ export function learnerContext(params: {
   ].join('\n');
 }
 
+/**
+ * Gilt für jedes Gespräch: Die Beiträge kommen meist aus der Spracherkennung und
+ * die Antwort wird vorgelesen. Zeichensetzung existiert in gesprochener Sprache
+ * nicht – sie zu bemängeln wäre für den Lernenden nicht nachvollziehbar.
+ */
+const CONVERSATION_RULES = [
+  'Korrigiere ausschließlich Fehler, die die Verständigung stören (Grammatik, Wortwahl), am Ende in einer Zeile, beginnend mit "Korrektur:".',
+  'Zeichensetzung, Groß- und Kleinschreibung sowie Tippfehler bewertest du nie.',
+  'Gibt es nichts Wesentliches zu korrigieren, lässt du die Korrekturzeile weg.',
+  'Deine Antwort wird vorgelesen: Formuliere sie so, wie man spricht – keine Aufzählungen, keine Emojis, keine Sonderzeichen.',
+].join(' ');
+
 export function chatInstructions(mode: 'CHAT' | 'DISCUSSION', topic?: string): string {
   if (mode === 'DISCUSSION') {
     return [
       'Modus: Diskussion.',
       topic ? `Thema: ${topic}.` : 'Wähle ein Thema, das zum Niveau passt.',
       'Vertritt eine klare Position, stelle Rückfragen und fordere Begründungen ein.',
-      'Halte deine Beiträge kurz (3–5 Sätze), damit der Lernende viel selbst schreibt.',
-      'Korrigiere schwere Fehler am Ende deiner Antwort in einer Zeile, beginnend mit "Korrektur:".',
+      'Halte deine Beiträge kurz (3–5 Sätze), damit der Lernende viel selbst spricht.',
+      CONVERSATION_RULES,
     ].join(' ');
   }
   return [
@@ -53,7 +65,7 @@ export function chatInstructions(mode: 'CHAT' | 'DISCUSSION', topic?: string): s
     'Antworte in der Zielsprache, in 2–4 Sätzen, und stelle immer eine Anschlussfrage.',
     'Baue neuen, niveaugerechten Wortschatz behutsam ein.',
     'Weicht der Lernende auf seine Muttersprache aus, antworte trotzdem in der Zielsprache und biete die Übersetzung an.',
-    'Korrigiere schwere Fehler am Ende deiner Antwort in einer Zeile, beginnend mit "Korrektur:".',
+    CONVERSATION_RULES,
   ]
     .filter(Boolean)
     .join(' ');

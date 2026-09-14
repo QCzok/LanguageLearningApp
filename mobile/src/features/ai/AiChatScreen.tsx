@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -31,6 +32,17 @@ interface ChatItem extends AiMessageDto {
   pending?: boolean;
 }
 
+/** Im Freisprech-Modus wechselt das Gespräch zwischen diesen drei Zuständen. */
+type VoicePhase = 'listening' | 'thinking' | 'speaking';
+
+/** Sprechpause, nach der eine Äußerung als beendet gilt und abgeschickt wird. */
+const SILENCE_BEFORE_SEND_MS = 1100;
+/** Kürzere Wartezeit, wenn die Plattform das Sprechende selbst meldet – kurz
+ *  genug, um flüssig zu wirken, lang genug für eine Atempause mitten im Satz. */
+const ENDPOINT_GRACE_MS = 500;
+/** Nachhall des Lautsprechers abwarten, bevor das Mikrofon wieder aufmacht. */
+const MIC_RESTART_DELAY_MS = 400;
+
 export default function AiChatScreen({ route }: Props) {
   const { conversationId, languageCode } = route.params;
   const queryClient = useQueryClient();
@@ -41,15 +53,22 @@ export default function AiChatScreen({ route }: Props) {
   const [optimistic, setOptimistic] = useState<ChatItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [voiceMode, setVoiceMode] = useState(false);
   const [recognizing, setRecognizing] = useState(false);
   const [interimText, setInterimText] = useState('');
 
-  // Ref statt State, damit der 'result'-Listener (geschlossen über useEffect
-  // beim Mount) den aktuellen Sprechstatus sieht, ohne neu registriert zu werden.
+  // Timer und TTS-Callbacks überleben den Render, in dem sie erzeugt wurden.
+  // Sie brauchen den Stand von *jetzt*, nicht den ihres Renders – daher Refs,
+  // die zusammen mit dem State gesetzt werden.
   const speakingIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    speakingIdRef.current = speakingId;
-  }, [speakingId]);
+  const voiceModeRef = useRef(false);
+  const awaitingReplyRef = useRef(false);
+
+  // Laufende Äußerung: finalisierte Stücke plus der noch offene Rest.
+  const finalRef = useRef('');
+  const interimRef = useRef('');
+  const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const locale = localeForLanguageCode(languageCode);
 
@@ -61,6 +80,7 @@ export default function AiChatScreen({ route }: Props) {
   const send = useMutation({
     mutationFn: (content: string) => aiApi.send(conversationId, content),
     onSuccess: async (reply) => {
+      awaitingReplyRef.current = false;
       setOptimistic([]);
       await messages.refetch();
       void queryClient.invalidateQueries({ queryKey: ['ai-quota'] });
@@ -69,73 +89,220 @@ export default function AiChatScreen({ route }: Props) {
     },
     onError: (mutationError: Error) => {
       // Die optimistische Nachricht bleibt stehen, damit der Text nicht verloren geht.
+      awaitingReplyRef.current = false;
       setError(mutationError.message);
       setOptimistic((previous) => previous.filter((item) => !item.pending));
+      if (voiceModeRef.current) void startListening();
     },
-  });
-
-  // Spracherkennung läuft komplett auf dem Gerät (kein Cloud-Dienst nötig).
-  useSpeechRecognitionEvent('start', () => setRecognizing(true));
-  useSpeechRecognitionEvent('end', () => {
-    setRecognizing(false);
-    setInterimText('');
-  });
-  useSpeechRecognitionEvent('result', (event) => {
-    // Während die KI spricht, hört das Mikrofon ihre eigene Stimme über den
-    // Lautsprecher mit – solche Treffer dürfen nie im Textfeld landen.
-    if (speakingIdRef.current) return;
-
-    const transcript = event.results[0]?.transcript ?? '';
-    if (event.isFinal) {
-      if (transcript.trim()) {
-        setDraft((previous) => (previous.trim() ? `${previous.trim()} ${transcript.trim()}` : transcript.trim()));
-      }
-      setInterimText('');
-    } else {
-      setInterimText(transcript);
-    }
-  });
-  useSpeechRecognitionEvent('error', (event) => {
-    setInterimText('');
-    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
-    } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-      setError('Spracherkennung fehlgeschlagen.');
-    }
   });
 
   const items: ChatItem[] = [...(messages.data ?? []), ...optimistic];
 
-  // Antworten der KI laut vorlesen – wie in einem echten Gespräch. Läuft beim
-  // Verlassen des Screens weiter, wenn wir Speech.stop() hier nicht erzwingen.
-  useEffect(() => () => void Speech.stop(), []);
+  const phase: VoicePhase | null = !voiceMode
+    ? null
+    : send.isPending
+      ? 'thinking'
+      : speakingId
+        ? 'speaking'
+        : 'listening';
 
-  // stop() muss abgewartet werden, sonst reiht speak() sich nur hinten an,
-  // statt die laufende Ansage zu unterbrechen.
+  function setSpeaking(id: string | null): void {
+    speakingIdRef.current = id;
+    setSpeakingId(id);
+  }
+
+  function setVoice(active: boolean): void {
+    voiceModeRef.current = active;
+    setVoiceMode(active);
+  }
+
+  function clearTimers(): void {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    if (restartTimer.current) clearTimeout(restartTimer.current);
+    silenceTimer.current = null;
+    restartTimer.current = null;
+  }
+
+  function resetUtterance(): void {
+    finalRef.current = '';
+    interimRef.current = '';
+    setInterimText('');
+  }
+
+  // ------------------------------------------------------------ Spracheingabe
+
+  useSpeechRecognitionEvent('start', () => setRecognizing(true));
+
+  useSpeechRecognitionEvent('end', () => {
+    setRecognizing(false);
+    if (!voiceModeRef.current || speakingIdRef.current || awaitingReplyRef.current) return;
+
+    // Android beendet die Erkennung nach längerer Stille von selbst. Im
+    // Freisprech-Modus geht das Gespräch trotzdem weiter.
+    if (joinWords(finalRef.current, interimRef.current).trim()) sendUtterance();
+    else restartTimer.current = setTimeout(() => void startListening(), MIC_RESTART_DELAY_MS);
+  });
+
+  useSpeechRecognitionEvent('result', (event) => {
+    // Während die KI spricht, hört das Mikrofon ihre eigene Stimme über den
+    // Lautsprecher mit – solche Treffer dürfen nie als Eingabe zählen.
+    if (speakingIdRef.current) return;
+
+    const transcript = event.results[0]?.transcript ?? '';
+    if (event.isFinal) {
+      finalRef.current = joinWords(finalRef.current, transcript);
+      interimRef.current = '';
+    } else {
+      interimRef.current = transcript;
+    }
+
+    setInterimText(joinWords(finalRef.current, interimRef.current));
+    scheduleAutoSend(SILENCE_BEFORE_SEND_MS);
+  });
+
+  // Die Plattform meldet das Ende einer Äußerung – dann darf es schneller gehen.
+  useSpeechRecognitionEvent('speechend', () => scheduleAutoSend(ENDPOINT_GRACE_MS));
+
+  useSpeechRecognitionEvent('error', (event) => {
+    interimRef.current = '';
+    setInterimText(finalRef.current);
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
+      exitVoiceMode();
+    } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
+      setError('Spracherkennung fehlgeschlagen.');
+      exitVoiceMode();
+    }
+  });
+
+  /** Nach dieser Stille gilt die Äußerung als fertig – ohne Zutun des Nutzers. */
+  function scheduleAutoSend(delayMs: number): void {
+    if (!voiceModeRef.current || speakingIdRef.current || awaitingReplyRef.current) return;
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    silenceTimer.current = setTimeout(sendUtterance, delayMs);
+  }
+
+  function sendUtterance(): void {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    silenceTimer.current = null;
+    if (speakingIdRef.current || awaitingReplyRef.current) return;
+
+    const content = joinWords(finalRef.current, interimRef.current).trim();
+    resetUtterance();
+    if (!content) return;
+
+    // Erst senden, dann das Mikrofon stoppen: submit() setzt die Sperre, die das
+    // 'end'-Ereignis davon abhält, sofort wieder aufzunehmen.
+    submit(content);
+    ExpoSpeechRecognitionModule.stop();
+  }
+
+  async function startListening(): Promise<void> {
+    if (restartTimer.current) clearTimeout(restartTimer.current);
+    restartTimer.current = null;
+    if (speakingIdRef.current || awaitingReplyRef.current) return;
+
+    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!permission.granted) {
+      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
+      exitVoiceMode();
+      return;
+    }
+
+    setError(null);
+    resetUtterance();
+    ExpoSpeechRecognitionModule.start({ lang: locale, interimResults: true, continuous: true });
+  }
+
+  function enterVoiceMode(): void {
+    setVoice(true);
+    void startListening();
+  }
+
+  function exitVoiceMode(): void {
+    setVoice(false);
+    clearTimers();
+    resetUtterance();
+    ExpoSpeechRecognitionModule.abort();
+    void Speech.stop();
+    setSpeaking(null);
+  }
+
+  // --------------------------------------------------------------- Sprachausgabe
+
+  useEffect(
+    () => () => {
+      // Ohne das läuft die Ansage nach dem Verlassen des Screens weiter.
+      clearTimers();
+      ExpoSpeechRecognitionModule.abort();
+      void Speech.stop();
+    },
+    [],
+  );
+
   async function speak(id: string, content: string): Promise<void> {
     const [body] = splitCorrection(content);
-    // Mikrofon zuerst stoppen, sonst hört es die eigene KI-Stimme aus dem
-    // Lautsprecher mit und das landet im Textfeld des Nutzers.
-    if (recognizing) {
-      ExpoSpeechRecognitionModule.stop();
-    }
+
+    // Sprechzustand vor dem Abschalten des Mikrofons setzen: Er blockt den
+    // Echo-Schutz und verhindert, dass das folgende 'end'-Ereignis das Mikrofon
+    // gleich wieder aufmacht.
+    if (restartTimer.current) clearTimeout(restartTimer.current);
+    restartTimer.current = null;
+    setSpeaking(id);
+    ExpoSpeechRecognitionModule.abort();
+
+    // stop() muss abgewartet werden, sonst reiht speak() sich nur hinten an,
+    // statt die laufende Ansage zu unterbrechen.
     await Speech.stop();
-    setSpeakingId(id);
     Speech.speak(body, {
       language: locale,
-      onDone: () => setSpeakingId((current) => (current === id ? null : current)),
-      onStopped: () => setSpeakingId((current) => (current === id ? null : current)),
-      onError: () => setSpeakingId((current) => (current === id ? null : current)),
+      onDone: () => finishSpeaking(id),
+      onStopped: () => finishSpeaking(id),
+      onError: () => finishSpeaking(id),
     });
   }
 
-  function toggleSpeak(id: string, content: string): void {
-    if (speakingId === id) {
-      void Speech.stop();
-      setSpeakingId(null);
-    } else {
-      void speak(id, content);
+  function finishSpeaking(id: string): void {
+    // Wurde die Ansage unterbrochen, hat der Abbrecher den Zustand schon gesetzt.
+    if (speakingIdRef.current !== id) return;
+    setSpeaking(null);
+    if (voiceModeRef.current) {
+      restartTimer.current = setTimeout(() => void startListening(), MIC_RESTART_DELAY_MS);
     }
+  }
+
+  /** Dazwischenreden: Ansage abbrechen und sofort wieder zuhören. */
+  function interrupt(): void {
+    setSpeaking(null);
+    void Speech.stop();
+    if (voiceModeRef.current) void startListening();
+  }
+
+  function toggleSpeak(id: string, content: string): void {
+    if (speakingId === id) interrupt();
+    else void speak(id, content);
+  }
+
+  // ------------------------------------------------------------------ Senden
+
+  function submit(content: string): void {
+    const trimmed = content.trim();
+    if (!trimmed || awaitingReplyRef.current) return;
+
+    awaitingReplyRef.current = true;
+    setError(null);
+    setDraft('');
+    resetUtterance();
+    setOptimistic([
+      {
+        id: `local-${Date.now()}`,
+        role: 'user',
+        content: trimmed,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    send.mutate(trimmed);
   }
 
   useEffect(() => {
@@ -145,40 +312,6 @@ export default function AiChatScreen({ route }: Props) {
       return () => clearTimeout(timer);
     }
   }, [items.length, send.isPending]);
-
-  function handleSend(): void {
-    const content = draft.trim();
-    if (!content || send.isPending) return;
-
-    setError(null);
-    setDraft('');
-    setOptimistic([
-      {
-        id: `local-${Date.now()}`,
-        role: 'user',
-        content,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-    send.mutate(content);
-  }
-
-  async function startRecording(): Promise<void> {
-    if (speakingId) return; // Solange die KI spricht, bleibt das Mikrofon aus.
-
-    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!permission.granted) {
-      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
-      return;
-    }
-
-    setError(null);
-    ExpoSpeechRecognitionModule.start({ lang: locale, interimResults: true, continuous: true });
-  }
-
-  function stopRecording(): void {
-    ExpoSpeechRecognitionModule.stop();
-  }
 
   if (messages.isLoading) return <Loading />;
   if (messages.isError) {
@@ -200,7 +333,7 @@ export default function AiChatScreen({ route }: Props) {
           ListEmptyComponent={
             <View style={{ alignItems: 'center', gap: spacing.sm, paddingTop: spacing.xxl }}>
               <Text style={{ fontSize: 44 }}>👋</Text>
-              <Caption>Schreib etwas – auch ein einfaches „Hi" reicht zum Start.</Caption>
+              <Caption>Tippe auf das Mikrofon und sprich einfach los – oder schreib etwas.</Caption>
             </View>
           }
           renderItem={({ item }) => (
@@ -210,7 +343,7 @@ export default function AiChatScreen({ route }: Props) {
             send.isPending ? (
               <View style={[bubbleStyles.base, bubbleStyles.assistant, { flexDirection: 'row', gap: spacing.sm }]}>
                 <ActivityIndicator size="small" color={colors.textMuted} />
-                <Caption>schreibt …</Caption>
+                <Caption>denkt nach …</Caption>
               </View>
             ) : null
           }
@@ -222,51 +355,128 @@ export default function AiChatScreen({ route }: Props) {
           </View>
         ) : null}
 
-        {recognizing ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-            <View style={recordingDotStyle} />
-            <Caption>{interimText ? `„${interimText}“` : 'Ich höre zu …'}</Caption>
-          </View>
-        ) : speakingId ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
-            <Caption>🔊 Die KI spricht – das Mikrofon ist währenddessen aus.</Caption>
-          </View>
-        ) : null}
-
-        <View style={composerStyle}>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Nachricht schreiben oder aufnehmen …"
-            placeholderTextColor={colors.textMuted}
-            multiline
-            style={composerInputStyle}
+        {phase ? (
+          <VoicePanel
+            phase={phase}
+            recognizing={recognizing}
+            transcript={interimText}
+            onSendNow={sendUtterance}
+            onInterrupt={interrupt}
+            onExit={exitVoiceMode}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={recognizing ? 'Aufnahme beenden' : 'Sprachaufnahme starten'}
-            onPress={recognizing ? stopRecording : startRecording}
-            disabled={!recognizing && !!speakingId}
-            style={[
-              micButtonStyle,
-              recognizing && { backgroundColor: colors.danger },
-              !recognizing && speakingId && { opacity: 0.4 },
-            ]}
-          >
-            <Text style={{ fontSize: 18 }}>{recognizing ? '⏹' : '🎙️'}</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Senden"
-            onPress={handleSend}
-            disabled={!draft.trim() || send.isPending}
-            style={[sendButtonStyle, (!draft.trim() || send.isPending) && { opacity: 0.4 }]}
-          >
-            <Text style={{ fontSize: 20 }}>➤</Text>
-          </Pressable>
-        </View>
+        ) : (
+          <View style={composerStyle}>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder="Nachricht schreiben …"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              style={composerInputStyle}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Freisprechen starten"
+              onPress={enterVoiceMode}
+              style={micButtonStyle}
+            >
+              <Text style={{ fontSize: 18 }}>🎙️</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Senden"
+              onPress={() => submit(draft)}
+              disabled={!draft.trim() || send.isPending}
+              style={[sendButtonStyle, (!draft.trim() || send.isPending) && { opacity: 0.4 }]}
+            >
+              <Text style={{ fontSize: 20 }}>➤</Text>
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Der Freisprech-Modus: ein Knopf, der immer das tut, was im Gespräch gerade
+ * dran ist – abschicken, während zugehört wird, und unterbrechen, während die
+ * KI spricht.
+ */
+function VoicePanel({
+  phase,
+  recognizing,
+  transcript,
+  onSendNow,
+  onInterrupt,
+  onExit,
+}: {
+  phase: VoicePhase;
+  recognizing: boolean;
+  transcript: string;
+  onSendNow: () => void;
+  onInterrupt: () => void;
+  onExit: () => void;
+}) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (phase !== 'listening') {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.15, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [phase, pulse]);
+
+  const hint =
+    phase === 'speaking'
+      ? 'Du kannst jederzeit dazwischenreden – tippe zum Unterbrechen.'
+      : phase === 'thinking'
+        ? 'Einen Moment …'
+        : recognizing
+          ? 'Ich höre zu – hör einfach auf zu sprechen, wenn du fertig bist.'
+          : 'Mikrofon startet …';
+
+  return (
+    <View style={voicePanelStyle}>
+      <Text style={[typography.body, { textAlign: 'center', color: colors.text, minHeight: 44 }]}>
+        {transcript || (phase === 'listening' ? '…' : '')}
+      </Text>
+      <Caption>{hint}</Caption>
+
+      <Animated.View style={{ transform: [{ scale: pulse }] }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            phase === 'speaking' ? 'KI unterbrechen' : phase === 'thinking' ? 'Antwort wird erstellt' : 'Jetzt senden'
+          }
+          onPress={phase === 'speaking' ? onInterrupt : phase === 'listening' ? onSendNow : undefined}
+          disabled={phase === 'thinking'}
+          style={[
+            voiceButtonStyle,
+            phase === 'listening' && { backgroundColor: colors.danger },
+            phase === 'speaking' && { backgroundColor: colors.premium },
+          ]}
+        >
+          {phase === 'thinking' ? (
+            <ActivityIndicator color={colors.textInverse} />
+          ) : (
+            <Text style={{ fontSize: 30 }}>{phase === 'speaking' ? '⏹' : '🎙️'}</Text>
+          )}
+        </Pressable>
+      </Animated.View>
+
+      <Pressable accessibilityRole="button" onPress={onExit} hitSlop={8}>
+        <Caption>Freisprechen beenden · Tastatur</Caption>
+      </Pressable>
+    </View>
   );
 }
 
@@ -313,6 +523,12 @@ function Bubble({
       ) : null}
     </View>
   );
+}
+
+function joinWords(left: string, right: string): string {
+  if (!left.trim()) return right.trim();
+  if (!right.trim()) return left.trim();
+  return `${left.trim()} ${right.trim()}`;
 }
 
 /** Unsere Sprachcodes sind zweistellig (de, en, …) – TTS/STT brauchen volle BCP-47-Tags. */
@@ -407,9 +623,22 @@ const micButtonStyle = {
   justifyContent: 'center' as const,
 };
 
-const recordingDotStyle = {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: colors.danger,
+const voicePanelStyle = {
+  alignItems: 'center' as const,
+  gap: spacing.md,
+  paddingHorizontal: spacing.lg,
+  paddingTop: spacing.lg,
+  paddingBottom: spacing.md,
+  backgroundColor: colors.surface,
+  borderTopWidth: 1,
+  borderTopColor: colors.border,
+};
+
+const voiceButtonStyle = {
+  width: 84,
+  height: 84,
+  borderRadius: 42,
+  backgroundColor: colors.primary,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
 };
