@@ -6,23 +6,19 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NotebookAnalysisDto, NotebookPageContent } from '@lingua/shared';
 import { extractPlainText } from '@lingua/shared';
-import {
-  Body,
-  Button,
-  Caption,
-  Card,
-  ErrorState,
-  Heading,
-  Loading,
-  Row,
-  Title,
-} from '../../components';
+import { Body, Button, Caption, Card, ErrorState, Heading, Loading, Row, Title } from '../../components';
 import { notebookApi } from '../../api/endpoints';
 import { useIsPremium } from '../../store/auth.store';
-import { colors, radius, spacing, typography } from '../../theme';
-import { CrossMark } from '../workbook/BookIcons';
+import { book, bookFont, bookLabel, bookSans, colors, spacing, typography } from '../../theme';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CrossMark,
+  PlusIcon,
+  SparkMark,
+} from '../workbook/BookIcons';
 import Canvas from './Canvas';
-import { DEFAULT_TOOL, Toolbar, ToolState } from './toolbar';
+import { DEFAULT_TOOL, ToolDock, ToolState } from './ToolDock';
 import type { NotebookStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookEditor'>;
@@ -31,7 +27,20 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookEditor'>;
 const AUTOSAVE_DELAY_MS = 1500;
 /** Tiefe der lokalen Rückgängig-Historie. */
 const HISTORY_LIMIT = 40;
+/** Seitenrand links und rechts neben dem Papier. */
+const GUTTER = 10;
+/** Platz unter der Seite, damit der Werkzeugkasten nichts verdeckt. */
+const DOCK_SPACE = 88;
 
+/**
+ * Das eigene Notizheft.
+ *
+ * Der Bildschirm zeigt vor allem eins: die Seite. Alles, was vorher darum
+ * herum stand – eine zweireihige Werkzeugleiste unten, drei Knöpfe zum
+ * Blättern, eine ganze Karte für die KI-Korrektur – ist auf eine Fußzeile und
+ * eine einzelne Zeile zusammengeschrumpft. Die Stifte liegen unten links
+ * bereit (siehe `ToolDock`), sonst ist da Papier.
+ */
 export default function NotebookEditorScreen({ route }: Props) {
   const { notebookId } = route.params;
   const queryClient = useQueryClient();
@@ -146,111 +155,151 @@ export default function NotebookEditorScreen({ route }: Props) {
     ]);
   }
 
+  function handleAnalyze(): void {
+    if (!isPremium) {
+      alert(
+        'Lingua Premium',
+        'KI-Korrektur, Chat, Grammatikerklärungen und persönliche Empfehlungen sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
+      );
+      return;
+    }
+    flushSave();
+    if (currentPage) analyze.mutate(currentPage.id);
+  }
+
   if (pages.isLoading) return <Loading />;
   if (pages.isError || !pages.data?.length || !content) {
     return <ErrorState message="Das Heft konnte nicht geladen werden." onRetry={pages.refetch} />;
   }
 
-  const textLength = extractPlainText(content).length;
-  const canAnalyze = textLength >= 15;
+  const isDrawing = tool.mode === 'DRAW';
+  const canAnalyze = extractPlainText(content).length >= 15;
+  const isEmpty = content.elements.length === 0;
+  const pageCount = pages.data.length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
-      <ScrollView contentContainerStyle={{ padding: spacing.md, gap: spacing.md }}>
-        <Row>
-          <Caption>
-            Seite {pageIndex + 1} von {pages.data.length}
-          </Caption>
-          <View style={{ flex: 1 }} />
-          <Caption>
-            {savePage.isPending ? 'Speichert …' : isDirty ? 'Nicht gespeichert' : 'Gespeichert'}
-          </Caption>
-        </Row>
+      <ScrollView
+        contentContainerStyle={{ padding: GUTTER, paddingBottom: DOCK_SPACE }}
+        scrollEnabled={!isDrawing}
+      >
+        <View style={paperFrame}>
+          {/* Ohne Werkzeug in der Hand nimmt die Seite keine Berührung an –
+              so lässt sie sich mit dem Finger schieben, ohne dass dabei eine
+              Linie entsteht. */}
+          <View pointerEvents={isDrawing ? 'auto' : 'none'}>
+            <Canvas
+              content={content}
+              tool={tool}
+              onChange={handleChange}
+              editingTextId={editingTextId}
+              onEditText={setEditingTextId}
+            />
+          </View>
 
-        <View style={{ borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border }}>
-          <Canvas
-            content={content}
-            tool={tool}
-            onChange={handleChange}
-            editingTextId={editingTextId}
-            onEditText={setEditingTextId}
-          />
+          {isEmpty && !isDrawing ? (
+            <View style={emptyHint} pointerEvents="none">
+              <Text style={emptyHintText}>
+                Unten links einen Stift in die Hand nehmen und losschreiben.
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <Row gap={spacing.sm}>
-          <Button
-            label="‹ Zurück"
-            variant="secondary"
-            fullWidth={false}
+        {/* Fußzeile wie im Lehrwerk: Seitenzahl in der Mitte, Blättern daneben. */}
+        <View style={footer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Vorherige Seite"
             disabled={pageIndex === 0}
             onPress={() => {
               flushSave();
               setPageIndex((value) => value - 1);
             }}
-            style={{ flex: 1 }}
-          />
-          <Button
-            label="Weiter ›"
-            variant="secondary"
-            fullWidth={false}
-            disabled={pageIndex >= pages.data.length - 1}
+            style={[footerButton, pageIndex === 0 && { opacity: 0.25 }]}
+          >
+            <ChevronLeftIcon color={book.inkSoft} size={18} />
+          </Pressable>
+
+          <Text style={footerCounter}>
+            Seite {pageIndex + 1} von {pageCount}
+          </Text>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Nächste Seite"
+            disabled={pageIndex >= pageCount - 1}
             onPress={() => {
               flushSave();
               setPageIndex((value) => value + 1);
             }}
-            style={{ flex: 1 }}
-          />
-          <Button
-            label="+ Seite"
-            fullWidth={false}
-            loading={addPage.isPending}
+            style={[footerButton, pageIndex >= pageCount - 1 && { opacity: 0.25 }]}
+          >
+            <ChevronRightIcon color={book.inkSoft} size={18} />
+          </Pressable>
+
+          <View style={{ flex: 1 }} />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Neue Seite anlegen"
+            disabled={addPage.isPending}
             onPress={() => {
               flushSave();
               addPage.mutate();
             }}
-            style={{ flex: 1 }}
-          />
-        </Row>
+            style={[footerButton, { flexDirection: 'row', gap: 6, width: 'auto', paddingHorizontal: 8 }]}
+          >
+            <PlusIcon color={book.inkSoft} size={16} />
+            <Text style={footerAction}>Neue Seite</Text>
+          </Pressable>
+        </View>
 
-        {/* KI-Korrektur ist Premium; für alle anderen steht hier der Hinweis. */}
-        <Card style={{ borderColor: colors.premium }}>
-          <Row gap={spacing.sm}>
-            <View style={{ flex: 1 }}>
-              <Heading>KI-Korrektur</Heading>
-              <Caption>
-                {isPremium
-                  ? canAnalyze
-                    ? 'Lass deinen geschriebenen Text prüfen und erklären.'
-                    : 'Schreibe mit dem Textwerkzeug ein paar Sätze, dann kann die KI korrigieren.'
-                  : 'Mit Premium korrigiert die KI deine Texte und erklärt jeden Fehler.'}
-              </Caption>
-            </View>
-          </Row>
-          <Button
-            label={isPremium ? 'Text prüfen lassen' : 'Premium ansehen'}
-            variant="premium"
-            disabled={isPremium && !canAnalyze}
-            loading={analyze.isPending}
-            onPress={() => {
-              if (!isPremium) {
-                alert(
-                  'Lingua Premium',
-                  'KI-Korrektur, Chat, Grammatikerklärungen und persönliche Empfehlungen sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
-                );
-                return;
-              }
-              flushSave();
-              if (currentPage) analyze.mutate(currentPage.id);
-            }}
-          />
-        </Card>
+        {/*
+          Die KI-Korrektur ist keine Schreibhilfe, sondern eine Handlung an der
+          fertigen Seite – deshalb steht sie unter der Fußzeile und nicht bei
+          den Stiften. Als eine Zeile, nicht mehr als ganze Karte mit
+          Überschrift und Absatz.
+        */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="KI-Korrektur"
+          disabled={isPremium && !canAnalyze}
+          onPress={handleAnalyze}
+          style={({ pressed }) => [
+            analyzeRow,
+            (isPremium && !canAnalyze) && { opacity: 0.45 },
+            pressed && { backgroundColor: colors.premiumSoft },
+          ]}
+        >
+          <SparkMark color={colors.premium} size={17} />
+          <View style={{ flex: 1 }}>
+            <Text style={analyzeLabel}>
+              {analyze.isPending ? 'Wird geprüft …' : 'KI-Korrektur'}
+            </Text>
+            <Text style={analyzeHint}>
+              {isPremium
+                ? canAnalyze
+                  ? 'Geschriebenen Text prüfen und erklären lassen'
+                  : 'Erst ein paar Sätze mit dem Textwerkzeug schreiben'
+                : 'Teil von Lingua Premium'}
+            </Text>
+          </View>
+        </Pressable>
+
+        <Text style={saveNote}>
+          {savePage.isPending ? 'Speichert …' : isDirty ? 'Noch nicht gespeichert' : 'Gespeichert'}
+        </Text>
       </ScrollView>
 
-      <Toolbar
+      <ToolDock
         tool={tool}
         onChange={setTool}
-        onUndo={handleUndo}
+        tools={['PEN', 'HIGHLIGHTER', 'TEXT', 'ERASER']}
+        clearLabel="Seite leeren"
         canUndo={history.length > 0}
+        canClear={!isEmpty}
+        onUndo={handleUndo}
         onClear={handleClear}
       />
 
@@ -344,3 +393,97 @@ function AnalysisModal({
     </Modal>
   );
 }
+
+// ------------------------------------------------------------------ Styles
+
+const paperFrame = {
+  backgroundColor: book.paper,
+  borderWidth: 1,
+  borderColor: book.paperEdge,
+  overflow: 'hidden' as const,
+  shadowColor: book.ink,
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 3,
+};
+
+const emptyHint = {
+  position: 'absolute' as const,
+  left: 24,
+  right: 24,
+  top: '38%' as const,
+  alignItems: 'center' as const,
+};
+
+const emptyHintText = {
+  fontFamily: bookFont,
+  fontSize: 15,
+  lineHeight: 23,
+  color: book.inkFaint,
+  textAlign: 'center' as const,
+  fontStyle: 'italic' as const,
+};
+
+const footer = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 4,
+  paddingTop: spacing.sm,
+};
+
+const footerButton = {
+  minWidth: 40,
+  height: 40,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const footerCounter = {
+  fontFamily: bookFont,
+  fontSize: 14,
+  color: book.inkSoft,
+};
+
+const footerAction = {
+  fontFamily: bookSans,
+  fontSize: 13,
+  color: book.inkSoft,
+};
+
+const analyzeRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 12,
+  marginTop: spacing.sm,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  borderWidth: 1,
+  borderColor: colors.premium,
+  borderLeftWidth: 3,
+  backgroundColor: book.paper,
+};
+
+const analyzeLabel = {
+  fontFamily: bookSans,
+  fontSize: 15,
+  fontWeight: '700' as const,
+  color: colors.premium,
+};
+
+const analyzeHint = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  color: book.inkFaint,
+  marginTop: 1,
+};
+
+/** Speicherstand: eine Zeile unter dem Blatt, so leise wie möglich. */
+const saveNote = {
+  ...bookLabel,
+  fontSize: 10,
+  letterSpacing: 1.2,
+  color: book.inkFaint,
+  textAlign: 'center' as const,
+  paddingTop: spacing.xs,
+};

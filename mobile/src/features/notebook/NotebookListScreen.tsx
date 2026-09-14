@@ -1,32 +1,27 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  Body,
-  Button,
-  Caption,
-  Card,
-  EmptyState,
-  ErrorState,
-  Heading,
-  Input,
-  Loading,
-  Row,
-  Screen,
-  Title,
-} from '../../components';
+import { Body, Button, ErrorState, Input, Loading, Row, Title } from '../../components';
 import { notebookApi } from '../../api/endpoints';
 import { useActiveProfile } from '../../store/auth.store';
-import { colors, radius, spacing } from '../../theme';
-import { BookMark, TrashIcon } from '../workbook/BookIcons';
+import { book, bookFont, bookLabel, bookSans, colors, radius, spacing } from '../../theme';
+import { BookMark, PlusIcon, TrashIcon } from '../workbook/BookIcons';
 import type { NotebookStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookList'>;
 
-const COVER_COLORS = ['#2563EB', '#059669', '#D97706', '#DC2626', '#7C3AED', '#0F172A'];
+/**
+ * Das Regal mit den eigenen Heften.
+ *
+ * Ein Blatt, darauf eine Zeile je Heft: farbiger Buchrücken, Titel, wie viele
+ * Seiten und wann zuletzt geschrieben. Die Farben stammen aus der Palette der
+ * App statt aus einer eigenen, bunten Reihe – ein Heftumschlag darf Farbe
+ * tragen, aber dieselbe wie alles andere hier.
+ */
+const COVER_COLORS = ['#73030D', '#4D0209', '#33363B', '#2F6F4F', '#5C3D74', '#8A5A1E'];
 
 export default function NotebookListScreen({ navigation }: Props) {
   const queryClient = useQueryClient();
@@ -55,7 +50,7 @@ export default function NotebookListScreen({ navigation }: Props) {
   });
 
   function confirmDelete(id: string, name: string): void {
-    alert('Heft löschen?', `„${name}" wird mit allen Seiten unwiderruflich gelöscht.`, [
+    alert('Heft löschen?', `„${name}“ wird mit allen Seiten unwiderruflich gelöscht.`, [
       { text: 'Abbrechen', style: 'cancel' },
       { text: 'Löschen', style: 'destructive', onPress: () => remove.mutate(id) },
     ]);
@@ -68,74 +63,70 @@ export default function NotebookListScreen({ navigation }: Props) {
 
   return (
     <>
-      <Screen scroll>
-        <Row>
-          <View style={{ flex: 1 }}>
-            <Title>Deine Hefte</Title>
-            <Caption>Schreiben, markieren, später weiterbearbeiten.</Caption>
-          </View>
-        </Row>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
+        <ScrollView contentContainerStyle={{ padding: 10, paddingBottom: spacing.xxl }}>
+          <View style={sheet}>
+            <View style={{ paddingHorizontal: book.margin, paddingTop: 22 }}>
+              <Text style={eyebrow}>Eigene Hefte</Text>
+              <Text style={sheetTitle}>Deine Hefte</Text>
+              <Text style={sheetSubtitle}>Schreiben, markieren, später weiterbearbeiten.</Text>
+              <View style={titleRule} />
+            </View>
 
-        {notebooks.data.length === 0 ? (
-          <EmptyState
-            title="Noch kein Heft"
-            description="Lege ein Heft an, um Notizen, Übungen und eigene Texte zu sammeln."
-            action={{ label: 'Heft anlegen', onPress: () => setIsCreating(true) }}
-          />
-        ) : (
-          notebooks.data.map((notebook) => (
-            <Card
-              key={notebook.id}
-              onPress={() =>
-                navigation.navigate('NotebookEditor', {
-                  notebookId: notebook.id,
-                  title: notebook.title,
-                })
-              }
-            >
-              <Row gap={spacing.md}>
-                <View
-                  style={{
-                    width: 44,
-                    height: 56,
-                    borderRadius: radius.sm,
-                    backgroundColor: notebook.coverColor,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BookMark color="#FFFFFF" size={22} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Heading>{notebook.title}</Heading>
-                  <Caption>
-                    {notebook.pageCount} {notebook.pageCount === 1 ? 'Seite' : 'Seiten'} · zuletzt{' '}
-                    {formatDate(notebook.updatedAt)}
-                  </Caption>
-                  {notebook.language ? (
-                    <Caption>
-                      {notebook.language.flagEmoji} {notebook.language.name}
-                    </Caption>
-                  ) : null}
-                </View>
+            {notebooks.data.length === 0 ? (
+              <Text style={emptyText}>
+                Noch kein Heft. Lege eines an, um Notizen, Übungen und eigene Texte zu sammeln.
+              </Text>
+            ) : (
+              notebooks.data.map((notebook) => (
                 <Pressable
+                  key={notebook.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`Heft ${notebook.title} löschen`}
-                  hitSlop={8}
-                  onPress={() => confirmDelete(notebook.id, notebook.title)}
-                  style={{ padding: spacing.sm }}
+                  onPress={() =>
+                    navigation.navigate('NotebookEditor', {
+                      notebookId: notebook.id,
+                      title: notebook.title,
+                    })
+                  }
+                  style={({ pressed }) => [notebookRow, pressed && { backgroundColor: book.tint }]}
                 >
-                  <TrashIcon color={colors.textMuted} size={20} />
-                </Pressable>
-              </Row>
-            </Card>
-          ))
-        )}
+                  <View style={[spine, { backgroundColor: notebook.coverColor }]}>
+                    <BookMark color="#FFFFFF" size={16} />
+                  </View>
 
-        {notebooks.data.length > 0 ? (
-          <Button label="+ Neues Heft" onPress={() => setIsCreating(true)} />
-        ) : null}
-      </Screen>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={notebookTitle}>{notebook.title}</Text>
+                    <Text style={notebookMeta}>
+                      {notebook.pageCount} {notebook.pageCount === 1 ? 'Seite' : 'Seiten'} · zuletzt{' '}
+                      {formatDate(notebook.updatedAt)}
+                      {notebook.language ? ` · ${notebook.language.name}` : ''}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Heft ${notebook.title} löschen`}
+                    hitSlop={8}
+                    onPress={() => confirmDelete(notebook.id, notebook.title)}
+                    style={{ padding: spacing.sm }}
+                  >
+                    <TrashIcon color={book.inkFaint} size={18} />
+                  </Pressable>
+                </Pressable>
+              ))
+            )}
+
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsCreating(true)}
+              style={({ pressed }) => [newRow, pressed && { backgroundColor: book.tint }]}
+            >
+              <PlusIcon color={book.ink} size={18} />
+              <Text style={newRowLabel}>Neues Heft anlegen</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
 
       <Modal visible={isCreating} animationType="slide" transparent onRequestClose={() => setIsCreating(false)}>
         <View style={sheetBackdrop}>
@@ -150,22 +141,20 @@ export default function NotebookListScreen({ navigation }: Props) {
             />
 
             <View style={{ gap: spacing.sm }}>
-              <Body muted>Farbe</Body>
+              <Body muted>Umschlag</Body>
               <Row gap={spacing.sm}>
                 {COVER_COLORS.map((color) => (
-                  <Button
+                  <Pressable
                     key={color}
-                    label=""
-                    fullWidth={false}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Umschlagfarbe ${color}`}
+                    accessibilityState={{ selected: coverColor === color }}
                     onPress={() => setCoverColor(color)}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      minHeight: 40,
-                      backgroundColor: color,
-                      borderColor: coverColor === color ? colors.text : color,
-                      borderWidth: coverColor === color ? 3 : 1,
-                    }}
+                    style={[
+                      coverSwatch,
+                      { backgroundColor: color },
+                      coverColor === color && coverSwatchActive,
+                    ]}
                   />
                 ))}
               </Row>
@@ -189,9 +178,109 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
 }
 
+// ------------------------------------------------------------------ Styles
+
+const sheet = {
+  backgroundColor: book.paper,
+  borderWidth: 1,
+  borderColor: book.paperEdge,
+  paddingBottom: 6,
+  shadowColor: book.ink,
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 3,
+};
+
+const eyebrow = {
+  ...bookLabel,
+  fontSize: 11,
+  letterSpacing: 1.8,
+  color: book.inkFaint,
+};
+
+const sheetTitle = {
+  fontFamily: bookFont,
+  fontSize: 25,
+  lineHeight: 32,
+  fontWeight: '700' as const,
+  color: book.ink,
+  marginTop: 6,
+};
+
+const sheetSubtitle = {
+  fontFamily: bookFont,
+  fontSize: 15,
+  lineHeight: 22,
+  color: book.inkSoft,
+  marginTop: 2,
+};
+
+const titleRule = {
+  height: 1,
+  backgroundColor: book.ink,
+  marginTop: 16,
+};
+
+const emptyText = {
+  fontFamily: bookFont,
+  fontSize: 16,
+  lineHeight: 24,
+  color: book.inkSoft,
+  paddingHorizontal: book.margin,
+  paddingVertical: 20,
+  fontStyle: 'italic' as const,
+};
+
+const notebookRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 14,
+  paddingHorizontal: book.margin,
+  paddingVertical: 12,
+  borderBottomWidth: 1,
+  borderBottomColor: book.ruleFaint,
+};
+
+/** Der Buchrücken: schmal, hochkant, in der Umschlagfarbe. */
+const spine = {
+  width: 26,
+  height: 36,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const notebookTitle = {
+  fontFamily: bookFont,
+  fontSize: 17,
+  lineHeight: 24,
+  color: book.ink,
+};
+
+const notebookMeta = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  color: book.inkFaint,
+};
+
+const newRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 12,
+  paddingHorizontal: book.margin,
+  paddingVertical: 16,
+};
+
+const newRowLabel = {
+  fontFamily: bookSans,
+  fontSize: 16,
+  fontWeight: '700' as const,
+  color: book.ink,
+};
+
 const sheetBackdrop = {
   flex: 1,
-  backgroundColor: 'rgba(15, 23, 42, 0.4)',
+  backgroundColor: 'rgba(13, 13, 13, 0.4)',
   justifyContent: 'flex-end' as const,
 };
 
@@ -201,4 +290,17 @@ const sheetStyle = {
   borderTopRightRadius: radius.xl,
   padding: spacing.lg,
   gap: spacing.md,
+};
+
+const coverSwatch = {
+  width: 40,
+  height: 40,
+  borderRadius: radius.sm,
+  borderWidth: 1,
+  borderColor: colors.border,
+};
+
+const coverSwatchActive = {
+  borderWidth: 3,
+  borderColor: colors.text,
 };

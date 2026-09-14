@@ -19,15 +19,17 @@ import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translat
 
 /**
  * Darstellungsblöcke des Kursbuchs, gesetzt wie eine gedruckte Lehrwerksseite:
- * Serifenschrift im Fließtext, Kästen mit farbigem Rand statt Karten mit
- * Schatten, Tabellen mit Linien statt Hintergrundflächen.
+ * Fließtext in Lesegröße, Kästen mit farbigem Rand statt Karten mit Schatten,
+ * Tabellen mit Linien statt Hintergrundflächen.
  *
  * Kästen werden benannt, nicht bebildert: Wo vorher ein Emoji stand, steht
  * jetzt das gesperrte Etikett GRAMMATIK, TIPP, LANDESKUNDE oder WICHTIG – so
  * kennzeichnet ein Lehrwerk seine Kästen, und die Seite bleibt einfarbig
  * lesbar statt bunt gesprenkelt.
  *
- * Alle Maße sind Buch-Einheiten – die Seite wird als Ganzes skaliert.
+ * Alle Maße sind Gerätepunkte: Die Seite fließt in der Breite des Geräts und
+ * wird nicht mehr als Ganzes verkleinert (siehe `BookPage`). Die Schriftgrade
+ * hier sind deshalb die, die man am Ende auch sieht.
  */
 interface BlockProps<B> {
   block: B;
@@ -50,7 +52,7 @@ export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: Ce
   const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
 
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ gap: 8 }}>
       <Text style={bodyText}>{block.text}</Text>
       {translation ? (
         <>
@@ -88,15 +90,15 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
     <View style={[infoBox, { backgroundColor: style.background, borderLeftColor: style.accent }]}>
       <BoxLabel text={style.label} color={style.accent} />
       <Text style={infoTitle}>{block.title}</Text>
-      <Text style={[bodyText, { fontSize: 20, lineHeight: 31 }]}>{block.text}</Text>
+      <Text style={bodyText}>{block.text}</Text>
       {block.table ? (
         <PrintTable headers={block.table.headers} rows={block.table.rows} accent={style.accent} />
       ) : null}
       {translation ? (
         <>
           {open ? (
-            <View style={{ gap: 4, marginTop: 2 }}>
-              <Text style={[infoTitle, { fontSize: 16 }]}>{translation.title}</Text>
+            <View style={{ gap: 3, marginTop: 2 }}>
+              <Text style={[infoTitle, { fontSize: 15 }]}>{translation.title}</Text>
               <Text style={translationText}>{translation.text}</Text>
             </View>
           ) : null}
@@ -175,6 +177,14 @@ function PrintTable({
   );
 }
 
+/**
+ * Dialog.
+ *
+ * Der Sprechername steht über seiner Zeile, nicht in einer festen Spalte
+ * daneben: Auf einem Telefon fraß diese Spalte ein Drittel der Zeilenbreite,
+ * und der Dialogtext brach nach drei Wörtern um. Über der Zeile kostet der
+ * Name keine Breite und liest sich trotzdem wie ein gedrucktes Skript.
+ */
 export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
   const [showTranslations, setShowTranslations] = useState(false);
   const hasTranslations = block.lines.some((line) => line.translation);
@@ -183,25 +193,21 @@ export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
     <View style={dialogueBox}>
       <BoxLabel text={block.title ?? 'Dialog'} color={accent} />
 
-      {/* Sprechernamen stehen in einer festen Spalte am linken Rand – der
-          Satzspiegel eines gedruckten Dialogs, nicht ein Chatverlauf. */}
-      <View style={{ gap: 15, marginTop: 16 }}>
+      <View style={{ gap: 14, marginTop: 14 }}>
         {block.lines.map((line, index) => (
-          <View key={index} style={{ flexDirection: 'row', gap: 14 }}>
+          <View key={index} style={{ gap: 2 }}>
             <Text style={speakerName}>{line.speaker}</Text>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[bodyText, { fontSize: 20, lineHeight: 30 }]}>{line.text}</Text>
-              {showTranslations && line.translation ? (
-                <Text style={translationText}>{line.translation}</Text>
-              ) : null}
-            </View>
+            <Text style={bodyText}>{line.text}</Text>
+            {showTranslations && line.translation ? (
+              <Text style={translationText}>{line.translation}</Text>
+            ) : null}
           </View>
         ))}
       </View>
 
       {hasTranslations ? (
         <Pressable onPress={() => setShowTranslations((value) => !value)} hitSlop={8}>
-          <Text style={[translationToggle, { marginTop: 14 }]}>
+          <Text style={[translationToggle, { marginTop: 12 }]}>
             {showTranslations ? 'Übersetzung ausblenden' : 'Übersetzung anzeigen'}
           </Text>
         </Pressable>
@@ -215,19 +221,19 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
     <View style={vocabBox}>
       <BoxLabel text={block.title ?? 'Wortschatz'} color={accent} />
 
-      <View style={{ gap: 13, marginTop: 16 }}>
+      <View style={{ marginTop: 12 }}>
         {block.items.map((item, index) => (
           <View
             key={index}
             style={[
-              { gap: 3, paddingBottom: 13 },
+              { gap: 2, paddingVertical: 9 },
               index < block.items.length - 1 && {
                 borderBottomWidth: 1,
                 borderBottomColor: book.ruleFaint,
               },
             ]}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
               {item.article ? (
                 <Text style={[articleText, { color: ARTICLE_COLORS[item.article] }]}>
                   {item.article}
@@ -235,8 +241,8 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
               ) : null}
               <Text style={termText}>{item.term}</Text>
               {item.plural ? <Text style={metaText}>Pl. {item.plural}</Text> : null}
-              <Text style={metaText}>— {item.translation}</Text>
             </View>
+            <Text style={metaText}>{item.translation}</Text>
             {item.example ? <Text style={exampleText}>{item.example}</Text> : null}
           </View>
         ))}
@@ -258,16 +264,16 @@ const ARTICLE_COLORS: Record<'der' | 'die' | 'das', string> = {
 export function AudioPlaceholder({ block, accent }: BlockProps<AudioBlock>) {
   return (
     <View style={audioBox}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {/* Gedrucktes Tonzeichen statt Lautsprecher-Emoji. */}
-        <AudioMark color={accent} size={30} />
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[bookLabel, { color: accent, fontSize: 12 }]}>Hörtext</Text>
+        <AudioMark color={accent} size={24} />
+        <View style={{ flex: 1, gap: 1 }}>
+          <Text style={[bookLabel, { color: accent, fontSize: 10, letterSpacing: 1.2 }]}>Hörtext</Text>
           <Text style={infoTitle}>{block.title}</Text>
         </View>
       </View>
       {block.transcript ? (
-        <Text style={[bodyText, { fontSize: 19, lineHeight: 30 }]}>{block.transcript}</Text>
+        <Text style={bodyText}>{block.transcript}</Text>
       ) : (
         <Text style={metaText}>Die Aufnahme zu dieser Übung folgt.</Text>
       )}
@@ -287,7 +293,7 @@ export function SceneImage({ block }: BlockProps<ImageBlock>) {
   const Scene = getSceneComponent(block.url);
 
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: 7 }}>
       <View style={imageFrame} accessibilityLabel={block.alt} accessible>
         <Scene />
       </View>
@@ -298,32 +304,33 @@ export function SceneImage({ block }: BlockProps<ImageBlock>) {
 
 // ------------------------------------------------------------------ Styles
 
+/** Die Lesegröße der Seite. Alles andere staffelt sich um sie herum. */
 export const bodyText = {
   fontFamily: bookFont,
-  fontSize: 21,
-  lineHeight: 34,
+  fontSize: 17,
+  lineHeight: 27,
   color: book.ink,
 };
 
 const subHeading = {
   fontFamily: bookFont,
-  fontSize: 25,
-  lineHeight: 33,
+  fontSize: 20,
+  lineHeight: 28,
   fontWeight: '700' as const,
   color: book.ink,
 };
 
 const translationToggle = {
   fontFamily: bookSans,
-  fontSize: 15,
-  letterSpacing: 0.4,
+  fontSize: 13,
+  letterSpacing: 0.3,
   color: book.inkFaint,
 };
 
 const translationText = {
   fontFamily: bookFont,
-  fontSize: 18,
-  lineHeight: 27,
+  fontSize: 15,
+  lineHeight: 23,
   color: book.inkSoft,
   fontStyle: 'italic' as const,
 };
@@ -339,17 +346,17 @@ const infoBox = {
   borderTopColor: book.rule,
   borderRightColor: book.rule,
   borderBottomColor: book.rule,
-  paddingVertical: 20,
-  paddingHorizontal: 22,
-  gap: 11,
+  paddingVertical: 14,
+  paddingHorizontal: 15,
+  gap: 8,
 };
 
 const infoTitle = {
   fontFamily: bookSans,
-  fontSize: 19,
+  fontSize: 16,
   fontWeight: '700' as const,
   color: book.ink,
-  letterSpacing: 0.2,
+  letterSpacing: 0.1,
 };
 
 const dialogueBox = {
@@ -357,44 +364,42 @@ const dialogueBox = {
   borderTopWidth: 1,
   borderBottomWidth: 1,
   borderColor: book.rule,
-  paddingVertical: 22,
-  paddingHorizontal: 24,
+  paddingVertical: 15,
+  paddingHorizontal: 15,
 };
 
 const vocabBox = {
-  backgroundColor: '#FFFFFF',
+  backgroundColor: book.paper,
   borderWidth: 1,
   borderColor: book.rule,
-  paddingVertical: 22,
-  paddingHorizontal: 24,
+  paddingVertical: 15,
+  paddingHorizontal: 15,
 };
 
 const audioBox = {
   backgroundColor: book.tint,
   borderWidth: 1,
   borderColor: book.rule,
-  paddingVertical: 20,
-  paddingHorizontal: 22,
-  gap: 14,
+  paddingVertical: 14,
+  paddingHorizontal: 15,
+  gap: 10,
 };
 
 const speakerName = {
-  width: 112,
   fontFamily: bookSans,
-  fontSize: 15,
-  letterSpacing: 0.9,
+  fontSize: 11,
+  letterSpacing: 1.1,
   textTransform: 'uppercase' as const,
   fontWeight: '700' as const,
   color: book.inkSoft,
-  paddingTop: 6,
 };
 
 const tableFrame = {
   width: '100%' as const,
-  marginTop: 6,
+  marginTop: 4,
   borderWidth: 1,
   borderColor: book.rule,
-  backgroundColor: '#FFFFFF',
+  backgroundColor: book.paper,
   overflow: 'hidden' as const,
 };
 
@@ -411,8 +416,8 @@ const tableCell = {
   flex: 1,
   flexBasis: 0,
   minWidth: 0,
-  paddingHorizontal: 14,
-  paddingVertical: 11,
+  paddingHorizontal: 9,
+  paddingVertical: 8,
 };
 
 const tableCellDivider = {
@@ -422,39 +427,41 @@ const tableCellDivider = {
 
 const tableHeadText = {
   ...bookLabel,
-  fontSize: 12,
-  letterSpacing: 1.2,
+  fontSize: 10,
+  letterSpacing: 1,
 };
 
 const tableCellText = {
   fontFamily: bookFont,
-  fontSize: 18,
+  fontSize: 15,
+  lineHeight: 22,
   color: book.ink,
 };
 
 const articleText = {
   fontFamily: bookFont,
-  fontSize: 19,
+  fontSize: 17,
   fontWeight: '700' as const,
 };
 
 const termText = {
   fontFamily: bookFont,
-  fontSize: 20,
+  fontSize: 17,
   fontWeight: '700' as const,
   color: book.ink,
 };
 
 const metaText = {
   fontFamily: bookFont,
-  fontSize: 18,
+  fontSize: 15,
+  lineHeight: 22,
   color: book.inkSoft,
 };
 
 const exampleText = {
   fontFamily: bookFont,
-  fontSize: 17,
-  lineHeight: 26,
+  fontSize: 15,
+  lineHeight: 22,
   color: book.inkSoft,
   fontStyle: 'italic' as const,
 };
@@ -475,8 +482,8 @@ const imageFrame = {
 
 const imageCaption = {
   fontFamily: bookFont,
-  fontSize: 16,
-  lineHeight: 22,
+  fontSize: 14,
+  lineHeight: 20,
   color: book.inkSoft,
   fontStyle: 'italic' as const,
   textAlign: 'center' as const,

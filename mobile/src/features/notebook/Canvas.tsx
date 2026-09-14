@@ -9,7 +9,7 @@ import type {
   TextElement,
 } from '@lingua/shared';
 import { colors } from '../../theme';
-import type { ToolState } from './toolbar';
+import type { CanvasTool } from './ToolDock';
 
 /**
  * Zeichenfläche des Lernhefts.
@@ -25,7 +25,7 @@ export interface CanvasHandle {
 
 interface CanvasProps {
   content: NotebookPageContent;
-  tool: ToolState;
+  tool: CanvasTool;
   onChange: (content: NotebookPageContent) => void;
   /** Wird beim Auswählen eines Textelements gemeldet, damit die Toolbar reagieren kann. */
   onSelectText?: (elementId: string | null) => void;
@@ -37,16 +37,6 @@ interface CanvasProps {
    * darunterliegt.
    */
   transparent?: boolean;
-  /**
-   * Zusätzlicher Maßstab, um den ein *äußerer* Rahmen diese Ebene per
-   * CSS-Transform skaliert (z. B. der Seiten-Zoom im Lehrwerk). `onLayout`
-   * liefert nur die unskalierte Layout-Größe, Touch-Koordinaten kommen aber
-   * in echten – bereits skalierten – Bildschirmpixeln an. Ohne diesen Faktor
-   * würde die Zeichnung um genau diesen Zoom versetzt landen. Das eigentliche
-   * Rendering bleibt davon unberührt, denn das übernimmt bereits der äußere
-   * Transform.
-   */
-  externalScale?: number;
 }
 
 export default function Canvas({
@@ -56,9 +46,8 @@ export default function Canvas({
   editingTextId,
   onEditText,
   transparent = false,
-  externalScale = 1,
 }: CanvasProps) {
-  const [layout, setLayout] = useState({ width: 0, height: 0 });
+  const [layoutWidth, setLayoutWidth] = useState(0);
   const [liveStroke, setLiveStroke] = useState<StrokePoint[] | null>(null);
   // Getippter Text bleibt lokal, solange editiert wird – erst beim Verlassen
   // des Feldes geht er an den Seiteninhalt. Würde jeder Tastendruck sofort
@@ -70,17 +59,29 @@ export default function Canvas({
   // veraltete Props sehen würde.
   const toolRef = useRef(tool);
   const contentRef = useRef(content);
-  const touchScaleRef = useRef(1);
+  const scaleRef = useRef(1);
+  // Der laufende Strich zusätzlich als Ref: `commitStroke` braucht ihn beim
+  // Loslassen, ohne dafür einen State-Updater zu missbrauchen (siehe dort).
+  const liveStrokeRef = useRef<StrokePoint[] | null>(null);
+  // Auch `onChange` als Ref: Der PanResponder wird einmal beim ersten Rendern
+  // gebaut und hielte sonst für immer die Fassung von damals fest – die Ebene
+  // meldete ihre Striche dann an eine veraltete Version des Bildschirms.
+  const onChangeRef = useRef(onChange);
   toolRef.current = tool;
   contentRef.current = content;
+  onChangeRef.current = onChange;
 
   // Der Canvas wird auf die Gerätebreite skaliert; gespeichert wird immer in
   // Referenzkoordinaten, damit eine Seite auf jedem Gerät gleich aussieht.
-  const scale = layout.width > 0 ? layout.width / content.width : 1;
+  const scale = layoutWidth > 0 ? layoutWidth / content.width : 1;
   const displayHeight = content.height * scale;
-  // Für Touch-Koordinaten zählt zusätzlich der äußere Zoom – für das
-  // Rendering selbst nicht, das bleibt bei `scale`.
-  touchScaleRef.current = scale * externalScale;
+  scaleRef.current = scale;
+
+  /** Strich in Ref und State zugleich halten – Ref fürs Lesen, State fürs Zeichnen. */
+  function updateStroke(points: StrokePoint[] | null): void {
+    liveStrokeRef.current = points;
+    setLiveStroke(points);
+  }
 
   const panResponder = useMemo(
     () =>
@@ -89,7 +90,7 @@ export default function Canvas({
         onMoveShouldSetPanResponder: () => true,
 
         onPanResponderGrant: (event) => {
-          const point = toCanvasPoint(event.nativeEvent, touchScaleRef.current);
+          const point = toCanvasPoint(event.nativeEvent, scaleRef.current);
           const activeTool = toolRef.current;
 
           if (activeTool.kind === 'TEXT') {
@@ -100,11 +101,11 @@ export default function Canvas({
             eraseAt(point);
             return;
           }
-          setLiveStroke([point]);
+          updateStroke([point]);
         },
 
         onPanResponderMove: (event) => {
-          const point = toCanvasPoint(event.nativeEvent, touchScaleRef.current);
+          const point = toCanvasPoint(event.nativeEvent, scaleRef.current);
           const activeTool = toolRef.current;
 
           if (activeTool.kind === 'ERASER') {
@@ -113,14 +114,16 @@ export default function Canvas({
           }
           if (activeTool.kind === 'TEXT') return;
 
-          setLiveStroke((previous) => {
-            if (!previous) return [point];
-            const last = previous[previous.length - 1];
-            // Punkte unter 2 Einheiten Abstand verwerfen: glättet die Linie und
-            // hält die gespeicherte Datenmenge klein.
-            if (Math.hypot(point.x - last.x, point.y - last.y) < 2) return previous;
-            return [...previous, point];
-          });
+          const previous = liveStrokeRef.current;
+          if (!previous) {
+            updateStroke([point]);
+            return;
+          }
+          const last = previous[previous.length - 1];
+          // Punkte unter 2 Einheiten Abstand verwerfen: glättet die Linie und
+          // hält die gespeicherte Datenmenge klein.
+          if (Math.hypot(point.x - last.x, point.y - last.y) < 2) return;
+          updateStroke([...previous, point]);
         },
 
         onPanResponderRelease: () => commitStroke(),
@@ -131,26 +134,36 @@ export default function Canvas({
     [],
   );
 
+  /**
+   * Den fertigen Strich in den Seiteninhalt übernehmen.
+   *
+   * Der laufende Strich wird über `liveStrokeRef` gelesen, nicht über einen
+   * `setLiveStroke`-Updater: Ein Updater läuft mitten in Reacts Render-Phase,
+   * und `onChange` setzt den Zustand des aufrufenden Bildschirms – React
+   * meldete das zu Recht als „Cannot update a component while rendering a
+   * different component". Hier passiert beides nacheinander im Event, nicht
+   * ineinander verschachtelt.
+   */
   function commitStroke(): void {
-    setLiveStroke((points) => {
-      const activeTool = toolRef.current;
-      if (!points || points.length < 2 || activeTool.kind === 'ERASER' || activeTool.kind === 'TEXT') {
-        return null;
-      }
+    const points = liveStrokeRef.current;
+    const activeTool = toolRef.current;
+    updateStroke(null);
 
-      const stroke: StrokeElement = {
-        id: createId(),
-        type: 'STROKE',
-        tool: activeTool.kind === 'HIGHLIGHTER' ? 'HIGHLIGHTER' : 'PEN',
-        color: activeTool.color,
-        width: activeTool.width,
-        opacity: activeTool.kind === 'HIGHLIGHTER' ? 0.35 : 1,
-        points,
-      };
+    if (!points || points.length < 2 || activeTool.kind === 'ERASER' || activeTool.kind === 'TEXT') {
+      return;
+    }
 
-      onChange({ ...contentRef.current, elements: [...contentRef.current.elements, stroke] });
-      return null;
-    });
+    const stroke: StrokeElement = {
+      id: createId(),
+      type: 'STROKE',
+      tool: activeTool.kind === 'HIGHLIGHTER' ? 'HIGHLIGHTER' : 'PEN',
+      color: activeTool.color,
+      width: activeTool.width,
+      opacity: activeTool.kind === 'HIGHLIGHTER' ? 0.35 : 1,
+      points,
+    };
+
+    onChangeRef.current({ ...contentRef.current, elements: [...contentRef.current.elements, stroke] });
   }
 
   function addTextElement(point: StrokePoint): void {
@@ -167,7 +180,7 @@ export default function Canvas({
       fontStyle: 'normal',
       align: 'left',
     };
-    onChange({ ...contentRef.current, elements: [...contentRef.current.elements, element] });
+    onChangeRef.current({ ...contentRef.current, elements: [...contentRef.current.elements, element] });
     onEditText(element.id);
   }
 
@@ -178,7 +191,7 @@ export default function Canvas({
       (element) => !hitTest(element, point, radius),
     );
     if (remaining.length !== contentRef.current.elements.length) {
-      onChange({ ...contentRef.current, elements: remaining });
+      onChangeRef.current({ ...contentRef.current, elements: remaining });
     }
   }
 
@@ -213,9 +226,20 @@ export default function Canvas({
     setDraftText(target?.text ?? '');
   }, [editingTextId]);
 
+  /**
+   * Gemessene Breite übernehmen – aber nur, wenn sie sich wirklich geändert
+   * hat.
+   *
+   * Vorher legte jede Layout-Meldung ein frisches `{ width, height }`-Objekt
+   * in den State. React kann bei einem neuen Objekt nicht abbrechen, also
+   * folgte auf jede Messung ein Rendern, auf jedes Rendern eine Messung – auf
+   * Android endete das in „Maximum update depth exceeded". Eine Zahl
+   * vergleicht React dagegen von selbst und rendert gar nicht erst neu. Die
+   * Höhe stand ohnehin nur im State herum; gerechnet wird sie aus `scale`.
+   */
   function handleLayout(event: LayoutChangeEvent): void {
     const { width } = event.nativeEvent.layout;
-    setLayout({ width, height: width * (content.height / content.width) });
+    setLayoutWidth((current) => (Math.abs(current - width) < 0.5 ? current : width));
   }
 
   return (

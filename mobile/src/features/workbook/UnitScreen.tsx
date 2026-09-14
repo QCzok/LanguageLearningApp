@@ -18,10 +18,10 @@ import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
 import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
+import { DEFAULT_TOOL, ToolDock, ToolState } from '../notebook/ToolDock';
 import { BookPage, SECTION_THEME } from './BookPage';
 import type { PageFooterNav } from './BookPage';
 import { useContentWidth } from '../../navigation/WebLayout';
-import { BookToolbar, BookToolState, DEFAULT_BOOK_TOOL } from './BookToolbar';
 import {
   AudioPlaceholder,
   Dialogue,
@@ -38,8 +38,24 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'Unit'>;
 
 const AUTOSAVE_DELAY_MS = 1200;
 /** Seitenrand links und rechts neben dem Papier. */
-const GUTTER = 12;
+const GUTTER = 10;
+/** Platz unter der Seite, damit der Werkzeugkasten nichts verdeckt. */
+const DOCK_SPACE = 88;
 
+/**
+ * Eine Seite des Lernhefts.
+ *
+ * Die Seite fließt in der Breite des Geräts und ist in echten Gerätepunkten
+ * gesetzt (siehe `BookPage`) – kein verkleinertes A4-Blatt mehr, deshalb auch
+ * kein Zoom, kein seitliches Schieben und keine Prozentanzeige. Wer allein mit
+ * der App übt, soll die Aufgabe lesen, ausfüllen und weiterblättern können,
+ * ohne vorher an der Darstellung zu arbeiten.
+ *
+ * Zum Schreiben mit dem Stift liegt eine Zeichenebene exakt über der Seite.
+ * Sie wird über den Werkzeugkasten unten links aktiviert; solange kein
+ * Werkzeug in der Hand ist, lässt sie alle Berührungen zu den Aufgabenfeldern
+ * durch.
+ */
 export default function UnitScreen({ route, navigation }: Props) {
   const { unitId } = route.params;
   const queryClient = useQueryClient();
@@ -49,7 +65,7 @@ export default function UnitScreen({ route, navigation }: Props) {
   // Hintergrund: ein `onLayout` an dieser Stelle würde, weil die Einheit
   // mehrere Ebenen tief in einem Stack-Navigator liegt, die volle
   // Fensterbreite melden statt der tatsächlich verfügbaren Spalte).
-  const containerWidth = useContentWidth();
+  const pageWidth = useContentWidth() - GUTTER * 2;
 
   const [answers, setAnswers] = useState<UnitAnswers>({});
   const [results, setResults] = useState<Record<string, BlockResult>>({});
@@ -57,15 +73,12 @@ export default function UnitScreen({ route, navigation }: Props) {
   const [isDirty, setIsDirty] = useState(false);
   const [summary, setSummary] = useState<{ score: number; xp: number; correct: number; total: number } | null>(null);
 
-  const [tool, setTool] = useState<BookToolState>(DEFAULT_BOOK_TOOL);
-  /** Das Federmäppchen lässt sich ausblenden, um mehr von der Seite zu sehen. */
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [tool, setTool] = useState<ToolState>(DEFAULT_TOOL);
   const [notes, setNotes] = useState<NotebookPageContent | null>(null);
   const [notesHistory, setNotesHistory] = useState<NotebookPageContent[]>([]);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  /** Gemessene Höhe der Seite in Buch-Einheiten – die Zeichenebene muss exakt passen. */
-  const [pageHeight, setPageHeight] = useState(book.pageWidth * book.pageRatio);
+  /** Gemessene Höhe der Seite in Gerätepunkten – die Zeichenebene muss exakt passen. */
+  const [pageHeight, setPageHeight] = useState(0);
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -169,10 +182,10 @@ export default function UnitScreen({ route, navigation }: Props) {
     setSummary(null);
     setNotesHistory([]);
     setEditingTextId(null);
-    // Bis `onLayoutHeight` der neuen Seite meldet, gilt vorerst wieder die
-    // DIN-A4-Standardhöhe – sonst hätte die Zeichenebene kurz die Höhe der
-    // vorigen Seite.
-    setPageHeight(book.pageWidth * book.pageRatio);
+    // Bis `onLayoutHeight` der neuen Seite ihre Höhe meldet, bekommt die
+    // Zeichenebene keine – sonst läge sie kurz in der Höhe der vorigen Seite
+    // über dem neuen Text.
+    setPageHeight(0);
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [data?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -211,6 +224,37 @@ export default function UnitScreen({ route, navigation }: Props) {
     [data],
   );
 
+  /**
+   * Gemessene Seitenhöhe übernehmen – aber nur bei echter Änderung.
+   *
+   * `onLayout` meldet sich nach jedem Layoutdurchgang; ein Zustandswechsel auf
+   * denselben Zahlwert bricht React von selbst ab, ein neuer Wert pro Meldung
+   * würde dagegen Messen und Rendern gegenseitig antreiben. Der Millimeter
+   * Toleranz fängt zusätzlich das Pixelrunden von Android ab.
+   */
+  const handlePageHeight = useCallback((height: number) => {
+    setPageHeight((current) => (Math.abs(current - height) < 1 ? current : height));
+  }, []);
+
+  /*
+    Der Inhalt der Zeichenebene als ein Objekt, das sich nur ändert, wenn sich
+    wirklich etwas geändert hat: Ein bei jedem Rendern neu gebautes Objekt
+    hätte die Ebene jedes Mal für „neu" gehalten und sie unnötig komplett neu
+    zeichnen lassen. Die Höhe rechnet die gemessene Seitenhöhe in das feste
+    Notiz-Koordinatensystem um (siehe `book.pageWidth`).
+  */
+  const notesContent = useMemo(
+    () =>
+      notes && pageHeight > 0 && pageWidth > 0
+        ? {
+            ...notes,
+            width: book.pageWidth,
+            height: (pageHeight / pageWidth) * book.pageWidth,
+          }
+        : null,
+    [notes, pageHeight, pageWidth],
+  );
+
   if (isLoading) return <Loading />;
   if (isError || !data) {
     return <ErrorState message="Die Lerneinheit konnte nicht geladen werden." onRetry={refetch} />;
@@ -220,12 +264,6 @@ export default function UnitScreen({ route, navigation }: Props) {
   const isDrawing = tool.mode === 'DRAW';
   const isCourseUnit = exerciseBlocks.length === 0;
   const alreadyDone = data.status === 'COMPLETED';
-
-  // Die Seite wird in Buch-Einheiten aufgebaut und als Ganzes auf die
-  // Bildschirmbreite skaliert. Zoom vergrößert nur diesen Faktor – der Text
-  // fließt dabei nicht um, die Seite bleibt Seite.
-  const baseScale = (containerWidth - GUTTER * 2) / book.pageWidth;
-  const scale = baseScale * zoom;
 
   // Nummerierung der Aufgaben über die ganze Einheit hinweg.
   let exerciseCounter = 0;
@@ -252,159 +290,110 @@ export default function UnitScreen({ route, navigation }: Props) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ alignItems: 'center', paddingVertical: 16 }}
+        contentContainerStyle={{ padding: GUTTER, paddingBottom: DOCK_SPACE }}
         showsVerticalScrollIndicator={false}
+        // Im Stiftmodus darf die Seite nicht unter der Hand wegrutschen.
+        scrollEnabled={!isDrawing}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={zoom > 1}
-          contentContainerStyle={{ paddingHorizontal: GUTTER }}
-          scrollEnabled={zoom > 1}
-        >
-          {/* Skalierter Rahmen: außen die sichtbare Größe, innen Buch-Einheiten. */}
-          <View
-            style={{
-              width: book.pageWidth * scale,
-              height: pageHeight * scale,
-              shadowColor: colors.text,
-              shadowOpacity: 0.18,
-              shadowRadius: 14,
-              shadowOffset: { width: 0, height: 6 },
-              elevation: 5,
-            }}
+        <View style={{ width: pageWidth, ...paperShadow }}>
+          <BookPage
+            section={data.section}
+            chapterTitle={data.chapterTitle}
+            level={data.level}
+            chapterOrder={data.chapterOrder}
+            unitTitle={data.title}
+            unitSubtitle={data.subtitle}
+            pageNumber={data.order}
+            nav={pageNav}
+            onLayoutHeight={handlePageHeight}
           >
-            {/*
-              Skalierung mit Ursprung oben links. `transformOrigin` setzt
-              react-native-web nicht zuverlässig um, deshalb wird der Versatz
-              der mittigen Standardskalierung selbst herausgerechnet: Der erste
-              Eintrag im Array wirkt zuletzt, die Verschiebung zählt also in
-              unskalierten Elternkoordinaten.
-            */}
-            <View
-              style={{
-                width: book.pageWidth,
-                height: pageHeight,
-                transform: [
-                  { translateX: -(book.pageWidth * (1 - scale)) / 2 },
-                  { translateY: -(pageHeight * (1 - scale)) / 2 },
-                  { scale },
-                ],
-              }}
-            >
-              <BookPage
-                section={data.section}
-                chapterTitle={data.chapterTitle}
-                level={data.level}
-                chapterOrder={data.chapterOrder}
-                unitTitle={data.title}
-                unitSubtitle={data.subtitle}
-                pageNumber={data.order}
-                nav={pageNav}
-                onLayoutHeight={setPageHeight}
-              >
-                {data.content.blocks.map((block) => {
-                  if (isExerciseBlock(block)) exerciseCounter += 1;
-                  return (
-                    <BlockView
-                      key={block.id}
-                      block={block}
-                      number={exerciseCounter}
-                      accent={theme.accent}
-                      answer={answers[block.id]}
-                      result={results[block.id]}
-                      isChecking={checkingBlock === block.id}
-                      locked={isDrawing}
-                      scale={scale}
-                      level={data.level}
-                      onChange={(answer) => handleAnswer(block.id, answer)}
-                      onCheck={() => {
-                        flushAnswers();
-                        setCheckingBlock(block.id);
-                        check.mutate([block.id]);
-                      }}
-                    />
-                  );
-                })}
-
-                <PageActions
+            {data.content.blocks.map((block) => {
+              if (isExerciseBlock(block)) exerciseCounter += 1;
+              return (
+                <BlockView
+                  key={block.id}
+                  block={block}
+                  number={exerciseCounter}
                   accent={theme.accent}
-                  isCourseUnit={isCourseUnit}
-                  alreadyDone={alreadyDone}
-                  hasResults={Object.keys(results).length > 0}
-                  answeredCount={exerciseBlocks.filter((b) => answers[b.id]).length}
-                  totalCount={exerciseBlocks.length}
+                  answer={answers[block.id]}
+                  result={results[block.id]}
+                  isChecking={checkingBlock === block.id}
                   locked={isDrawing}
-                  isSubmitting={check.isPending && checkingBlock === null}
-                  isCompleting={complete.isPending}
-                  onSubmit={() => {
+                  level={data.level}
+                  onChange={(answer) => handleAnswer(block.id, answer)}
+                  onCheck={() => {
                     flushAnswers();
-                    check.mutate(undefined);
+                    setCheckingBlock(block.id);
+                    check.mutate([block.id]);
                   }}
-                  onComplete={() => complete.mutate()}
-                  onReset={() =>
-                    alert('Zurücksetzen?', 'Alle Antworten dieser Seite werden gelöscht.', [
-                      { text: 'Abbrechen', style: 'cancel' },
-                      { text: 'Zurücksetzen', style: 'destructive', onPress: () => reset.mutate() },
-                    ])
-                  }
                 />
-              </BookPage>
+              );
+            })}
 
-              {/* Zeichenebene exakt über der Seite. Im Bearbeiten-Modus lässt sie
-                  alle Berührungen zu den Aufgabenfeldern durch. */}
-              {notes ? (
-                <View
-                  pointerEvents={isDrawing ? 'auto' : 'none'}
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    width: book.pageWidth,
-                    height: pageHeight,
-                  }}
-                >
-                  <Canvas
-                    content={{ ...notes, width: book.pageWidth, height: pageHeight }}
-                    tool={{ kind: tool.kind, color: tool.color, width: tool.width, fontSize: tool.fontSize }}
-                    onChange={handleNotesChange}
-                    editingTextId={editingTextId}
-                    onEditText={setEditingTextId}
-                    transparent
-                    externalScale={scale}
-                  />
-                </View>
-              ) : null}
+            <PageActions
+              accent={theme.accent}
+              isCourseUnit={isCourseUnit}
+              alreadyDone={alreadyDone}
+              hasResults={Object.keys(results).length > 0}
+              allChecked={exerciseBlocks.length > 0 && exerciseBlocks.every((b) => results[b.id])}
+              hasNext={Boolean(nextUnit)}
+              onNext={() => (nextUnit ? goToUnit(nextUnit) : navigation.goBack())}
+              answeredCount={exerciseBlocks.filter((b) => answers[b.id]).length}
+              totalCount={exerciseBlocks.length}
+              locked={isDrawing}
+              isSubmitting={check.isPending && checkingBlock === null}
+              isCompleting={complete.isPending}
+              onSubmit={() => {
+                flushAnswers();
+                check.mutate(undefined);
+              }}
+              onComplete={() => complete.mutate()}
+              onReset={() =>
+                alert('Zurücksetzen?', 'Alle Antworten dieser Seite werden gelöscht.', [
+                  { text: 'Abbrechen', style: 'cancel' },
+                  { text: 'Zurücksetzen', style: 'destructive', onPress: () => reset.mutate() },
+                ])
+              }
+            />
+          </BookPage>
+
+          {/*
+            Zeichenebene exakt über der Seite. Gespeichert wird in einem festen
+            Koordinatensystem (`book.pageWidth`), damit dieselbe Notiz auf
+            Telefon und Tablet an derselben Stelle über demselben Wort sitzt –
+            deshalb rechnet die Höhe die gemessene Seitenhöhe in dieses System
+            um. Ohne Werkzeug in der Hand lässt die Ebene alle Berührungen zu
+            den Aufgabenfeldern durch.
+          */}
+          {notesContent ? (
+            <View
+              pointerEvents={isDrawing ? 'auto' : 'none'}
+              style={{ position: 'absolute', left: 0, top: 0, width: pageWidth, height: pageHeight }}
+            >
+              <Canvas
+                content={notesContent}
+                tool={tool}
+                onChange={handleNotesChange}
+                editingTextId={editingTextId}
+                onEditText={setEditingTextId}
+                transparent
+              />
             </View>
-          </View>
-        </ScrollView>
+          ) : null}
+        </View>
 
-        <StatusLine
-          saving={saveAnswers.isPending}
-          dirty={isDirty}
-          drawing={isDrawing}
-          zoom={zoom}
-        />
+        <Text style={saveNote}>
+          {saveAnswers.isPending ? 'Speichert …' : isDirty ? 'Noch nicht gespeichert' : 'Gespeichert'}
+        </Text>
       </ScrollView>
 
-      <BookToolbar
+      <ToolDock
         tool={tool}
         onChange={setTool}
-        zoom={zoom}
-        onZoom={setZoom}
+        tools={['PEN', 'HIGHLIGHTER', 'ERASER']}
+        clearLabel="Notizen löschen"
         canUndo={notesHistory.length > 0}
-        hasNotes={Boolean(notes?.elements.length)}
-        collapsed={toolbarCollapsed}
-        onToggleCollapsed={() =>
-          setToolbarCollapsed((collapsed) => {
-            const next = !collapsed;
-            // Wer die Werkzeugleiste ausblendet, will offensichtlich wieder mit
-            // der Seite statt mit dem Stift arbeiten – sonst bliebe der
-            // Zeichenmodus samt gesperrter Aufgabenfelder aktiv, ohne dass noch
-            // ein sichtbarer Weg zurück ins Bearbeiten bliebe.
-            if (next) setTool((current) => ({ ...current, mode: 'EDIT' }));
-            return next;
-          })
-        }
+        canClear={Boolean(notes?.elements.length)}
         onUndo={() => {
           const previous = notesHistory[notesHistory.length - 1];
           if (!previous) return;
@@ -445,12 +434,15 @@ function PageActions({
   isCourseUnit,
   alreadyDone,
   hasResults,
+  allChecked,
+  hasNext,
   answeredCount,
   totalCount,
   locked,
   isSubmitting,
   isCompleting,
   onSubmit,
+  onNext,
   onComplete,
   onReset,
 }: {
@@ -458,17 +450,21 @@ function PageActions({
   isCourseUnit: boolean;
   alreadyDone: boolean;
   hasResults: boolean;
+  /** Alle Aufgaben der Seite sind kontrolliert – dann ist Weiterblättern der nächste Schritt. */
+  allChecked: boolean;
+  hasNext: boolean;
   answeredCount: number;
   totalCount: number;
   locked: boolean;
   isSubmitting: boolean;
   isCompleting: boolean;
   onSubmit: () => void;
+  onNext: () => void;
   onComplete: () => void;
   onReset: () => void;
 }) {
   return (
-    <View style={{ marginTop: 24, gap: 16 }}>
+    <View style={{ marginTop: 6, gap: 12 }}>
       <View style={{ height: 1, backgroundColor: book.rule }} />
 
       {isCourseUnit ? (
@@ -484,21 +480,42 @@ function PageActions({
       ) : (
         <>
           <Text style={progressNote}>
-            {answeredCount} von {totalCount} Aufgaben bearbeitet
+            {allChecked
+              ? 'Alle Aufgaben kontrolliert'
+              : `${answeredCount} von ${totalCount} Aufgaben bearbeitet`}
           </Text>
-          <Pressable
-            onPress={onSubmit}
-            disabled={answeredCount === 0 || isSubmitting || locked}
-            style={[
-              primaryAction,
-              { backgroundColor: accent },
-              (answeredCount === 0 || locked) && { opacity: 0.45 },
-            ]}
-          >
-            <Text style={primaryActionText}>
-              {isSubmitting ? 'Wird ausgewertet …' : 'Alle Aufgaben kontrollieren'}
-            </Text>
-          </Pressable>
+
+          {/*
+            Immer genau ein nächster Schritt: solange noch etwas offen ist,
+            kontrollieren – danach weiterblättern. Zwei gleichwertige Knöpfe
+            nebeneinander hätten den Nutzer vor eine Wahl gestellt, die er gar
+            nicht zu treffen hat.
+          */}
+          {allChecked ? (
+            <Pressable
+              onPress={onNext}
+              disabled={locked}
+              style={[primaryAction, { backgroundColor: accent }, locked && { opacity: 0.45 }]}
+            >
+              <Text style={primaryActionText}>
+                {hasNext ? 'Nächste Seite' : 'Zurück zum Kapitel'}
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={onSubmit}
+              disabled={answeredCount === 0 || isSubmitting || locked}
+              style={[
+                primaryAction,
+                { backgroundColor: accent },
+                (answeredCount === 0 || locked) && { opacity: 0.45 },
+              ]}
+            >
+              <Text style={primaryActionText}>
+                {isSubmitting ? 'Wird ausgewertet …' : 'Alle Aufgaben kontrollieren'}
+              </Text>
+            </Pressable>
+          )}
 
           {(alreadyDone || hasResults) && (
             <Pressable onPress={onReset} disabled={locked} style={secondaryAction}>
@@ -507,28 +524,6 @@ function PageActions({
           )}
         </>
       )}
-    </View>
-  );
-}
-
-function StatusLine({
-  saving,
-  dirty,
-  drawing,
-  zoom,
-}: {
-  saving: boolean;
-  dirty: boolean;
-  drawing: boolean;
-  zoom: number;
-}) {
-  return (
-    <View style={statusLine}>
-      <Text style={statusText}>
-        {saving ? 'Speichert …' : dirty ? 'Nicht gespeichert' : 'Gespeichert'}
-        {drawing ? '  ·  Stiftmodus aktiv' : ''}
-        {zoom !== 1 ? `  ·  ${Math.round(zoom * 100)} %` : ''}
-      </Text>
     </View>
   );
 }
@@ -543,7 +538,6 @@ function BlockView({
   result,
   isChecking,
   locked,
-  scale,
   level,
   onChange,
   onCheck,
@@ -555,12 +549,11 @@ function BlockView({
   result?: BlockResult;
   isChecking: boolean;
   locked: boolean;
-  scale: number;
   level: CefrLevel;
   onChange: (answer: BlockAnswer) => void;
   onCheck: () => void;
 }) {
-  const exercise = { number, accent, answer, result, onChange, onCheck, isChecking, locked, scale, level };
+  const exercise = { number, accent, answer, result, onChange, onCheck, isChecking, locked, level };
 
   switch (block.type) {
     case 'HEADING':
@@ -642,7 +635,7 @@ function SummaryModal({
 
           <Pressable
             onPress={() => (nextUnit ? onNext(nextUnit) : onClose())}
-            style={[primaryAction, { backgroundColor: book.ink }]}
+            style={[primaryAction, { backgroundColor: book.ink, alignSelf: 'stretch' }]}
           >
             <Text style={primaryActionText}>{nextUnit ? 'Nächste Seite' : 'Fertig'}</Text>
           </Pressable>
@@ -660,59 +653,65 @@ function SummaryModal({
 
 // ------------------------------------------------------------------ Styles
 
+/** Das Blatt wirft einen kurzen Schatten – es liegt auf dem Tisch, es ist nicht der Tisch. */
+const paperShadow = {
+  shadowColor: book.ink,
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 3,
+};
+
 const primaryAction = {
-  minHeight: 54,
+  minHeight: 48,
   borderRadius: 2,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
-  paddingHorizontal: 24,
+  paddingHorizontal: 20,
 };
 
 const primaryActionText = {
   fontFamily: bookSans,
   color: '#FFFFFF',
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: '700' as const,
-  letterSpacing: 0.6,
+  letterSpacing: 0.5,
 };
 
 const secondaryAction = {
   alignSelf: 'center' as const,
-  paddingVertical: 10,
-  paddingHorizontal: 16,
+  paddingVertical: 8,
+  paddingHorizontal: 12,
 };
 
 const secondaryActionText = {
   fontFamily: bookSans,
-  fontSize: 16,
+  fontSize: 14,
   color: book.inkSoft,
   textDecorationLine: 'underline' as const,
 };
 
 const progressNote = {
   fontFamily: bookFont,
-  fontSize: 17,
-  lineHeight: 26,
+  fontSize: 15,
+  lineHeight: 22,
   color: book.inkSoft,
   textAlign: 'center' as const,
 };
 
-const statusLine = {
-  paddingTop: spacing.md,
-  paddingBottom: spacing.sm,
-  alignItems: 'center' as const,
-};
-
-const statusText = {
-  fontFamily: bookSans,
-  fontSize: 12,
-  letterSpacing: 0.6,
+/** Speicherstand: eine Zeile unter dem Blatt, so leise wie möglich. */
+const saveNote = {
+  ...bookLabel,
+  fontSize: 10,
+  letterSpacing: 1.2,
   color: book.inkFaint,
+  textAlign: 'center' as const,
+  paddingTop: spacing.md,
 };
 
 const overlay = {
   flex: 1,
-  backgroundColor: 'rgba(31, 27, 22, 0.55)',
+  backgroundColor: 'rgba(13, 13, 13, 0.55)',
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
   padding: spacing.lg,
@@ -731,6 +730,7 @@ const summaryCard = {
 
 const summaryEyebrow = {
   ...bookLabel,
+  fontSize: 11,
   color: book.inkFaint,
 };
 
@@ -742,23 +742,23 @@ const summaryRule = {
 
 const summaryTitle = {
   fontFamily: bookFont,
-  fontSize: 20,
-  lineHeight: 28,
+  fontSize: 18,
+  lineHeight: 26,
   color: book.ink,
   textAlign: 'center' as const,
 };
 
 const summaryScore = {
   fontFamily: bookFont,
-  fontSize: 52,
-  lineHeight: 60,
+  fontSize: 46,
+  lineHeight: 54,
   fontWeight: '700' as const,
 };
 
 const summaryXp = {
   fontFamily: bookSans,
-  fontSize: 17,
+  fontSize: 15,
   fontWeight: '700' as const,
-  letterSpacing: 0.6,
+  letterSpacing: 0.5,
   color: book.inkSoft,
 };

@@ -1,26 +1,15 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { SECTION_LABELS } from '@lingua/shared';
 import type { UnitSection, UnitSummaryDto } from '@lingua/shared';
-import {
-  Body,
-  Caption,
-  Card,
-  ErrorState,
-  Heading,
-  LevelBadge,
-  Loading,
-  ProgressBar,
-  Row,
-  Screen,
-  Title,
-} from '../../components';
+import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
-import { bookFont, bookSans, colors, radius, spacing } from '../../theme';
-import { CheckMark } from './BookIcons';
+import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
+import { CheckMark, ChevronRightIcon } from './BookIcons';
 import { SECTION_THEME } from './BookPage';
 import type { NotebookStackParamList } from '../../navigation/types';
 
@@ -28,6 +17,13 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'Chapter'>;
 
 const SECTIONS: UnitSection[] = ['KURSBUCH', 'ARBEITSBUCH'];
 
+/**
+ * Der Kapitelauftakt – im Lehrwerk die Seite, die ein Kapitel eröffnet:
+ * Kapitelzahl, Titel, worum es geht, was man danach kann, und der Einstieg in
+ * Kursbuch und Arbeitsbuch. Dieselbe Papieroptik wie die Lerneinheiten selbst,
+ * damit der ganze Bereich ein Heft bleibt und nicht zwischen Karten-App und
+ * Buchseite hin- und herspringt.
+ */
 export default function ChapterScreen({ route, navigation }: Props) {
   const { chapterId } = route.params;
 
@@ -61,77 +57,65 @@ export default function ChapterScreen({ route, navigation }: Props) {
     navigation.navigate('Unit', { unitId: unit.id, title: unit.title });
   }
 
+  const progress = data.progress;
+
   return (
-    <Screen scroll>
-      <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primary }}>
-        <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
-          <View style={chapterNumeral}>
-            <Text style={chapterNumeralText}>{data.order}</Text>
-          </View>
-          <View style={{ flex: 1, gap: spacing.xs }}>
-            <Row gap={spacing.sm}>
-              <LevelBadge level={data.level} small />
-              <Caption>Kapitel {data.order}</Caption>
-            </Row>
-            <Title>{data.title}</Title>
-            <Caption>{data.subtitle}</Caption>
-          </View>
-        </Row>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
+      <ScrollView contentContainerStyle={{ padding: 10, paddingBottom: spacing.xxl }}>
+        <View style={sheet}>
+          <View style={{ paddingHorizontal: book.margin, paddingTop: 22 }}>
+            <View style={runningHead}>
+              <Text style={[eyebrow, { color: book.kursbuch }]}>Kapitel {data.order}</Text>
+              <Text style={eyebrowMeta}>{data.level}</Text>
+            </View>
+            <View style={headRule} />
 
-        <Body>{data.description}</Body>
+            <Text style={chapterTitle}>{data.title}</Text>
+            <Text style={chapterSubtitle}>{data.subtitle}</Text>
+            <Text style={description}>{data.description}</Text>
 
-        {data.progress ? (
-          <View style={{ gap: spacing.xs, paddingTop: spacing.sm }}>
-            <ProgressBar
-              value={data.progress.percent}
-              color={data.progress.percent === 100 ? colors.success : colors.primary}
-            />
-            <Caption>
-              {data.progress.completedUnits} von {data.progress.totalUnits} Einheiten erledigt
-              {data.progress.scorePercent !== null
-                ? ` · Durchschnitt ${data.progress.scorePercent} %`
-                : ''}
-            </Caption>
+            {progress && progress.totalUnits > 0 ? (
+              <Text style={progressLine}>
+                {progress.completedUnits} von {progress.totalUnits} Seiten erledigt
+                {progress.scorePercent !== null ? ` · Durchschnitt ${progress.scorePercent} %` : ''}
+              </Text>
+            ) : null}
           </View>
-        ) : null}
-      </Card>
 
-      <Card>
-        <Heading>Das lernen Sie in diesem Kapitel</Heading>
-        <View style={{ gap: spacing.xs, paddingTop: spacing.xs }}>
-          {data.goals.map((goal) => (
-            <Row key={goal} gap={spacing.sm} style={{ alignItems: 'flex-start' }}>
-              <View style={{ paddingTop: 3 }}>
-                <CheckMark color={colors.success} size={15} />
+          <View style={{ paddingHorizontal: book.margin, paddingTop: 22, gap: 9 }}>
+            <Text style={goalsLabel}>Das lernen Sie hier</Text>
+            {data.goals.map((goal) => (
+              <View key={goal} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                <View style={{ paddingTop: 4 }}>
+                  <CheckMark color={book.correct} size={13} />
+                </View>
+                <Text style={goalText}>{goal}</Text>
               </View>
-              <Body>{goal}</Body>
-            </Row>
-          ))}
-        </View>
-      </Card>
+            ))}
+          </View>
 
-      {/*
-        Zwei Karten statt einer Liste aller Seiten: Kursbuch und Arbeitsbuch
-        sind die beiden Bücher, die ein Nutzer tatsächlich aufschlägt – welche
-        Einheit dahinter als Nächstes drankommt, entscheidet die App selbst.
-        Innerhalb einer Einheit führt ohnehin schon die Blätterleiste weiter
-        (siehe UnitScreen), eine zusätzliche Liste hier wäre eine zweite,
-        redundante Navigationsebene.
-      */}
-      <View style={{ gap: spacing.md }}>
-        {SECTIONS.map((section) => {
-          const units = data.units.filter((unit) => unit.section === section);
-          if (units.length === 0) return null;
-          return (
-            <SectionCard key={section} section={section} units={units} onPress={openUnit} />
-          );
-        })}
-      </View>
-    </Screen>
+          {/*
+            Zwei Einstiege statt einer Liste aller Seiten: Kursbuch und
+            Arbeitsbuch sind die beiden Teile, die man tatsächlich aufschlägt –
+            welche Seite als Nächstes drankommt, weiß die App selbst. Innerhalb
+            einer Einheit führt ohnehin schon die Fußzeile weiter (siehe
+            UnitScreen), eine zusätzliche Liste hier wäre eine zweite,
+            redundante Navigationsebene.
+          */}
+          <View style={{ paddingTop: 22 }}>
+            {SECTIONS.map((section) => {
+              const units = data.units.filter((unit) => unit.section === section);
+              if (units.length === 0) return null;
+              return <SectionRow key={section} section={section} units={units} onPress={openUnit} />;
+            })}
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function SectionCard({
+function SectionRow({
   section,
   units,
   onPress,
@@ -146,68 +130,160 @@ function SectionCard({
   const started = units.some((unit) => unit.status !== 'NOT_STARTED');
   const allDone = completed === total;
   // Die erste noch offene Seite ist die Anschlussstelle – „weitermachen, wo
-  // man aufgehört hat“. Sind alle Seiten fertig, öffnet die Karte wieder bei
+  // man aufgehört hat“. Sind alle Seiten fertig, öffnet die Zeile wieder bei
   // Seite eins, zum Wiederholen.
   const resumeUnit = units.find((unit) => unit.status !== 'COMPLETED') ?? units[0];
 
   return (
-    <Card onPress={() => onPress(resumeUnit)} style={{ borderLeftWidth: 4, borderLeftColor: theme.accent }}>
-      <Row gap={spacing.sm} style={{ alignItems: 'center' }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[sectionCardLabel, { color: theme.accent }]}>
-            {SECTION_LABELS[section].label.toUpperCase()}
-          </Text>
-          <Caption>{SECTION_LABELS[section].description}</Caption>
-        </View>
-        <Text style={{ fontSize: 22, color: colors.textMuted }}>›</Text>
-      </Row>
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => onPress(resumeUnit)}
+      style={({ pressed }) => [sectionRow, pressed && { backgroundColor: book.tint }]}
+    >
+      <View style={[sectionStripe, { backgroundColor: theme.accent }]} />
 
-      <View style={{ gap: spacing.xs, paddingTop: spacing.sm }}>
-        <ProgressBar
-          value={total > 0 ? Math.round((completed / total) * 100) : 0}
-          color={allDone ? colors.success : theme.accent}
-        />
-        <Caption>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={[sectionLabel, { color: theme.accent }]}>{SECTION_LABELS[section].label}</Text>
+        <Text style={sectionResume}>
+          {allDone
+            ? 'Alle Seiten abgeschlossen · zum Wiederholen öffnen'
+            : `${started ? 'Weiter' : 'Beginnen'} mit „${resumeUnit.title}“`}
+        </Text>
+        <Text style={sectionMeta}>
           {completed} von {total} {total === 1 ? 'Seite' : 'Seiten'} erledigt
-        </Caption>
+        </Text>
       </View>
 
-      <Text style={[resumeLabel, { color: allDone ? colors.success : colors.text }]}>
-        {allDone
-          ? 'Alle Seiten abgeschlossen · zum Wiederholen öffnen'
-          : `${started ? 'Weiter' : 'Beginnen'} mit „${resumeUnit.title}“`}
-      </Text>
-    </Card>
+      {allDone ? (
+        <CheckMark color={book.correct} size={17} />
+      ) : (
+        <ChevronRightIcon color={book.inkFaint} size={17} />
+      )}
+    </Pressable>
   );
 }
 
-const sectionCardLabel = {
+// ------------------------------------------------------------------ Styles
+
+const sheet = {
+  backgroundColor: book.paper,
+  borderWidth: 1,
+  borderColor: book.paperEdge,
+  paddingBottom: 10,
+  shadowColor: book.ink,
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 3,
+};
+
+const runningHead = {
+  flexDirection: 'row' as const,
+  alignItems: 'baseline' as const,
+  justifyContent: 'space-between' as const,
+};
+
+const eyebrow = {
+  ...bookLabel,
+  fontSize: 11,
+  letterSpacing: 1.8,
+};
+
+const eyebrowMeta = {
   fontFamily: bookSans,
-  fontSize: 15,
-  fontWeight: '700' as const,
-  letterSpacing: 1.6,
+  fontSize: 11,
+  letterSpacing: 1.2,
+  color: book.inkFaint,
 };
 
-const resumeLabel = {
-  fontSize: 15,
-  fontWeight: '600' as const,
-  paddingTop: spacing.sm,
+const headRule = {
+  height: 1,
+  backgroundColor: book.kursbuch,
+  marginTop: 7,
+  marginBottom: 16,
 };
 
-const chapterNumeral = {
-  width: 46,
-  height: 46,
-  borderRadius: radius.sm,
-  borderWidth: 1.5,
-  borderColor: colors.primary,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const chapterNumeralText = {
+const chapterTitle = {
   fontFamily: bookFont,
-  fontSize: 24,
-  lineHeight: 29,
+  fontSize: 25,
+  lineHeight: 32,
   fontWeight: '700' as const,
-  color: colors.primaryDark,
+  color: book.ink,
+};
+
+const chapterSubtitle = {
+  fontFamily: bookFont,
+  fontSize: 16,
+  lineHeight: 24,
+  color: book.inkSoft,
+  fontStyle: 'italic' as const,
+  marginTop: 2,
+};
+
+const description = {
+  fontFamily: bookFont,
+  fontSize: 16,
+  lineHeight: 25,
+  color: book.ink,
+  marginTop: 12,
+};
+
+const progressLine = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  color: book.inkFaint,
+  marginTop: 10,
+};
+
+const goalsLabel = {
+  ...bookLabel,
+  fontSize: 11,
+  letterSpacing: 1.3,
+  color: book.inkFaint,
+};
+
+const goalText = {
+  flex: 1,
+  fontFamily: bookFont,
+  fontSize: 16,
+  lineHeight: 24,
+  color: book.ink,
+};
+
+const sectionRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 14,
+  paddingRight: book.margin,
+  paddingLeft: book.margin - 12,
+  paddingVertical: 16,
+  borderTopWidth: 1,
+  borderTopColor: book.rule,
+};
+
+/** Griffregister-Streifen des Buchteils – die einzige Farbe der Zeile. */
+const sectionStripe = {
+  width: 4,
+  alignSelf: 'stretch' as const,
+};
+
+const sectionLabel = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  fontWeight: '700' as const,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
+};
+
+const sectionResume = {
+  fontFamily: bookFont,
+  fontSize: 17,
+  lineHeight: 24,
+  color: book.ink,
+};
+
+const sectionMeta = {
+  fontFamily: bookSans,
+  fontSize: 12,
+  color: book.inkFaint,
 };

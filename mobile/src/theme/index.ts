@@ -94,11 +94,22 @@ export const typography = {
  * unterscheidbar von Kursbuch, ohne eine dritte, fremde Farbe einzuführen.
  */
 export const book = {
-  /** Referenzbreite einer Seite in Buch-Einheiten. Alles darin rechnet in dieser Skala. */
+  /**
+   * Referenzbreite für Stiftnotizen auf einer Heftseite.
+   *
+   * Die Seite selbst wird nicht mehr skaliert, sondern fließt in der Breite
+   * des Geräts (siehe `BookPage`) – nur die handschriftlichen Notizen
+   * darüber brauchen ein geräteunabhängiges Koordinatensystem, damit eine auf
+   * dem Telefon gezeichnete Linie auf dem Tablet an derselben Stelle über
+   * demselben Wort sitzt. Diese Zahl ist dieses System.
+   */
   pageWidth: 820,
   /** Seitenverhältnis wie DIN A4. */
   pageRatio: 1.414,
-  margin: 58,
+  /** Rand zwischen Papierkante und Satzspiegel, in Gerätepunkten. */
+  margin: 20,
+  /** Abstand zwischen zwei Blöcken der Seite. */
+  blockGap: 26,
 
   paper: '#FFFFFF',
   /** Leicht abgetönte Fläche für Kästen – wie der App-Hintergrund, nur auf der Seite. */

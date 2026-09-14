@@ -5,18 +5,25 @@ import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../them
 import { CheckMark, ChevronLeftIcon, ChevronRightIcon } from './BookIcons';
 
 /**
- * Die Lehrwerksseite.
+ * Die Heftseite.
  *
- * Rendert Papier statt App-Oberfläche: warmer Untergrund, gedruckte Kopfzeile
- * mit Kapitel- und Buchteilangabe, echte Seitenränder und eine Fußzeile mit
- * Seitenzahl. Alles darin rechnet in Buch-Einheiten (`book.pageWidth`), damit
- * eine Seite auf jedem Gerät gleich aussieht; die Skalierung auf die
- * Bildschirmbreite übernimmt der aufrufende Screen.
+ * Rendert Papier statt App-Oberfläche: weißes Blatt mit Kante, gedruckter
+ * Kopfzeile, echten Seitenrändern und einer Fußzeile mit Seitenzahl.
  *
- * Die Gestaltung folgt der Arbeitsteilung eines gedruckten Lehrwerks:
- * Fließtext in der Serifenschrift, der ganze „Apparat“ ringsum – Kolumnentitel,
- * Kapitelzahl, Etiketten – in gesperrter Grotesk. Farbe trägt nur der Buchteil,
- * und auch der nur als schmaler Griffregister-Streifen und eine Haarlinie.
+ * Wichtigste Änderung gegenüber der ersten Fassung: Die Seite ist kein
+ * verkleinertes DIN-A4-Blatt mehr. Vorher wurde alles in festen
+ * „Buch-Einheiten“ von 820 Punkten Breite gesetzt und als Ganzes auf die
+ * Bildschirmbreite geschrumpft – auf einem Telefon landete der Fließtext damit
+ * bei rund neun Punkten Schriftgröße, also am Rand der Lesbarkeit, und musste
+ * über eine Zoomstufe wieder herangeholt werden. Wer allein mit der App übt,
+ * soll aber einfach lesen und schreiben können. Deshalb fließt die Seite jetzt
+ * in der Breite des Geräts und ist in echten Gerätepunkten gesetzt: kein Zoom,
+ * kein seitliches Schieben, keine Lupe.
+ *
+ * Die Gestaltung folgt weiter der Arbeitsteilung eines gedruckten Lehrwerks:
+ * Fließtext in der Lesegröße, der ganze „Apparat“ ringsum – Kolumnentitel,
+ * Etiketten, Aufgabennummern – klein und gesperrt. Farbe trägt nur der
+ * Buchteil, und auch der nur als Haarlinie unter dem Kolumnentitel.
  */
 export const SECTION_THEME: Record<UnitSection, { accent: string; soft: string; label: string }> = {
   KURSBUCH: { accent: book.kursbuch, soft: book.kursbuchSoft, label: 'Kursbuch' },
@@ -71,39 +78,36 @@ export function BookPage({
       style={pageStyle}
       onLayout={(event) => onLayoutHeight?.(event.nativeEvent.layout.height)}
     >
-      {/* Farbiger Randstreifen wie der Griffregister-Balken eines Lehrwerks. */}
-      <View style={[edgeStripe, { backgroundColor: theme.accent }]} />
-
-      <View style={{ paddingHorizontal: book.margin, paddingTop: 44, paddingBottom: 26 }}>
+      <View style={{ paddingHorizontal: book.margin, paddingTop: 22, paddingBottom: 4 }}>
         {/*
-          Kolumnentitel: links der Buchteil, rechts das Kapitel. Beides klein
-          und gesperrt gesetzt – im Buch führt diese Zeile, sie ruft nicht.
+          Kolumnentitel: links der Buchteil und das Kapitel, rechts das Niveau.
+          Eine Zeile, klein und gesperrt gesetzt – im Buch führt diese Zeile,
+          sie ruft nicht. Vorher standen Buchteil, Niveau, Kapitelnummer,
+          Kapiteltitel und eine große Kapitelziffer im Rahmen übereinander;
+          das war fünfmal dieselbe Auskunft, bevor überhaupt etwas zu lernen
+          begann.
         */}
         <View style={runningHead}>
-          <Text style={[runningHeadText, { color: theme.accent }]}>{theme.label}</Text>
-          <Text style={runningHeadMeta}>
-            {level}  ·  Kapitel {chapterOrder}
+          <Text style={[runningHeadText, { color: theme.accent }]} numberOfLines={1}>
+            {theme.label} · Kapitel {chapterOrder}
           </Text>
+          <Text style={runningHeadMeta}>{level}</Text>
         </View>
 
         <View style={[headRule, { backgroundColor: theme.accent }]} />
 
-        {/* Die Kapitelzahl steht als Ziffer neben dem Titel, wie eine
-            Lektionsnummer im Buch – nicht als Bildchen. */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 20, marginTop: 22 }}>
-          <View style={[chapterNumeral, { borderColor: theme.accent }]}>
-            <Text style={[chapterNumeralText, { color: theme.accent }]}>{chapterOrder}</Text>
-          </View>
-
-          <View style={{ flex: 1, gap: 6 }}>
-            <Text style={chapterLine}>{chapterTitle}</Text>
-            <Text style={unitTitleStyle}>{unitTitle}</Text>
-            {unitSubtitle ? <Text style={unitSubtitleStyle}>{unitSubtitle}</Text> : null}
-          </View>
+        <View style={{ gap: 4, marginTop: 16 }}>
+          <Text style={chapterLine} numberOfLines={1}>
+            {chapterTitle}
+          </Text>
+          <Text style={unitTitleStyle}>{unitTitle}</Text>
+          {unitSubtitle ? <Text style={unitSubtitleStyle}>{unitSubtitle}</Text> : null}
         </View>
       </View>
 
-      <View style={{ paddingHorizontal: book.margin, gap: 34 }}>{children}</View>
+      <View style={{ paddingHorizontal: book.margin, paddingTop: 20, gap: book.blockGap }}>
+        {children}
+      </View>
 
       {/*
         Fußzeile: die Seitenzahl steht schon immer hier, das Umblättern
@@ -123,7 +127,7 @@ export function BookPage({
               disabled={!nav.hasPrevious}
               style={[footerNavButton, !nav.hasPrevious && { opacity: 0.25 }]}
             >
-              <ChevronLeftIcon color={book.inkSoft} size={17} />
+              <ChevronLeftIcon color={book.inkSoft} size={18} />
             </Pressable>
 
             <View style={{ alignItems: 'center' }}>
@@ -140,7 +144,7 @@ export function BookPage({
               disabled={!nav.hasNext}
               style={[footerNavButton, !nav.hasNext && { opacity: 0.25 }]}
             >
-              <ChevronRightIcon color={book.inkSoft} size={17} />
+              <ChevronRightIcon color={book.inkSoft} size={18} />
             </Pressable>
           </View>
         ) : (
@@ -157,8 +161,9 @@ export function BookPage({
 
 /**
  * Nummerierter Aufgabenkopf, wie in einem Arbeitsbuch: Ziffer im Kreis,
- * daneben die Arbeitsanweisung. Die Anweisung steht in der Grotesk – sie ist
- * Anleitung, nicht Lesetext, und hebt sich dadurch vom Übungsmaterial ab.
+ * daneben die Arbeitsanweisung. Die Anweisung steht im kräftigeren Schnitt –
+ * sie ist Anleitung, nicht Lesetext, und hebt sich dadurch vom Übungsmaterial
+ * ab.
  */
 export function ExerciseNumber({
   number,
@@ -175,10 +180,10 @@ export function ExerciseNumber({
     status === 'correct' ? book.correct : status === 'partial' ? book.attention : accent;
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 15 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11 }}>
       <View style={[numberBadge, { backgroundColor: badgeColor }]}>
         {status === 'correct' ? (
-          <CheckMark color="#FFFFFF" size={17} />
+          <CheckMark color="#FFFFFF" size={14} />
         ) : (
           <Text style={numberText}>{number}</Text>
         )}
@@ -191,9 +196,9 @@ export function ExerciseNumber({
 /** Überschrift innerhalb der Seite, im Stil einer Lehrwerks-Zwischenüberschrift. */
 export function SectionHeading({ text, accent }: { text: string; accent: string }) {
   return (
-    <View style={{ gap: 9 }}>
+    <View style={{ gap: 7 }}>
       <Text style={[sectionHeadingText, { color: accent }]}>{text}</Text>
-      <View style={{ height: 1, backgroundColor: accent, opacity: 0.5 }} />
+      <View style={{ height: 1, backgroundColor: accent, opacity: 0.45 }} />
     </View>
   );
 }
@@ -204,92 +209,67 @@ export function SectionHeading({ text, accent }: { text: string; accent: string 
  */
 export function BoxLabel({ text, color }: { text: string; color: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={[bookLabel, { color }]}>{text}</Text>
-      <View style={{ flex: 1, height: 1, backgroundColor: color, opacity: 0.28 }} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+      <Text style={[bookLabel, { color, fontSize: 11, letterSpacing: 1.3 }]}>{text}</Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: color, opacity: 0.25 }} />
     </View>
   );
 }
 
 const pageStyle = {
-  width: book.pageWidth,
+  width: '100%' as const,
   backgroundColor: book.paper,
   borderWidth: 1,
   borderColor: book.paperEdge,
-  paddingBottom: 26,
-  overflow: 'hidden' as const,
-};
-
-const edgeStripe = {
-  position: 'absolute' as const,
-  left: 0,
-  top: 0,
-  bottom: 0,
-  width: 9,
+  paddingBottom: 18,
 };
 
 const runningHead = {
   flexDirection: 'row' as const,
   alignItems: 'baseline' as const,
   justifyContent: 'space-between' as const,
+  gap: 10,
 };
 
 const runningHeadText = {
   ...bookLabel,
-  fontSize: 14,
-  letterSpacing: 2.4,
+  flex: 1,
+  fontSize: 11,
+  letterSpacing: 1.6,
 };
 
 const runningHeadMeta = {
   fontFamily: bookSans,
-  fontSize: 14,
-  letterSpacing: 1.1,
+  fontSize: 11,
+  letterSpacing: 1.2,
   color: book.inkFaint,
-  textTransform: 'uppercase' as const,
 };
 
 const headRule = {
   height: 1,
-  marginTop: 9,
-};
-
-/** Kapitelziffer als gesetzte Zahl im Rahmen – Lektionsnummer statt Icon. */
-const chapterNumeral = {
-  width: 54,
-  height: 54,
-  borderWidth: 1,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  marginTop: 6,
-};
-
-const chapterNumeralText = {
-  fontFamily: bookFont,
-  fontSize: 30,
-  lineHeight: 36,
-  fontWeight: '700' as const,
+  marginTop: 7,
 };
 
 const chapterLine = {
   fontFamily: bookSans,
-  fontSize: 15,
-  letterSpacing: 1.4,
+  fontSize: 11,
+  letterSpacing: 1.1,
   textTransform: 'uppercase' as const,
   color: book.inkFaint,
 };
 
 const unitTitleStyle = {
   fontFamily: bookFont,
-  fontSize: 37,
-  lineHeight: 45,
+  fontSize: 25,
+  lineHeight: 32,
   color: book.ink,
   fontWeight: '700' as const,
 };
 
 const unitSubtitleStyle = {
   fontFamily: bookFont,
-  fontSize: 20,
-  lineHeight: 29,
+  fontSize: 16,
+  lineHeight: 24,
   color: book.inkSoft,
   marginTop: 2,
   fontStyle: 'italic' as const,
@@ -297,41 +277,41 @@ const unitSubtitleStyle = {
 
 const sectionHeadingText = {
   fontFamily: bookSans,
-  fontSize: 21,
+  fontSize: 17,
   fontWeight: '700' as const,
-  letterSpacing: 0.4,
+  letterSpacing: 0.3,
 };
 
 const numberBadge = {
-  width: 33,
-  height: 33,
-  borderRadius: 17,
+  width: 26,
+  height: 26,
+  borderRadius: 13,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
+  marginTop: 1,
 };
 
 const numberText = {
   fontFamily: bookSans,
   color: '#FFFFFF',
-  fontSize: 17,
+  fontSize: 14,
   fontWeight: '700' as const,
 };
 
 const instructionStyle = {
   flex: 1,
   fontFamily: bookSans,
-  fontSize: 19,
-  lineHeight: 28,
+  fontSize: 16,
+  lineHeight: 24,
   color: book.ink,
   fontWeight: '600' as const,
-  paddingTop: 3,
 };
 
 const footer = {
-  marginTop: 46,
+  marginTop: 32,
   paddingHorizontal: book.margin,
   alignItems: 'center' as const,
-  gap: 12,
+  gap: 10,
 };
 
 const footerRule = {
@@ -342,35 +322,35 @@ const footerRule = {
 
 const pageNumberStyle = {
   fontFamily: bookFont,
-  fontSize: 17,
+  fontSize: 15,
   color: book.inkSoft,
 };
 
 const footerNavRow = {
   flexDirection: 'row' as const,
   alignItems: 'center' as const,
-  gap: 22,
+  gap: 20,
 };
 
 const footerNavButton = {
-  width: 34,
-  height: 34,
+  width: 44,
+  height: 44,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };
 
 const footerCounter = {
   fontFamily: bookSans,
-  fontSize: 12,
-  letterSpacing: 0.5,
+  fontSize: 11,
+  letterSpacing: 0.4,
   color: book.inkFaint,
-  marginTop: 2,
+  marginTop: 1,
 };
 
 const footerHint = {
   fontFamily: bookSans,
-  fontSize: 12,
-  letterSpacing: 0.4,
+  fontSize: 11,
+  letterSpacing: 0.3,
 };
 
 export { spacing, colors };

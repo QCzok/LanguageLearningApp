@@ -36,15 +36,6 @@ const STROKE = {
   strokeLinejoin: 'round' as const,
 };
 
-/** Zeigefinger-Ersatz: der Auswahlpfeil für den Bearbeiten-Modus. */
-export function CursorIcon({ color, size }: IconProps) {
-  return (
-    <Frame size={size}>
-      <Path d="M5.5 3.5 L5.5 17 L9 13.8 L11.4 19.4 L13.8 18.3 L11.5 12.9 L16.2 12.6 Z" stroke={color} {...STROKE} />
-    </Frame>
-  );
-}
-
 export function PencilIcon({ color, size }: IconProps) {
   return (
     <Frame size={size}>
@@ -104,14 +95,6 @@ export function TrashIcon({ color, size }: IconProps) {
       <Path d="M9.4 6.6 L9.4 4.6 L14.6 4.6 L14.6 6.6" stroke={color} {...STROKE} />
       <Path d="M6.6 6.6 L7.5 19.4 L16.5 19.4 L17.4 6.6" stroke={color} {...STROKE} />
       <Path d="M10.4 10 L10.4 16 M13.6 10 L13.6 16" stroke={color} {...STROKE} />
-    </Frame>
-  );
-}
-
-export function MinusIcon({ color, size }: IconProps) {
-  return (
-    <Frame size={size}>
-      <Path d="M5.5 12 L18.5 12" stroke={color} strokeWidth={1.9} strokeLinecap="round" />
     </Frame>
   );
 }
@@ -214,6 +197,15 @@ export function LockMark({ color, size = 20 }: IconProps) {
       <Rect x={5.2} y={10.4} width={13.6} height={9.4} rx={1.6} stroke={color} {...STROKE} />
       <Path d="M8.4 10.4 L8.4 7.8 A 3.6 3.6 0 0 1 15.6 7.8 L15.6 10.4" stroke={color} {...STROKE} />
       <Circle cx={12} cy={15} r={1.4} fill={color} />
+    </Svg>
+  );
+}
+
+/** Sprechendes Zeichen für die KI-Korrektur: ein Stern aus vier Strichen. */
+export function SparkMark({ color, size = 18 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3.5 L13.7 10.3 L20.5 12 L13.7 13.7 L12 20.5 L10.3 13.7 L3.5 12 L10.3 10.3 Z" stroke={color} {...STROKE} />
     </Svg>
   );
 }
