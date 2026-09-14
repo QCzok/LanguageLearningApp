@@ -300,11 +300,38 @@ export interface AiConversationDto {
   updatedAt: string;
 }
 
+/**
+ * Korrektur zu einem Beitrag des Lernenden. `text` ist dessen Satz in
+ * korrigierter Fassung – vollständig, damit die App ihn gegen das Original
+ * stellen und die geänderten Stellen hervorheben kann. `notes` sind kurze
+ * Begründungen ("Komma vor „dass“"), höchstens eine Handvoll.
+ */
+export interface AiCorrectionDto {
+  text: string;
+  notes: string[];
+}
+
 export interface AiMessageDto {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  /** Nur bei Beiträgen des Lernenden: wie der Beitrag entstanden ist. */
+  source?: AiMessageSource | null;
+  /** Nur bei Beiträgen des Lernenden, und nur wenn es etwas zu verbessern gab. */
+  correction?: AiCorrectionDto | null;
   createdAt: string;
+}
+
+export type AiMessageSource = 'VOICE' | 'TEXT';
+
+/**
+ * Ein Gesprächszug: der Beitrag des Lernenden (samt Korrektur) und die Antwort
+ * der KI. Beides kommt zusammen zurück, damit die App den eigenen Beitrag
+ * anzeigen kann, ohne den Verlauf neu laden zu müssen.
+ */
+export interface AiTurnDto {
+  userMessage: AiMessageDto;
+  reply: AiMessageDto;
 }
 
 export interface TranscriptionResultDto {

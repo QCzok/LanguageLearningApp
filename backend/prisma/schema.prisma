@@ -595,6 +595,15 @@ model AiMessage {
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role           String // "user" | "assistant"
   content        String
+  /// Nur bei role = "user": "VOICE" (gesprochen) oder "TEXT" (getippt). Die
+  /// Korrektur faellt je nach Quelle unterschiedlich streng aus – gesprochene
+  /// Beitraege enthalten keine Zeichensetzung, die man bemaengeln koennte.
+  source         String?
+  /// Nur bei role = "user": der Beitrag in korrigierter Fassung, vollstaendig.
+  /// null, wenn es nichts zu verbessern gab.
+  correctedText  String?
+  /// Kurze Begruendungen zur Korrektur, passend zu `correctedText`.
+  correctionNotes String[]      @default([])
   createdAt      DateTime       @default(now())
 
   @@index([conversationId, createdAt])

@@ -38,25 +38,68 @@ export function learnerContext(params: {
 }
 
 /**
- * Gilt für jedes Gespräch: Die Beiträge kommen meist aus der Spracherkennung und
- * die Antwort wird vorgelesen. Zeichensetzung existiert in gesprochener Sprache
- * nicht – sie zu bemängeln wäre für den Lernenden nicht nachvollziehbar.
+ * Marker, mit denen die Korrektur aus dem Antworttext gelöst wird. Sie stehen
+ * immer am Ende und jeweils auf einer eigenen Zeile – so lässt sich der Teil,
+ * der vorgelesen wird, sauber abtrennen, und die Korrektur kann an der
+ * Nachricht des Lernenden hängen statt in der Antwort der KI.
  */
-const CONVERSATION_RULES = [
-  'Korrigiere ausschließlich Fehler, die die Verständigung stören (Grammatik, Wortwahl), am Ende in einer Zeile, beginnend mit "Korrektur:".',
-  'Zeichensetzung, Groß- und Kleinschreibung sowie Tippfehler bewertest du nie.',
-  'Gibt es nichts Wesentliches zu korrigieren, lässt du die Korrekturzeile weg.',
-  'Deine Antwort wird vorgelesen: Formuliere sie so, wie man spricht – keine Aufzählungen, keine Emojis, keine Sonderzeichen.',
-].join(' ');
+export const CORRECTION_MARKER = '[KORREKTUR]';
+export const CORRECTION_NOTE_MARKER = '[HINWEIS]';
 
-export function chatInstructions(mode: 'CHAT' | 'DISCUSSION', topic?: string): string {
+/** Woher der Beitrag des Lernenden stammt – bestimmt, wie streng korrigiert wird. */
+export type MessageSource = 'VOICE' | 'TEXT';
+
+/**
+ * Gilt für jedes Gespräch. Zwei Dinge sind hier entscheidend:
+ *
+ * 1. Die Antwort wird vorgelesen – alles, was man nicht sprechen kann
+ *    (Aufzählungen, Emojis, Sonderzeichen), stört.
+ * 2. Wie streng korrigiert wird, hängt daran, ob der Beitrag gesprochen oder
+ *    getippt war. Gesprochene Beiträge kommen aus der Spracherkennung: Kommas
+ *    und Großschreibung darin hat nie jemand geäußert, sie zu bemängeln wäre
+ *    für den Lernenden nicht nachvollziehbar. Getippte Beiträge dagegen hat
+ *    der Lernende genau so geschrieben – dort zählt jedes Zeichen.
+ */
+function conversationRules(source: MessageSource): string {
+  const scope =
+    source === 'VOICE'
+      ? [
+          'Der letzte Beitrag wurde gesprochen und von der Spracherkennung verschriftlicht.',
+          'Korrigiere deshalb nur, was man hört: Grammatik, Wortformen, Wortwahl, Satzstellung.',
+          'Zeichensetzung, Groß- und Kleinschreibung und Schreibweisen bewertest du nie – die stammen nicht vom Lernenden.',
+        ]
+      : [
+          'Der letzte Beitrag wurde getippt, der Lernende hat ihn genau so geschrieben.',
+          'Korrigiere alles, was nicht korrekt ist: Grammatik, Wortformen, Wortwahl, Satzstellung,',
+          'Rechtschreibung, fehlende oder falsche Kommas und Satzzeichen, Groß- und Kleinschreibung',
+          'sowie fehlende Sonderzeichen der Zielsprache (z. B. „ü“ statt „u“, „ß“ statt „ss“, Akzente).',
+        ];
+
+  return [
+    'Deine Antwort wird vorgelesen: Formuliere sie so, wie man spricht – keine Aufzählungen, keine Emojis, keine Sonderzeichen.',
+    'Sprich den Fehler in deiner Antwort nicht an; die Korrektur steht ausschließlich im Block am Ende.',
+    ...scope,
+    `Gab es etwas zu verbessern, hängst du nach deiner Antwort eine Zeile an, die mit ${CORRECTION_MARKER} beginnt,`,
+    'gefolgt vom gesamten letzten Beitrag des Lernenden in korrigierter Fassung – vollständig und sonst wortgleich,',
+    'damit die App ihn neben das Original stellen kann. Ändere nichts, was nicht falsch ist.',
+    `Danach höchstens drei Zeilen, jede beginnend mit ${CORRECTION_NOTE_MARKER}, mit je einer sehr kurzen Begründung`,
+    'in der Muttersprache des Lernenden (z. B. „Komma vor ‚dass‘“ oder „heißt: ich bin gegangen“).',
+    'War der Beitrag im Rahmen des Niveaus einwandfrei, lässt du den ganzen Block weg – erfinde keine Korrektur.',
+  ].join(' ');
+}
+
+export function chatInstructions(
+  mode: 'CHAT' | 'DISCUSSION',
+  source: MessageSource,
+  topic?: string,
+): string {
   if (mode === 'DISCUSSION') {
     return [
       'Modus: Diskussion.',
       topic ? `Thema: ${topic}.` : 'Wähle ein Thema, das zum Niveau passt.',
       'Vertritt eine klare Position, stelle Rückfragen und fordere Begründungen ein.',
       'Halte deine Beiträge kurz (3–5 Sätze), damit der Lernende viel selbst spricht.',
-      CONVERSATION_RULES,
+      conversationRules(source),
     ].join(' ');
   }
   return [
@@ -65,7 +108,7 @@ export function chatInstructions(mode: 'CHAT' | 'DISCUSSION', topic?: string): s
     'Antworte in der Zielsprache, in 2–4 Sätzen, und stelle immer eine Anschlussfrage.',
     'Baue neuen, niveaugerechten Wortschatz behutsam ein.',
     'Weicht der Lernende auf seine Muttersprache aus, antworte trotzdem in der Zielsprache und biete die Übersetzung an.',
-    CONVERSATION_RULES,
+    conversationRules(source),
   ]
     .filter(Boolean)
     .join(' ');

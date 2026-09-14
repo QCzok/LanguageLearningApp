@@ -3,6 +3,8 @@ import type {
   ChapterDetailDto,
   ChapterSummaryDto,
   AiMessageDto,
+  AiMessageSource,
+  AiTurnDto,
   AiQuotaDto,
   AuthResponse,
   CefrLevel,
@@ -81,7 +83,9 @@ export const vocabularyApi = {
   decks: (params?: { level?: CefrLevel }) =>
     api.get<VocabDeckDto[]>('/vocabulary/decks', { params }).then((r) => r.data),
   deck: (id: string) =>
-    api.get<VocabDeckDto & { items: VocabItemDto[] }>(`/vocabulary/decks/${id}`).then((r) => r.data),
+    api
+      .get<VocabDeckDto & { items: VocabItemDto[] }>(`/vocabulary/decks/${id}`)
+      .then((r) => r.data),
   queue: (params?: {
     deckId?: string;
     level?: CefrLevel;
@@ -174,8 +178,10 @@ export const aiApi = {
     api.post<AiConversationDto>('/ai/conversations', body).then((r) => r.data),
   messages: (id: string) =>
     api.get<AiMessageDto[]>(`/ai/conversations/${id}/messages`).then((r) => r.data),
-  send: (id: string, content: string) =>
-    api.post<AiMessageDto>(`/ai/conversations/${id}/messages`, { content }).then((r) => r.data),
+  send: (id: string, content: string, source: AiMessageSource) =>
+    api
+      .post<AiTurnDto>(`/ai/conversations/${id}/messages`, { content, source })
+      .then((r) => r.data),
   recommendations: () => api.get<RecommendationDto>('/ai/recommendations').then((r) => r.data),
   generateVocabDeck: (topic: string) =>
     api.post<VocabDeckDto>('/ai/vocab-decks', { topic }).then((r) => r.data),

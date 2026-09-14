@@ -1,7 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Easing,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -14,15 +15,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useHeaderHeight } from '@react-navigation/elements';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  ExpoSpeechRecognitionModule,
-  useSpeechRecognitionEvent,
-} from 'expo-speech-recognition';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import * as Speech from 'expo-speech';
-import type { AiMessageDto } from '@lingua/shared';
-import { Caption, ErrorState, Loading, Row } from '../../components';
+import type { AiCorrectionDto, AiMessageDto, AiMessageSource } from '@lingua/shared';
+import { Caption, ErrorState, Loading } from '../../components';
 import { aiApi } from '../../api/endpoints';
-import { colors, radius, spacing, typography } from '../../theme';
+import { colors, radius, shadow, spacing, typography } from '../../theme';
 import type { AiStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AiStackParamList, 'AiChat'>;
@@ -71,32 +69,49 @@ export default function AiChatScreen({ route }: Props) {
   const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const locale = localeForLanguageCode(languageCode);
+  const messagesKey = ['ai-messages', conversationId];
 
   const messages = useQuery({
-    queryKey: ['ai-messages', conversationId],
+    queryKey: messagesKey,
     queryFn: () => aiApi.messages(conversationId),
   });
 
   const send = useMutation({
-    mutationFn: (content: string) => aiApi.send(conversationId, content),
-    onSuccess: async (reply) => {
+    mutationFn: (payload: { content: string; source: AiMessageSource }) =>
+      aiApi.send(conversationId, payload.content, payload.source),
+    onSuccess: (turn) => {
       awaitingReplyRef.current = false;
+
+      // Der Server schickt den ganzen Zug zurück – eigener Beitrag samt
+      // Korrektur *und* Antwort. Beides wandert direkt in den Cache, statt den
+      // Verlauf neu zu laden: Nur so verschwindet die optimistische Nachricht
+      // im selben Render, in dem die echte erscheint. Vorher klaffte dazwischen
+      // ein Nachladen, und der eigene Beitrag war so lange nicht zu sehen.
+      queryClient.setQueryData<AiMessageDto[]>(messagesKey, (previous = []) => [
+        ...previous.filter((item) => item.id !== turn.userMessage.id && item.id !== turn.reply.id),
+        turn.userMessage,
+        turn.reply,
+      ]);
       setOptimistic([]);
-      await messages.refetch();
+
       void queryClient.invalidateQueries({ queryKey: ['ai-quota'] });
       void queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
-      void speak(reply.id, reply.content);
+      void speak(turn.reply.id, turn.reply.content);
     },
     onError: (mutationError: Error) => {
-      // Die optimistische Nachricht bleibt stehen, damit der Text nicht verloren geht.
+      // Die optimistische Nachricht bleibt stehen, damit der Text nicht verloren
+      // geht – nur die Markierung „unterwegs“ fällt weg.
       awaitingReplyRef.current = false;
       setError(mutationError.message);
-      setOptimistic((previous) => previous.filter((item) => !item.pending));
+      setOptimistic((previous) => previous.map((item) => ({ ...item, pending: false })));
       if (voiceModeRef.current) void startListening();
     },
   });
 
-  const items: ChatItem[] = [...(messages.data ?? []), ...optimistic];
+  const items: ChatItem[] = useMemo(
+    () => [...(messages.data ?? []), ...optimistic],
+    [messages.data, optimistic],
+  );
 
   const phase: VoicePhase | null = !voiceMode
     ? null
@@ -194,7 +209,7 @@ export default function AiChatScreen({ route }: Props) {
 
     // Erst senden, dann das Mikrofon stoppen: submit() setzt die Sperre, die das
     // 'end'-Ereignis davon abhält, sofort wieder aufzunehmen.
-    submit(content);
+    submit(content, 'VOICE');
     ExpoSpeechRecognitionModule.stop();
   }
 
@@ -242,8 +257,6 @@ export default function AiChatScreen({ route }: Props) {
   );
 
   async function speak(id: string, content: string): Promise<void> {
-    const [body] = splitCorrection(content);
-
     // Sprechzustand vor dem Abschalten des Mikrofons setzen: Er blockt den
     // Echo-Schutz und verhindert, dass das folgende 'end'-Ereignis das Mikrofon
     // gleich wieder aufmacht.
@@ -255,7 +268,7 @@ export default function AiChatScreen({ route }: Props) {
     // stop() muss abgewartet werden, sonst reiht speak() sich nur hinten an,
     // statt die laufende Ansage zu unterbrechen.
     await Speech.stop();
-    Speech.speak(body, {
+    Speech.speak(spokenPart(content), {
       language: locale,
       onDone: () => finishSpeaking(id),
       onStopped: () => finishSpeaking(id),
@@ -286,7 +299,7 @@ export default function AiChatScreen({ route }: Props) {
 
   // ------------------------------------------------------------------ Senden
 
-  function submit(content: string): void {
+  function submit(content: string, source: AiMessageSource): void {
     const trimmed = content.trim();
     if (!trimmed || awaitingReplyRef.current) return;
 
@@ -299,10 +312,13 @@ export default function AiChatScreen({ route }: Props) {
         id: `local-${Date.now()}`,
         role: 'user',
         content: trimmed,
+        source,
+        correction: null,
         createdAt: new Date().toISOString(),
+        pending: true,
       },
     ]);
-    send.mutate(trimmed);
+    send.mutate({ content: trimmed, source });
   }
 
   useEffect(() => {
@@ -315,11 +331,13 @@ export default function AiChatScreen({ route }: Props) {
 
   if (messages.isLoading) return <Loading />;
   if (messages.isError) {
-    return <ErrorState message="Das Gespräch konnte nicht geladen werden." onRetry={messages.refetch} />;
+    return (
+      <ErrorState message="Das Gespräch konnte nicht geladen werden." onRetry={messages.refetch} />
+    );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+    <SafeAreaView style={screenStyle} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -329,28 +347,24 @@ export default function AiChatScreen({ route }: Props) {
           ref={listRef}
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
-          ListEmptyComponent={
-            <View style={{ alignItems: 'center', gap: spacing.sm, paddingTop: spacing.xxl }}>
-              <Text style={{ fontSize: 44 }}>👋</Text>
-              <Caption>Tippe auf das Mikrofon und sprich einfach los – oder schreib etwas.</Caption>
-            </View>
-          }
-          renderItem={({ item }) => (
-            <Bubble message={item} speaking={speakingId === item.id} onToggleSpeak={toggleSpeak} />
+          contentContainerStyle={timelineStyle}
+          ListEmptyComponent={<EmptyConversation />}
+          renderItem={({ item, index }) => (
+            <MessageRow
+              message={item}
+              // Aufeinanderfolgende Beiträge derselben Seite rücken zusammen und
+              // teilen sich Avatar und Uhrzeit – das beruhigt das Bild spürbar.
+              startsGroup={items[index - 1]?.role !== item.role}
+              endsGroup={items[index + 1]?.role !== item.role}
+              speaking={speakingId === item.id}
+              onToggleSpeak={toggleSpeak}
+            />
           )}
-          ListFooterComponent={
-            send.isPending ? (
-              <View style={[bubbleStyles.base, bubbleStyles.assistant, { flexDirection: 'row', gap: spacing.sm }]}>
-                <ActivityIndicator size="small" color={colors.textMuted} />
-                <Caption>denkt nach …</Caption>
-              </View>
-            ) : null
-          }
+          ListFooterComponent={send.isPending ? <ThinkingBubble /> : null}
         />
 
         {error ? (
-          <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}>
+          <View style={errorBarStyle}>
             <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text>
           </View>
         ) : null}
@@ -365,36 +379,263 @@ export default function AiChatScreen({ route }: Props) {
             onExit={exitVoiceMode}
           />
         ) : (
-          <View style={composerStyle}>
-            <TextInput
-              value={draft}
-              onChangeText={setDraft}
-              placeholder="Nachricht schreiben …"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              style={composerInputStyle}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Freisprechen starten"
-              onPress={enterVoiceMode}
-              style={micButtonStyle}
-            >
-              <Text style={{ fontSize: 18 }}>🎙️</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Senden"
-              onPress={() => submit(draft)}
-              disabled={!draft.trim() || send.isPending}
-              style={[sendButtonStyle, (!draft.trim() || send.isPending) && { opacity: 0.4 }]}
-            >
-              <Text style={{ fontSize: 20 }}>➤</Text>
-            </Pressable>
-          </View>
+          <Composer
+            draft={draft}
+            busy={send.isPending}
+            onChange={setDraft}
+            onSend={() => submit(draft, 'TEXT')}
+            onVoice={enterVoiceMode}
+          />
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+// ------------------------------------------------------------------ Verlauf
+
+function EmptyConversation() {
+  return (
+    <View style={emptyStyle}>
+      <View style={emptyIconStyle}>
+        <Text style={{ fontSize: 34 }}>🎙️</Text>
+      </View>
+      <Text style={[typography.title, { color: colors.text, textAlign: 'center' }]}>
+        Sag einfach etwas
+      </Text>
+      <Text style={[typography.body, emptyTextStyle]}>
+        Tippe auf das Mikrofon und sprich drauflos – oder schreib, wenn dir gerade danach ist.
+      </Text>
+    </View>
+  );
+}
+
+function MessageRow({
+  message,
+  startsGroup,
+  endsGroup,
+  speaking,
+  onToggleSpeak,
+}: {
+  message: ChatItem;
+  startsGroup: boolean;
+  endsGroup: boolean;
+  speaking: boolean;
+  onToggleSpeak: (id: string, content: string) => void;
+}) {
+  const isUser = message.role === 'user';
+  const body = isUser ? message.content : spokenPart(message.content);
+  // Gespräche von vor der Umstellung tragen die Korrektur noch als Zeile im
+  // Antworttext. Sie wird weiterhin gezeigt, nur eben dort, wo sie steht.
+  const legacyNote = isUser ? null : legacyCorrection(message.content);
+
+  return (
+    <View style={{ marginTop: startsGroup ? spacing.lg : spacing.xs }}>
+      <View style={isUser ? rowStyles.user : rowStyles.assistant}>
+        {isUser ? null : startsGroup ? <Avatar /> : <View style={{ width: AVATAR_SIZE }} />}
+
+        {/* Die Spalte darf schrumpfen, ihre Kinder behalten dabei ihre eigene
+            Breite: Eine kurze Blase soll nicht auf die Breite der Korrektur
+            darunter aufgezogen werden. */}
+        <View style={{ flexShrink: 1, alignItems: isUser ? 'flex-end' : 'flex-start' }}>
+          <View
+            style={[
+              bubbleStyles.base,
+              isUser ? bubbleStyles.user : bubbleStyles.assistant,
+              endsGroup && (isUser ? bubbleStyles.userTail : bubbleStyles.assistantTail),
+              message.pending ? { opacity: 0.55 } : null,
+            ]}
+          >
+            <Text
+              style={[typography.body, { color: isUser ? colors.textInverse : colors.text }]}
+              selectable
+            >
+              {body}
+            </Text>
+          </View>
+
+          {legacyNote ? (
+            <Text style={[typography.caption, legacyNoteStyle]}>{legacyNote}</Text>
+          ) : null}
+
+          {isUser && message.correction ? (
+            <Correction correction={message.correction} original={message.content} />
+          ) : null}
+
+          {endsGroup ? (
+            <View style={isUser ? metaStyles.user : metaStyles.assistant}>
+              {isUser ? null : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={speaking ? 'Vorlesen stoppen' : 'Vorlesen'}
+                  onPress={() => onToggleSpeak(message.id, message.content)}
+                  hitSlop={10}
+                >
+                  <Text
+                    style={[
+                      typography.caption,
+                      { color: speaking ? colors.primary : colors.textMuted },
+                    ]}
+                  >
+                    {speaking ? '⏹ Stopp' : '🔊 Vorlesen'}
+                  </Text>
+                </Pressable>
+              )}
+              <Text style={timeStyle}>{formatTime(message.createdAt)}</Text>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function Avatar() {
+  return (
+    <View style={avatarStyle}>
+      <Text style={[typography.label, { color: colors.primary }]}>L</Text>
+    </View>
+  );
+}
+
+/**
+ * Die Korrektur zum eigenen Beitrag – direkt darunter, in derselben Spalte, als
+ * leiser Gegenschnitt zur kräftigen Blase darüber. Gezeigt wird der ganze Satz
+ * in richtiger Fassung mit hervorgehobenen Änderungen; man sieht den Fehler
+ * dadurch im Zusammenhang statt als abstrakte Regel. Die Begründungen sind
+ * eingeklappt, damit die Zeile im Gesprächsfluss nicht dominiert.
+ */
+function Correction({ correction, original }: { correction: AiCorrectionDto; original: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const segments = useMemo(() => diffWords(original, correction.text), [original, correction.text]);
+  const hasNotes = correction.notes.length > 0;
+
+  return (
+    <Pressable
+      accessibilityRole={hasNotes ? 'button' : undefined}
+      accessibilityLabel="Korrektur"
+      onPress={hasNotes ? () => setExpanded((value) => !value) : undefined}
+      style={correctionStyles.card}
+    >
+      <View style={correctionStyles.header}>
+        <Text style={correctionStyles.label}>Korrektur</Text>
+        {hasNotes ? (
+          <Text style={[typography.caption, { color: colors.warning }]}>
+            {expanded ? '▾' : '▸'}
+          </Text>
+        ) : null}
+      </View>
+
+      <Text style={[typography.body, { color: colors.text }]} selectable>
+        {segments.map((segment, index) => (
+          <Text key={index} style={segment.changed ? correctionStyles.changed : undefined}>
+            {segment.text}
+          </Text>
+        ))}
+      </Text>
+
+      {expanded
+        ? correction.notes.map((note) => (
+            <Text key={note} style={[typography.caption, correctionStyles.note]}>
+              {note}
+            </Text>
+          ))
+        : null}
+    </Pressable>
+  );
+}
+
+/** Drei Punkte, die nacheinander aufleuchten – ruhiger als ein Spinner. */
+function ThinkingBubble() {
+  const dots = useRef([
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+  ]).current;
+
+  useEffect(() => {
+    const animations = dots.map((dot, index) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(index * 160),
+          Animated.timing(dot, { toValue: 1, duration: 320, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0.3, duration: 320, useNativeDriver: true }),
+          Animated.delay((2 - index) * 160),
+        ]),
+      ),
+    );
+    animations.forEach((animation) => animation.start());
+    return () => animations.forEach((animation) => animation.stop());
+  }, [dots]);
+
+  return (
+    <View style={[rowStyles.assistant, { marginTop: spacing.lg }]}>
+      <Avatar />
+      <View
+        style={[
+          bubbleStyles.base,
+          bubbleStyles.assistant,
+          bubbleStyles.assistantTail,
+          thinkingStyle,
+        ]}
+      >
+        {dots.map((dot, index) => (
+          <Animated.View key={index} style={[dotStyle, { opacity: dot }]} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ----------------------------------------------------------------- Eingabe
+
+function Composer({
+  draft,
+  busy,
+  onChange,
+  onSend,
+  onVoice,
+}: {
+  draft: string;
+  busy: boolean;
+  onChange: (value: string) => void;
+  onSend: () => void;
+  onVoice: () => void;
+}) {
+  const hasText = Boolean(draft.trim());
+  const canSend = hasText && !busy;
+
+  return (
+    <View style={composerStyles.bar}>
+      <TextInput
+        value={draft}
+        onChangeText={onChange}
+        placeholder="Nachricht schreiben …"
+        placeholderTextColor={colors.textMuted}
+        multiline
+        style={composerStyles.input}
+      />
+      {hasText ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Senden"
+          onPress={onSend}
+          disabled={!canSend}
+          style={[composerStyles.send, !canSend && { opacity: 0.4 }]}
+        >
+          <Text style={{ fontSize: 17, color: colors.textInverse }}>➤</Text>
+        </Pressable>
+      ) : (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Freisprechen starten"
+          onPress={onVoice}
+          style={composerStyles.mic}
+        >
+          <Text style={{ fontSize: 19 }}>🎙️</Text>
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -418,18 +659,20 @@ function VoicePanel({
   onInterrupt: () => void;
   onExit: () => void;
 }) {
-  const pulse = useRef(new Animated.Value(1)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (phase !== 'listening') {
-      pulse.setValue(1);
+    if (phase === 'thinking') {
+      pulse.setValue(0);
       return;
     }
     const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.15, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ]),
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
     );
     loop.start();
     return () => loop.stop();
@@ -437,93 +680,85 @@ function VoicePanel({
 
   const hint =
     phase === 'speaking'
-      ? 'Du kannst jederzeit dazwischenreden – tippe zum Unterbrechen.'
+      ? 'Du kannst jederzeit dazwischenreden'
       : phase === 'thinking'
         ? 'Einen Moment …'
         : recognizing
-          ? 'Ich höre zu – hör einfach auf zu sprechen, wenn du fertig bist.'
+          ? 'Ich höre zu – hör einfach auf, wenn du fertig bist'
           : 'Mikrofon startet …';
 
+  const ringColor = phase === 'speaking' ? colors.premium : colors.primary;
+
   return (
-    <View style={voicePanelStyle}>
-      <Text style={[typography.body, { textAlign: 'center', color: colors.text, minHeight: 44 }]}>
+    <View style={voiceStyles.panel}>
+      <Text style={voiceStyles.transcript} numberOfLines={3}>
         {transcript || (phase === 'listening' ? '…' : '')}
       </Text>
-      <Caption>{hint}</Caption>
+      <Text style={voiceStyles.hint}>{hint}</Text>
 
-      <Animated.View style={{ transform: [{ scale: pulse }] }}>
+      <View style={voiceStyles.buttonWrap}>
+        {phase === 'thinking'
+          ? null
+          : [0, 1].map((index) => (
+              <Animated.View
+                key={index}
+                pointerEvents="none"
+                style={[
+                  voiceStyles.ring,
+                  { borderColor: ringColor },
+                  {
+                    opacity: pulse.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: index === 0 ? [0.35, 0] : [0.18, 0],
+                    }),
+                    transform: [
+                      {
+                        scale: pulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: index === 0 ? [1, 1.7] : [1, 2.1],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            ))}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            phase === 'speaking' ? 'KI unterbrechen' : phase === 'thinking' ? 'Antwort wird erstellt' : 'Jetzt senden'
+            phase === 'speaking'
+              ? 'KI unterbrechen'
+              : phase === 'thinking'
+                ? 'Antwort wird erstellt'
+                : 'Jetzt senden'
           }
-          onPress={phase === 'speaking' ? onInterrupt : phase === 'listening' ? onSendNow : undefined}
+          onPress={
+            phase === 'speaking' ? onInterrupt : phase === 'listening' ? onSendNow : undefined
+          }
           disabled={phase === 'thinking'}
           style={[
-            voiceButtonStyle,
-            phase === 'listening' && { backgroundColor: colors.danger },
+            voiceStyles.button,
             phase === 'speaking' && { backgroundColor: colors.premium },
+            phase === 'thinking' && { backgroundColor: colors.surfaceAlt },
           ]}
         >
           {phase === 'thinking' ? (
-            <ActivityIndicator color={colors.textInverse} />
+            <ActivityIndicator color={colors.textMuted} />
           ) : (
-            <Text style={{ fontSize: 30 }}>{phase === 'speaking' ? '⏹' : '🎙️'}</Text>
+            <Text style={{ fontSize: 28 }}>{phase === 'speaking' ? '⏹' : '🎙️'}</Text>
           )}
         </Pressable>
-      </Animated.View>
+      </View>
 
-      <Pressable accessibilityRole="button" onPress={onExit} hitSlop={8}>
+      <Pressable accessibilityRole="button" onPress={onExit} hitSlop={10}>
         <Caption>Freisprechen beenden · Tastatur</Caption>
       </Pressable>
     </View>
   );
 }
 
-function Bubble({
-  message,
-  speaking,
-  onToggleSpeak,
-}: {
-  message: ChatItem;
-  speaking: boolean;
-  onToggleSpeak: (id: string, content: string) => void;
-}) {
-  const isUser = message.role === 'user';
-
-  // Die KI hängt Korrekturen als eigene Zeile an – die wird abgesetzt dargestellt.
-  const [body, correction] = splitCorrection(message.content);
-
-  return (
-    <View style={[bubbleStyles.base, isUser ? bubbleStyles.user : bubbleStyles.assistant]}>
-      <Row gap={spacing.sm} style={{ alignItems: 'flex-start' }}>
-        <Text
-          style={[
-            typography.body,
-            { color: isUser ? colors.textInverse : colors.text, flex: 1 },
-          ]}
-        >
-          {body}
-        </Text>
-        {!isUser ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={speaking ? 'Vorlesen stoppen' : 'Vorlesen'}
-            onPress={() => onToggleSpeak(message.id, message.content)}
-            hitSlop={8}
-          >
-            <Text style={{ fontSize: 16 }}>{speaking ? '⏹' : '🔊'}</Text>
-          </Pressable>
-        ) : null}
-      </Row>
-      {correction ? (
-        <View style={correctionStyle}>
-          <Text style={[typography.caption, { color: colors.warning }]}>{correction}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
+// ------------------------------------------------------------------- Helfer
 
 function joinWords(left: string, right: string): string {
   if (!left.trim()) return right.trim();
@@ -544,101 +779,343 @@ function localeForLanguageCode(languageCode?: string): string {
   return (languageCode && LOCALE_BY_LANGUAGE_CODE[languageCode]) || 'en-US';
 }
 
-function splitCorrection(content: string): [string, string | null] {
-  const index = content.indexOf('Korrektur:');
-  if (index === -1) return [content, null];
-  return [content.slice(0, index).trim(), content.slice(index).trim()];
+/** Kennzeichen der alten Korrekturzeile, die noch in gespeicherten Antworten steckt. */
+const LEGACY_CORRECTION_PREFIX = 'Korrektur:';
+
+function spokenPart(content: string): string {
+  const index = content.indexOf(LEGACY_CORRECTION_PREFIX);
+  return index === -1 ? content : content.slice(0, index).trim();
 }
+
+function legacyCorrection(content: string): string | null {
+  const index = content.indexOf(LEGACY_CORRECTION_PREFIX);
+  return index === -1 ? null : content.slice(index).trim();
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+
+interface DiffSegment {
+  text: string;
+  changed: boolean;
+}
+
+/**
+ * Wortweiser Vergleich von Original und Korrektur, damit in der Korrektur nur
+ * das aufleuchtet, was sich geändert hat.
+ *
+ * Verglichen wird bewusst Zeichen für Zeichen, ohne Normalisierung: Ein
+ * fehlendes Komma, ein kleingeschriebenes Substantiv oder ein „u“ statt „ü“
+ * sind genau die Fehler, um die es hier geht – würde man sie wegnormalisieren,
+ * bliebe die Korrektur unsichtbar.
+ *
+ * Grundlage ist die längste gemeinsame Teilfolge: Was darin vorkommt, stand
+ * schon richtig da; alles andere ist neu oder geändert. Beiträge im Gespräch
+ * sind ein paar Dutzend Wörter lang, für die quadratische Tabelle also reichlich
+ * klein.
+ */
+function diffWords(original: string, corrected: string): DiffSegment[] {
+  const before = original.trim().split(/\s+/).filter(Boolean);
+  const after = corrected.trim().split(/\s+/).filter(Boolean);
+  if (before.length === 0) return [{ text: corrected, changed: true }];
+
+  const lengths: number[][] = Array.from({ length: before.length + 1 }, () =>
+    new Array<number>(after.length + 1).fill(0),
+  );
+  for (let i = before.length - 1; i >= 0; i -= 1) {
+    for (let j = after.length - 1; j >= 0; j -= 1) {
+      lengths[i][j] =
+        before[i] === after[j]
+          ? lengths[i + 1][j + 1] + 1
+          : Math.max(lengths[i + 1][j], lengths[i][j + 1]);
+    }
+  }
+
+  const segments: DiffSegment[] = [];
+  const push = (word: string, changed: boolean): void => {
+    const last = segments[segments.length - 1];
+    if (last && last.changed === changed) last.text += ` ${word}`;
+    else segments.push({ text: segments.length === 0 ? word : ` ${word}`, changed });
+  };
+
+  let i = 0;
+  let j = 0;
+  while (j < after.length) {
+    if (i < before.length && before[i] === after[j]) {
+      push(after[j], false);
+      i += 1;
+      j += 1;
+    } else if (i < before.length && lengths[i + 1][j] >= lengths[i][j + 1]) {
+      // Ein Wort des Originals fällt weg – für die Anzeige der Korrektur
+      // bedeutungslos, dort steht ja nur die neue Fassung.
+      i += 1;
+    } else {
+      push(after[j], true);
+      j += 1;
+    }
+  }
+
+  return segments;
+}
+
+// -------------------------------------------------------------------- Stil
+
+const AVATAR_SIZE = 30;
+
+const screenStyle = { flex: 1, backgroundColor: colors.background };
+
+const timelineStyle = {
+  paddingHorizontal: spacing.lg,
+  paddingTop: spacing.sm,
+  paddingBottom: spacing.xl,
+  flexGrow: 1,
+};
+
+const rowStyles = {
+  assistant: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    justifyContent: 'flex-start' as const,
+    gap: spacing.sm,
+    paddingRight: spacing.xxl,
+  },
+  user: {
+    flexDirection: 'row' as const,
+    justifyContent: 'flex-end' as const,
+    paddingLeft: spacing.xxl,
+  },
+};
 
 const bubbleStyles = {
   base: {
-    maxWidth: '85%' as const,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radius.lg,
-    gap: spacing.sm,
+    paddingVertical: spacing.md - 1,
+    borderRadius: radius.xl,
   },
   user: {
-    alignSelf: 'flex-end' as const,
     backgroundColor: colors.primary,
-    borderBottomRightRadius: radius.sm,
+    borderBottomRightRadius: radius.xl,
   },
+  userTail: { borderBottomRightRadius: radius.sm },
   assistant: {
-    alignSelf: 'flex-start' as const,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderBottomLeftRadius: radius.sm,
+    borderBottomLeftRadius: radius.xl,
+    ...shadow.card,
+    shadowOpacity: 0.05,
+    elevation: 1,
+  },
+  assistantTail: { borderBottomLeftRadius: radius.sm },
+};
+
+const avatarStyle = {
+  width: AVATAR_SIZE,
+  height: AVATAR_SIZE,
+  borderRadius: AVATAR_SIZE / 2,
+  backgroundColor: colors.primarySoft,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+  marginTop: 2,
+};
+
+const metaStyles = {
+  assistant: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.md,
+    paddingTop: spacing.xs,
+    paddingLeft: spacing.xs,
+  },
+  user: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'flex-end' as const,
+    paddingTop: spacing.xs,
+    paddingRight: spacing.xs,
   },
 };
 
-const correctionStyle = {
-  borderTopWidth: 1,
-  borderTopColor: colors.border,
-  paddingTop: spacing.sm,
+const timeStyle = {
+  ...typography.caption,
+  fontSize: 11,
+  color: colors.textMuted,
 };
 
-const composerStyle = {
+const legacyNoteStyle = {
+  color: colors.warning,
+  paddingTop: spacing.xs,
+  paddingLeft: spacing.xs,
+};
+
+const correctionStyles = {
+  card: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.warning,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopColor: colors.border,
+    borderRightColor: colors.border,
+    borderBottomColor: colors.border,
+    gap: spacing.xs,
+  },
+  header: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
+  },
+  label: {
+    ...typography.label,
+    fontSize: 10,
+    letterSpacing: 1.4,
+    textTransform: 'uppercase' as const,
+    color: colors.warning,
+  },
+  changed: {
+    backgroundColor: colors.warningSoft,
+    color: colors.warning,
+    fontFamily: typography.bodyStrong.fontFamily,
+    fontWeight: typography.bodyStrong.fontWeight,
+  },
+  note: {
+    color: colors.textMuted,
+    paddingTop: 2,
+  },
+};
+
+const thinkingStyle = {
   flexDirection: 'row' as const,
-  alignItems: 'flex-end' as const,
-  gap: spacing.sm,
-  padding: spacing.md,
-  backgroundColor: colors.surface,
-  borderTopWidth: 1,
-  borderTopColor: colors.border,
+  alignItems: 'center' as const,
+  gap: 5,
+  paddingVertical: spacing.lg - 2,
 };
 
-const composerInputStyle = {
+const dotStyle = {
+  width: 6,
+  height: 6,
+  borderRadius: 3,
+  backgroundColor: colors.textMuted,
+};
+
+const emptyStyle = {
   flex: 1,
-  maxHeight: 120,
-  minHeight: 44,
-  borderRadius: radius.lg,
-  borderWidth: 1,
-  borderColor: colors.border,
-  backgroundColor: colors.background,
-  paddingHorizontal: spacing.md,
-  paddingTop: spacing.sm,
-  paddingBottom: spacing.sm,
-  fontSize: 15,
-  color: colors.text,
-};
-
-const sendButtonStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: colors.primary,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
-};
-
-const micButtonStyle = {
-  width: 44,
-  height: 44,
-  borderRadius: 22,
-  backgroundColor: colors.surface,
-  borderWidth: 1,
-  borderColor: colors.border,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-};
-
-const voicePanelStyle = {
-  alignItems: 'center' as const,
   gap: spacing.md,
-  paddingHorizontal: spacing.lg,
-  paddingTop: spacing.lg,
-  paddingBottom: spacing.md,
-  backgroundColor: colors.surface,
-  borderTopWidth: 1,
-  borderTopColor: colors.border,
+  paddingHorizontal: spacing.xl,
 };
 
-const voiceButtonStyle = {
-  width: 84,
-  height: 84,
-  borderRadius: 42,
-  backgroundColor: colors.primary,
+const emptyIconStyle = {
+  width: 76,
+  height: 76,
+  borderRadius: 38,
+  backgroundColor: colors.primarySoft,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
+};
+
+const emptyTextStyle = {
+  color: colors.textMuted,
+  textAlign: 'center' as const,
+};
+
+const errorBarStyle = {
+  paddingHorizontal: spacing.lg,
+  paddingBottom: spacing.sm,
+};
+
+const composerStyles = {
+  bar: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-end' as const,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  input: {
+    flex: 1,
+    maxHeight: 120,
+    minHeight: 44,
+    borderRadius: radius.full,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    ...typography.body,
+    color: colors.text,
+  },
+  send: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primary,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  mic: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+};
+
+const voiceStyles = {
+  panel: {
+    alignItems: 'center' as const,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  transcript: {
+    ...typography.heading,
+    fontSize: 18,
+    lineHeight: 26,
+    color: colors.text,
+    textAlign: 'center' as const,
+    minHeight: 52,
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    textAlign: 'center' as const,
+  },
+  buttonWrap: {
+    width: 84,
+    height: 84,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    marginVertical: spacing.xs,
+  },
+  ring: {
+    position: 'absolute' as const,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 1.5,
+  },
+  button: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primary,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    ...shadow.card,
+  },
 };

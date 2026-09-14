@@ -15,6 +15,7 @@ import { extractPlainText } from '@lingua/shared';
 import type {
   AiConversationDto,
   AiMessageDto,
+  AiTurnDto,
   AiQuotaDto,
   CefrLevel,
   GrammarExplanationDto,
@@ -39,12 +40,15 @@ import {
 import {
   chatInstructions,
   CORRECTION_INSTRUCTIONS,
+  CORRECTION_MARKER,
+  CORRECTION_NOTE_MARKER,
   GRAMMAR_INSTRUCTIONS,
   learnerContext,
   RECOMMENDATION_INSTRUCTIONS,
   TUTOR_SYSTEM_PREFIX,
   vocabDeckInstructions,
 } from './prompts';
+import type { MessageSource } from './prompts';
 import {
   CreateConversationDto,
   GenerateVocabDeckDto,
@@ -54,6 +58,20 @@ import {
 
 /** So viele frühere Nachrichten gehen als Kontext mit in den Chat. */
 const CHAT_HISTORY_LIMIT = 20;
+
+/**
+ * Die ID als zweites Sortierkriterium. `createdAt` allein genügt nicht: Zwei
+ * Nachrichten desselben Zuges liegen nur eine Millisekunde auseinander, und
+ * ältere Gespräche (vor der Migration) tragen sogar denselben Zeitstempel.
+ * cuids beginnen mit der Entstehungszeit, ordnen also in Entstehungsreihenfolge.
+ */
+/** Mehr Hinweise als das passen nicht neben eine Nachricht – und helfen auch nicht. */
+const MAX_CORRECTION_NOTES = 3;
+
+const MESSAGE_ORDER = [
+  { createdAt: 'asc' },
+  { id: 'asc' },
+] satisfies Prisma.AiMessageOrderByWithRelationInput[];
 /** Unter dieser Textlänge lohnt sich keine Korrektur. */
 const MIN_TEXT_LENGTH_FOR_ANALYSIS = 15;
 
@@ -90,7 +108,8 @@ export class AiService {
     return {
       plan: user.plan,
       used,
-      limit: user.plan === 'PREMIUM' ? this.config.premiumMonthlyLimit : this.config.freeMonthlyLimit,
+      limit:
+        user.plan === 'PREMIUM' ? this.config.premiumMonthlyLimit : this.config.freeMonthlyLimit,
       resetsAt: next.toISOString(),
     };
   }
@@ -144,7 +163,8 @@ export class AiService {
       include: { notebook: { include: { language: true } } },
     });
     if (!page) throw new NotFoundException('Seite nicht gefunden');
-    if (page.notebook.userId !== userId) throw new ForbiddenException('Kein Zugriff auf diese Seite');
+    if (page.notebook.userId !== userId)
+      throw new ForbiddenException('Kein Zugriff auf diese Seite');
 
     const text = extractPlainText(page.content as unknown as NotebookPageContent);
     if (text.length < MIN_TEXT_LENGTH_FOR_ANALYSIS) {
@@ -256,14 +276,9 @@ export class AiService {
     await this.assertOwnConversation(userId, conversationId);
     const messages = await this.prisma.aiMessage.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: MESSAGE_ORDER,
     });
-    return messages.map((message) => ({
-      id: message.id,
-      role: message.role as 'user' | 'assistant',
-      content: message.content,
-      createdAt: message.createdAt.toISOString(),
-    }));
+    return messages.map((message) => this.toMessageDto(message));
   }
 
   async deleteConversation(userId: string, conversationId: string): Promise<void> {
@@ -271,14 +286,26 @@ export class AiService {
     await this.prisma.aiConversation.delete({ where: { id: conversationId } });
   }
 
-  /** Nicht-streamende Variante – einfacher für Clients ohne SSE. */
+  /**
+   * Nicht-streamende Variante – einfacher für Clients ohne SSE.
+   *
+   * Gibt den ganzen Gesprächszug zurück, nicht nur die Antwort: Die App zeigt
+   * den eigenen Beitrag damit sofort in seiner endgültigen Form an (samt
+   * Korrektur und echter ID), ohne den Verlauf erneut laden zu müssen.
+   */
   async sendMessage(
     userId: string,
     conversationId: string,
     dto: SendMessageDto,
-  ): Promise<AiMessageDto> {
+  ): Promise<AiTurnDto> {
     await this.assertQuota(userId);
-    const { systemSuffix, history } = await this.prepareChat(userId, conversationId, dto.content);
+    const source = dto.source ?? 'VOICE';
+    const { systemSuffix, history } = await this.prepareChat(
+      userId,
+      conversationId,
+      dto.content,
+      source,
+    );
 
     const { text, usage } = await this.aiClient.completeText({
       systemPrefix: TUTOR_SYSTEM_PREFIX,
@@ -286,11 +313,11 @@ export class AiService {
       messages: history,
     });
 
-    const reply = await this.persistTurn(conversationId, dto.content, text);
+    const turn = await this.persistTurn(conversationId, dto.content, source, text);
     await this.recordUsage(userId, AiFeature.CHAT, usage);
     await this.users.trackActivity(userId, { xp: 5, minutes: 1 });
 
-    return reply;
+    return turn;
   }
 
   /** Streamende Variante – der Controller reicht die Stücke als SSE weiter. */
@@ -298,9 +325,22 @@ export class AiService {
     userId: string,
     conversationId: string,
     dto: SendMessageDto,
-  ): AsyncGenerator<{ type: 'delta'; text: string } | { type: 'done'; message: AiMessageDto }> {
+  ): AsyncGenerator<{ type: 'delta'; text: string } | { type: 'done'; turn: AiTurnDto }> {
     await this.assertQuota(userId);
-    const { systemSuffix, history } = await this.prepareChat(userId, conversationId, dto.content);
+    const source = dto.source ?? 'VOICE';
+    const { systemSuffix, history } = await this.prepareChat(
+      userId,
+      conversationId,
+      dto.content,
+      source,
+    );
+
+    // Der Korrekturblock steht am Ende der Antwort und gehört nicht in den
+    // laufenden Text. Sobald sein Marker auftaucht, hört das Weiterreichen auf;
+    // bis dahin wird so viel zurückgehalten, wie ein angefangener Marker lang
+    // sein kann, damit er nie halb durchrutscht.
+    let streamed = '';
+    let markerSeen = false;
 
     for await (const event of this.aiClient.streamText({
       systemPrefix: TUTOR_SYSTEM_PREFIX,
@@ -308,15 +348,33 @@ export class AiService {
       messages: history,
     })) {
       if (event.type === 'delta') {
-        yield { type: 'delta', text: event.text };
+        if (markerSeen) continue;
+        streamed += event.text;
+
+        const markerIndex = streamed.indexOf(CORRECTION_MARKER);
+        if (markerIndex !== -1) {
+          markerSeen = true;
+          continue;
+        }
+
+        const safeLength = streamed.length - (CORRECTION_MARKER.length - 1);
+        if (safeLength > 0) {
+          const text = streamed.slice(0, safeLength);
+          streamed = streamed.slice(safeLength);
+          yield { type: 'delta', text };
+        }
         continue;
       }
 
+      // Kam nie ein Marker, hält `streamed` noch das zurückgehaltene Ende der
+      // Antwort – ohne diesen Nachschlag fehlten dem Client die letzten Zeichen.
+      if (!markerSeen && streamed) yield { type: 'delta', text: streamed };
+
       // Erst nach vollständiger Antwort speichern – ein Abbruch hinterlässt keinen Torso.
-      const reply = await this.persistTurn(conversationId, dto.content, event.text);
+      const turn = await this.persistTurn(conversationId, dto.content, source, event.text);
       await this.recordUsage(userId, AiFeature.CHAT, event.usage);
       await this.users.trackActivity(userId, { xp: 5, minutes: 1 });
-      yield { type: 'done', message: reply };
+      yield { type: 'done', turn };
     }
   }
 
@@ -541,7 +599,12 @@ export class AiService {
 
   // ---------------------------------------------------------------- Helfer
 
-  private async prepareChat(userId: string, conversationId: string, userMessage: string) {
+  private async prepareChat(
+    userId: string,
+    conversationId: string,
+    userMessage: string,
+    source: MessageSource,
+  ) {
     const conversation = await this.assertOwnConversation(userId, conversationId);
 
     const user = await this.prisma.user.findUniqueOrThrow({
@@ -551,16 +614,14 @@ export class AiService {
 
     const previous = await this.prisma.aiMessage.findMany({
       where: { conversationId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: CHAT_HISTORY_LIMIT,
     });
 
-    const history: Anthropic.MessageParam[] = previous
-      .reverse()
-      .map((message) => ({
-        role: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-        content: message.content,
-      }));
+    const history: Anthropic.MessageParam[] = previous.reverse().map((message) => ({
+      role: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      content: message.content,
+    }));
     history.push({ role: 'user', content: userMessage });
 
     const mode = conversation.mode === AiMode.DISCUSSION ? 'DISCUSSION' : 'CHAT';
@@ -568,34 +629,74 @@ export class AiService {
       targetLanguage: conversation.language.nativeName,
       nativeLanguage: user.nativeLanguage,
       level: conversation.level as CefrLevel,
-    })}\n\n${chatInstructions(mode, conversation.topic ?? undefined)}`;
+    })}\n\n${chatInstructions(mode, source, conversation.topic ?? undefined)}`;
 
     return { systemSuffix, history };
   }
 
+  /**
+   * Speichert Frage und Antwort eines Zuges und loest die Korrektur aus dem
+   * Antworttext: Sie gehoert an den Beitrag des Lernenden, nicht an die Antwort
+   * der KI – dort stuende sie im vorgelesenen Text und im Gespraechsverlauf.
+   *
+   * Die Zeitstempel werden ausdruecklich gesetzt und liegen eine Millisekunde
+   * auseinander. Beide Zeilen entstehen in derselben Transaktion, und
+   * `DEFAULT CURRENT_TIMESTAMP` ist in Postgres die *Transaktionszeit* – beide
+   * bekaemen exakt denselben Wert, und die Reihenfolge des Verlaufs waere
+   * Zufall statt Gespraech.
+   */
   private async persistTurn(
     conversationId: string,
     userMessage: string,
-    assistantMessage: string,
-  ): Promise<AiMessageDto> {
-    const [, reply] = await this.prisma.$transaction([
+    source: MessageSource,
+    assistantResponse: string,
+  ): Promise<AiTurnDto> {
+    const { reply, correction } = splitCorrection(assistantResponse);
+    const askedAt = new Date();
+    const answeredAt = new Date(askedAt.getTime() + 1);
+
+    const [question, answer] = await this.prisma.$transaction([
       this.prisma.aiMessage.create({
-        data: { conversationId, role: 'user', content: userMessage },
+        data: {
+          conversationId,
+          role: 'user',
+          content: userMessage,
+          source,
+          correctedText: correction?.text ?? null,
+          correctionNotes: correction?.notes ?? [],
+          createdAt: askedAt,
+        },
       }),
       this.prisma.aiMessage.create({
-        data: { conversationId, role: 'assistant', content: assistantMessage },
+        data: { conversationId, role: 'assistant', content: reply, createdAt: answeredAt },
       }),
       this.prisma.aiConversation.update({
         where: { id: conversationId },
-        data: { updatedAt: new Date() },
+        data: { updatedAt: answeredAt },
       }),
     ]);
 
+    return { userMessage: this.toMessageDto(question), reply: this.toMessageDto(answer) };
+  }
+
+  private toMessageDto(message: {
+    id: string;
+    role: string;
+    content: string;
+    source: string | null;
+    correctedText: string | null;
+    correctionNotes: string[];
+    createdAt: Date;
+  }): AiMessageDto {
     return {
-      id: reply.id,
-      role: 'assistant',
-      content: reply.content,
-      createdAt: reply.createdAt.toISOString(),
+      id: message.id,
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: message.content,
+      source: (message.source as AiMessageDto['source']) ?? null,
+      correction: message.correctedText
+        ? { text: message.correctedText, notes: message.correctionNotes }
+        : null,
+      createdAt: message.createdAt.toISOString(),
     };
   }
 
@@ -605,7 +706,8 @@ export class AiService {
       include: { language: true },
     });
     if (!conversation) throw new NotFoundException('Gespräch nicht gefunden');
-    if (conversation.userId !== userId) throw new ForbiddenException('Kein Zugriff auf dieses Gespräch');
+    if (conversation.userId !== userId)
+      throw new ForbiddenException('Kein Zugriff auf dieses Gespräch');
     return conversation;
   }
 
@@ -637,4 +739,37 @@ export class AiService {
       createdAt: analysis.createdAt.toISOString(),
     };
   }
+}
+
+/**
+ * Trennt den Korrekturblock vom vorgelesenen Antworttext.
+ *
+ * Erwartet wird das Format aus `prompts.ts`: die Antwort, dann eine Zeile
+ * `[KORREKTUR] …` mit dem korrigierten Beitrag und bis zu drei Zeilen
+ * `[HINWEIS] …`. Fehlt der Block, gab es nichts zu verbessern. Das Parsen ist
+ * bewusst nachsichtig – hält sich das Modell einmal nicht an die Form, geht
+ * höchstens die Korrektur verloren, nie die Antwort.
+ */
+export function splitCorrection(response: string): {
+  reply: string;
+  correction: { text: string; notes: string[] } | null;
+} {
+  const markerIndex = response.indexOf(CORRECTION_MARKER);
+  if (markerIndex === -1) return { reply: response.trim(), correction: null };
+
+  const reply = response.slice(0, markerIndex).trim();
+  const block = response.slice(markerIndex + CORRECTION_MARKER.length);
+  const [firstLine, ...rest] = block.split(/\r?\n/);
+
+  const text = firstLine.trim();
+  if (!text) return { reply, correction: null };
+
+  const notes = rest
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith(CORRECTION_NOTE_MARKER))
+    .map((line) => line.slice(CORRECTION_NOTE_MARKER.length).trim())
+    .filter(Boolean)
+    .slice(0, MAX_CORRECTION_NOTES);
+
+  return { reply, correction: { text, notes } };
 }

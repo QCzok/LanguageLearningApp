@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AiMode } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, Length } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreateConversationDto {
   @ApiPropertyOptional({ enum: AiMode, default: AiMode.CHAT })
@@ -26,6 +26,17 @@ export class SendMessageDto {
   @IsString()
   @Length(1, 4000)
   content!: string;
+
+  /**
+   * Gesprochen oder getippt. Entscheidet über die Strenge der Korrektur: In
+   * einem Diktat der Spracherkennung stammen Kommas und Großschreibung nicht
+   * vom Lernenden, in einem getippten Satz schon. Fehlt die Angabe, gilt der
+   * vorsichtigere Fall.
+   */
+  @ApiPropertyOptional({ enum: ['VOICE', 'TEXT'], default: 'VOICE' })
+  @IsOptional()
+  @IsIn(['VOICE', 'TEXT'])
+  source?: 'VOICE' | 'TEXT';
 }
 
 export class GrammarQuestionDto {
