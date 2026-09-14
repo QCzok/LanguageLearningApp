@@ -95,7 +95,9 @@ export default function AiHubScreen({ navigation }: Props) {
         <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md }}>
           <Text style={{ fontSize: 48 }}>🤖</Text>
           <Title>Sprich mit deinem KI-Partner</Title>
-          <Caption>Rede oder schreib einfach drauflos – die KI passt sich deinem Niveau an.</Caption>
+          <Caption>
+            Rede oder schreib einfach drauflos – die KI passt sich deinem Niveau an.
+          </Caption>
         </View>
 
         <Button
@@ -105,16 +107,6 @@ export default function AiHubScreen({ navigation }: Props) {
           onPress={() => start.mutate({})}
         />
         <Button label="Eigenes Thema wählen" variant="ghost" onPress={() => setShowStarter(true)} />
-
-        <Card onPress={() => navigation.navigate('Recommendations')}>
-          <Row gap={spacing.md}>
-            <Text style={{ fontSize: 30 }}>🎯</Text>
-            <View style={{ flex: 1 }}>
-              <Heading>Persönliche Empfehlungen</Heading>
-              <Caption>Was du als Nächstes lernen solltest – aus deinem Lernstand.</Caption>
-            </View>
-          </Row>
-        </Card>
 
         {conversations.data && conversations.data.length > 0 ? (
           <>
@@ -215,9 +207,16 @@ function PremiumTeaser({ quota }: { quota?: { used: number; limit: number } }) {
       </View>
 
       {[
-        { icon: '🎙️', title: 'Sprechen oder schreiben', text: 'Rede frei oder tippe – ganz wie du magst.' },
-        { icon: '📝', title: 'Korrektur im Lernheft', text: 'Deine geschriebenen Texte werden geprüft und erklärt.' },
-        { icon: '🎯', title: 'Persönliche Empfehlungen', text: 'Vorschläge aus deinem echten Lernstand.' },
+        {
+          icon: '🎙️',
+          title: 'Sprechen oder schreiben',
+          text: 'Rede frei oder tippe – ganz wie du magst.',
+        },
+        {
+          icon: '📝',
+          title: 'Korrektur im Lernheft',
+          text: 'Deine geschriebenen Texte werden geprüft und erklärt.',
+        },
       ].map((feature) => (
         <Card key={feature.title}>
           <Row gap={spacing.md}>

@@ -678,9 +678,11 @@ function VoicePanel({
     return () => loop.stop();
   }, [phase, pulse]);
 
+  // Während die KI spricht, steht hier nichts: Der Knopf zeigt in dem Moment
+  // ein Stopp-Zeichen, das erklärt sich von selbst.
   const hint =
     phase === 'speaking'
-      ? 'Du kannst jederzeit dazwischenreden'
+      ? ''
       : phase === 'thinking'
         ? 'Einen Moment …'
         : recognizing
@@ -1094,6 +1096,9 @@ const voiceStyles = {
     ...typography.caption,
     color: colors.textMuted,
     textAlign: 'center' as const,
+    /** Hält die Zeile frei, auch wenn gerade nichts darin steht – sonst springt
+     *  der Knopf jedes Mal hoch, wenn die KI zu sprechen anfängt. */
+    minHeight: typography.caption.lineHeight,
   },
   buttonWrap: {
     width: 84,
