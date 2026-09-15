@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { CefrLevel, LevelSource, Prisma } from '@prisma/client';
-import { CEFR_LEVELS } from '@lingua/shared';
-import type { PlacementQuestionDto, PlacementResultDto } from '@lingua/shared';
+import { CEFR_LEVELS, PLACEMENT_QUESTIONS_PER_LEVEL } from '@lingua/shared';
+import type {
+  PlacementQuestionDto,
+  PlacementResultDto,
+  PlacementStageResultDto,
+} from '@lingua/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { SubmitPlacementDto } from './dto/placement.dto';
+import { SubmitPlacementDto, SubmitStageDto } from './dto/placement.dto';
+import { determineLevel, isLevelPassed, nextLevel } from './placement.rules';
 
-/** Ab dieser Trefferquote gilt ein Niveau als bestanden. */
-const PASS_THRESHOLD = 0.6;
-/** Fragen pro Niveau im generierten Test. */
-const QUESTIONS_PER_LEVEL = 4;
+/** Fragen pro Niveau im Test – dieselbe Zahl, die die Oberfläche ansagt. */
+const QUESTIONS_PER_LEVEL = PLACEMENT_QUESTIONS_PER_LEVEL;
 
 @Injectable()
 export class PlacementService {
@@ -19,8 +22,10 @@ export class PlacementService {
   ) {}
 
   /**
-   * Adaptiv wäre schöner, aber ein fixer Stufentest ist offline-fähig und
-   * vollständig cachebar: pro Niveau eine feste Zahl Fragen, aufsteigend sortiert.
+   * Der vollständige Test: pro Niveau eine feste Zahl Fragen, aufsteigend
+   * sortiert. Er wird in einem Stück ausgeliefert und ist damit cachebar –
+   * welche Stufen davon tatsächlich gefragt werden, entscheidet die Leiter
+   * beim Durchlaufen (siehe `submitStage`).
    */
   async getTest(languageId: string): Promise<PlacementQuestionDto[]> {
     const questions = await this.prisma.placementQuestion.findMany({
@@ -52,9 +57,49 @@ export class PlacementService {
   }
 
   /**
-   * Auswertung: Das Ergebnis ist das höchste Niveau, das – zusammen mit allen
-   * darunterliegenden – die Schwelle erreicht. So verhindert ein Glückstreffer auf C1
-   * keine realistische Einstufung, wenn B1 bereits durchgefallen ist.
+   * Auswertung einer einzelnen Stufe.
+   *
+   * Die Lösungen verlassen den Server nie, deshalb kann die App nicht selbst
+   * entscheiden, ob es weitergeht – sie fragt nach jeder Stufe hier nach. Die
+   * Antwort sagt nur, wie viele richtig waren und welche Stufe als Nächstes
+   * kommt; welche Frage falsch war, bleibt offen, damit ein zweiter Durchlauf
+   * nicht zum Abschreiben wird.
+   */
+  async submitStage(dto: SubmitStageDto): Promise<PlacementStageResultDto> {
+    const questions = await this.prisma.placementQuestion.findMany({
+      where: {
+        id: { in: dto.answers.map((answer) => answer.questionId) },
+        languageId: dto.languageId,
+      },
+    });
+
+    if (questions.length !== dto.answers.length) {
+      throw new BadRequestException('Der Test enthält unbekannte oder fremde Fragen');
+    }
+
+    const level = questions[0].level as CefrLevel;
+    if (questions.some((question) => question.level !== level)) {
+      throw new BadRequestException('Eine Stufe wird immer als Ganzes ausgewertet');
+    }
+
+    const byId = new Map(questions.map((question) => [question.id, question]));
+    const correct = dto.answers.filter(
+      (answer) => byId.get(answer.questionId)!.correctIndex === answer.selectedIndex,
+    ).length;
+
+    const passed = isLevelPassed({ correct, total: dto.answers.length });
+    return {
+      level,
+      correct,
+      total: dto.answers.length,
+      passed,
+      nextLevel: passed ? await this.nextLevelWithQuestions(dto.languageId, level) : null,
+    };
+  }
+
+  /**
+   * Abschluss des Tests: alle bisher beantworteten Stufen zusammen auswerten,
+   * das Ergebnis im Lernprofil festhalten.
    */
   async submit(userId: string, dto: SubmitPlacementDto): Promise<PlacementResultDto> {
     const questions = await this.prisma.placementQuestion.findMany({
@@ -83,7 +128,7 @@ export class PlacementService {
       return { questionId: answer.questionId, selectedIndex: answer.selectedIndex, correct: isCorrect };
     });
 
-    const resultLevel = this.determineLevel(perLevel);
+    const resultLevel = determineLevel(perLevel);
     const total = dto.answers.length;
     const scorePercent = total > 0 ? Math.round((correct / total) * 100) : 0;
 
@@ -113,10 +158,14 @@ export class PlacementService {
       total,
       scorePercent,
       resultLevel,
-      perLevel: CEFR_LEVELS.filter((level) => perLevel.has(level as CefrLevel)).map((level) => ({
-        level: level as CefrLevel,
-        ...perLevel.get(level as CefrLevel)!,
-      })),
+      perLevel: CEFR_LEVELS.filter((level) => perLevel.has(level as CefrLevel)).map((level) => {
+        const bucket = perLevel.get(level as CefrLevel)!;
+        return {
+          level: level as CefrLevel,
+          ...bucket,
+          passed: isLevelPassed(bucket),
+        };
+      }),
       recommendation: this.recommendation(resultLevel, scorePercent),
     };
   }
@@ -140,28 +189,27 @@ export class PlacementService {
     }));
   }
 
-  private determineLevel(perLevel: Map<CefrLevel, { correct: number; total: number }>): CefrLevel {
-    let result: CefrLevel = 'A1';
+  /** Die nächste Stufe, für die es in dieser Sprache überhaupt Fragen gibt. */
+  private async nextLevelWithQuestions(
+    languageId: string,
+    level: CefrLevel,
+  ): Promise<CefrLevel | null> {
+    const next = nextLevel(level);
+    if (!next) return null;
 
-    for (const level of CEFR_LEVELS) {
-      const bucket = perLevel.get(level as CefrLevel);
-      if (!bucket || bucket.total === 0) continue;
-      if (bucket.correct / bucket.total >= PASS_THRESHOLD) {
-        result = level as CefrLevel;
-      } else {
-        break; // erste nicht bestandene Stufe beendet die Einstufung
-      }
-    }
-    return result;
+    const count = await this.prisma.placementQuestion.count({
+      where: { languageId, level: next, isActive: true },
+    });
+    return count > 0 ? next : null;
   }
 
   private recommendation(level: CefrLevel, scorePercent: number): string {
-    if (scorePercent >= 90) {
-      return `Sehr starkes Ergebnis. Starte auf ${level} – wenn sich das zu leicht anfühlt, hebe das Niveau im Profil an.`;
+    if (level === 'C2') {
+      return 'Du hast jede Stufe bestanden – wir starten auf C2. Wenn dir etwas zu leicht vorkommt, sag uns im Profil Bescheid.';
     }
-    if (scorePercent >= 60) {
-      return `Dein Niveau liegt bei ${level}. Wir stellen Vokabeln, Texte und Podcasts passend dazu zusammen.`;
+    if (scorePercent >= 80) {
+      return `Knapp an der nächsten Stufe vorbei: Du steigst auf ${level} ein und hast es nicht weit bis darüber.`;
     }
-    return `Wir starten mit ${level} und bauen die Grundlagen aus. Du kannst das Niveau jederzeit im Profil ändern.`;
+    return `Auf ${level} hakte es – genau dort setzen wir an. Vokabeln, Texte und Podcasts kommen ab jetzt auf diesem Niveau.`;
   }
 }

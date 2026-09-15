@@ -1,0 +1,4 @@
+# Aufnahmen gehoeren nicht ins Repository - nur die Beschreibung, wohin sie muessen.
+*
+!.gitignore
+!README.md

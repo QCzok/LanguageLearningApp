@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { SubmitPlacementDto } from './dto/placement.dto';
+import { SubmitPlacementDto, SubmitStageDto } from './dto/placement.dto';
 import { PlacementService } from './placement.service';
 
 @ApiTags('placement')
@@ -14,6 +14,12 @@ export class PlacementController {
   @ApiOperation({ summary: 'Einstufungstest laden (ohne Lösungen)' })
   getTest(@Query('languageId') languageId: string) {
     return this.placement.getTest(languageId);
+  }
+
+  @Post('stage')
+  @ApiOperation({ summary: 'Eine Stufe auswerten: bestanden und wie geht es weiter?' })
+  submitStage(@Body() dto: SubmitStageDto) {
+    return this.placement.submitStage(dto);
   }
 
   @Post('submit')

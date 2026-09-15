@@ -27,3 +27,24 @@ export class SubmitPlacementDto {
   @Type(() => PlacementAnswerDto)
   answers!: PlacementAnswerDto[];
 }
+
+/**
+ * Die Antworten einer einzelnen Stufe.
+ *
+ * Mehr als die fünf Fragen eines Niveaus kommen hier nie an – der Service
+ * weist eine gemischte Stufe zurück, weil „bestanden“ sonst nichts mehr
+ * bedeutet.
+ */
+export class SubmitStageDto {
+  @ApiProperty()
+  @IsString()
+  languageId!: string;
+
+  @ApiProperty({ type: [PlacementAnswerDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(20)
+  @ValidateNested({ each: true })
+  @Type(() => PlacementAnswerDto)
+  answers!: PlacementAnswerDto[];
+}

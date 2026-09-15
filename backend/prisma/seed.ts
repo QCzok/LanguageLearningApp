@@ -9,13 +9,25 @@ import { CefrLevel, MediaType, Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import type { LibrarySection } from '@lingua/shared';
 import { seedWorkbook } from './seed/workbook';
+import {
+  MEDIA_SCRIPT_BY_TITLE,
+  estimatedDurationSec,
+  transcriptOf,
+} from './seed/media-scripts';
 import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, type LibraryContentSeed } from './seed/library';
+import { PLACEMENT_SEEDS_DE, PLACEMENT_SEEDS_EN, PLACEMENT_SEEDS_ES } from './seed/placement';
 import { GERMAN_VOCAB_A1 } from './seed/german-vocab-a1';
 import { GERMAN_VOCAB_A2 } from './seed/german-vocab-a2';
 import { GERMAN_VOCAB_B1 } from './seed/german-vocab-b1';
 import { GERMAN_VOCAB_B2 } from './seed/german-vocab-b2';
 import { GERMAN_VOCAB_C1 } from './seed/german-vocab-c1';
 import { GERMAN_VOCAB_C2 } from './seed/german-vocab-c2';
+import { SPANISH_VOCAB_A1 } from './seed/spanish-vocab-a1';
+import { SPANISH_VOCAB_A2 } from './seed/spanish-vocab-a2';
+import { SPANISH_VOCAB_B1 } from './seed/spanish-vocab-b1';
+import { SPANISH_VOCAB_B2 } from './seed/spanish-vocab-b2';
+import { SPANISH_VOCAB_C1 } from './seed/spanish-vocab-c1';
+import { SPANISH_VOCAB_C2 } from './seed/spanish-vocab-c2';
 
 const prisma = new PrismaClient();
 
@@ -124,247 +136,28 @@ async function main(): Promise<void> {
   const es = languages.get('es')!;
 
   // ------------------------------------------------------ Einstufungstest
-  const placementSeeds: Array<{
-    level: CefrLevel;
-    prompt: string;
-    helperText?: string;
-    options: string[];
-    correctIndex: number;
-  }> = [
-    {
-      level: 'A1',
-      prompt: 'Choose the correct form: "She ___ a teacher."',
-      options: ['is', 'are', 'am', 'be'],
-      correctIndex: 0,
-    },
-    {
-      level: 'A1',
-      prompt: 'What is the plural of "child"?',
-      options: ['childs', 'children', 'childrens', 'childes'],
-      correctIndex: 1,
-    },
-    {
-      level: 'A1',
-      prompt: 'Complete: "I ___ coffee every morning."',
-      options: ['drinks', 'drinking', 'drink', 'drank'],
-      correctIndex: 2,
-    },
-    {
-      level: 'A1',
-      prompt: 'Which word means "Haus"?',
-      options: ['horse', 'house', 'hose', 'mouse'],
-      correctIndex: 1,
-    },
-    {
-      level: 'A2',
-      prompt: 'Complete: "Yesterday I ___ to the cinema."',
-      options: ['go', 'gone', 'went', 'going'],
-      correctIndex: 2,
-    },
-    {
-      level: 'A2',
-      prompt: 'Choose the comparative: "This book is ___ than that one."',
-      options: ['more interesting', 'interestinger', 'most interesting', 'the interesting'],
-      correctIndex: 0,
-    },
-    {
-      level: 'A2',
-      prompt: 'Complete: "There ___ any milk in the fridge."',
-      options: ["isn't", "aren't", "wasn't been", 'not is'],
-      correctIndex: 0,
-    },
-    {
-      level: 'A2',
-      prompt: 'Which sentence is correct?',
-      options: [
-        'I am living here since 2019.',
-        'I live here since 2019.',
-        'I have lived here since 2019.',
-        'I lived here since 2019.',
-      ],
-      correctIndex: 2,
-    },
-    {
-      level: 'B1',
-      prompt: 'Complete: "If I had more time, I ___ travel more often."',
-      options: ['will', 'would', 'have', 'did'],
-      correctIndex: 1,
-    },
-    {
-      level: 'B1',
-      prompt: 'Choose the best phrasal verb: "Could you ___ the meeting to next week?"',
-      options: ['put off', 'put on', 'put up', 'put down'],
-      correctIndex: 0,
-    },
-    {
-      level: 'B1',
-      prompt: 'Passive voice: "They built the bridge in 1890." →',
-      options: [
-        'The bridge was built in 1890.',
-        'The bridge is built in 1890.',
-        'The bridge has built in 1890.',
-        'The bridge were built in 1890.',
-      ],
-      correctIndex: 0,
-    },
-    {
-      level: 'B1',
-      prompt: 'Complete: "She suggested ___ a different approach."',
-      options: ['to try', 'trying', 'try', 'tried'],
-      correctIndex: 1,
-    },
-    {
-      level: 'B2',
-      prompt: 'Complete: "Hardly ___ the door when the phone rang."',
-      options: ['I had closed', 'had I closed', 'I closed', 'did I close'],
-      correctIndex: 1,
-    },
-    {
-      level: 'B2',
-      prompt: 'Which word best fits: "The evidence was largely ___ ."',
-      options: ['circumstantial', 'circumstance', 'circumstantially', 'circumstanced'],
-      correctIndex: 0,
-    },
-    {
-      level: 'B2',
-      prompt: 'Choose the correct sentence.',
-      options: [
-        'I wish I would have known earlier.',
-        'I wish I had known earlier.',
-        'I wish I knew it earlier yesterday.',
-        'I wish I have known earlier.',
-      ],
-      correctIndex: 1,
-    },
-    {
-      level: 'B2',
-      prompt: 'Complete: "The proposal is contingent ___ approval from the board."',
-      options: ['of', 'to', 'on', 'in'],
-      correctIndex: 2,
-    },
-    {
-      level: 'C1',
-      prompt: 'Choose the closest meaning of "to hedge one\'s bets".',
-      options: [
-        'to commit fully to one option',
-        'to reduce risk by keeping options open',
-        'to gamble recklessly',
-        'to abandon a plan',
-      ],
-      correctIndex: 1,
-    },
-    {
-      level: 'C1',
-      prompt: 'Complete: "Not until much later ___ the full extent of the damage."',
-      options: [
-        'we realised',
-        'did we realise',
-        'we had realised',
-        'realised we',
-      ],
-      correctIndex: 1,
-    },
-    {
-      level: 'C1',
-      prompt: 'Which register is most formal?',
-      options: [
-        'We should look into it.',
-        "Let's check it out.",
-        'The matter warrants further investigation.',
-        'Someone ought to have a look.',
-      ],
-      correctIndex: 2,
-    },
-    {
-      level: 'C1',
-      prompt: 'Complete: "His argument, ___ compelling, ultimately rested on flawed data."',
-      options: ['however', 'albeit', 'whereas', 'despite'],
-      correctIndex: 1,
-    },
-    {
-      level: 'C2',
-      prompt: 'Identify the sentence with correct subjunctive usage.',
-      options: [
-        'It is imperative that he submits the report.',
-        'It is imperative that he submit the report.',
-        'It is imperative that he will submit the report.',
-        'It is imperative that he submitted the report.',
-      ],
-      correctIndex: 1,
-    },
-    {
-      level: 'C2',
-      prompt: 'What does "to damn with faint praise" mean?',
-      options: [
-        'to criticise openly',
-        'to praise so mildly that it implies criticism',
-        'to give overwhelming praise',
-        'to remain silent about a failure',
-      ],
-      correctIndex: 1,
-    },
-    {
-      level: 'C2',
-      prompt: 'Choose the most idiomatic completion: "The reforms were, ___, a resounding success."',
-      options: ['by and large', 'by and by', 'large and by', 'at large by'],
-      correctIndex: 0,
-    },
-    {
-      level: 'C2',
-      prompt: 'Which sentence contains a mixed conditional?',
-      options: [
-        'If I had studied medicine, I would be a doctor now.',
-        'If I study medicine, I will be a doctor.',
-        'If I studied medicine, I would be a doctor.',
-        'If I had studied medicine, I would have been a doctor.',
-      ],
-      correctIndex: 0,
-    },
-  ];
-
-  await prisma.placementQuestion.deleteMany({ where: { languageId: en } });
-  await prisma.placementQuestion.createMany({
-    data: placementSeeds.map((seed, index) => ({
-      languageId: en,
-      level: seed.level,
-      prompt: seed.prompt,
-      helperText: seed.helperText ?? null,
-      options: seed.options,
-      correctIndex: seed.correctIndex,
-      sortOrder: index,
-    })),
-  });
-
-  // Spanisch bekommt einen kleinen Test, damit der Sprachwechsel testbar ist.
-  await prisma.placementQuestion.deleteMany({ where: { languageId: es } });
-  await prisma.placementQuestion.createMany({
-    data: [
-      {
-        languageId: es,
-        level: CefrLevel.A1,
-        prompt: 'Completa: "Yo ___ estudiante."',
-        options: ['soy', 'eres', 'es', 'son'],
-        correctIndex: 0,
-        sortOrder: 0,
-      },
-      {
-        languageId: es,
-        level: CefrLevel.A2,
-        prompt: 'Completa: "Ayer ___ al mercado."',
-        options: ['voy', 'fui', 'iré', 'iba a ir'],
-        correctIndex: 1,
-        sortOrder: 1,
-      },
-      {
-        languageId: es,
-        level: CefrLevel.B1,
-        prompt: 'Elige el subjuntivo correcto: "Espero que ___ pronto."',
-        options: ['vienes', 'vengas', 'vendrás', 'viniste'],
-        correctIndex: 1,
-        sortOrder: 2,
-      },
-    ],
-  });
+  // Beide Tests haben denselben Aufbau: fünf Fragen je Niveau, A1 bis C2
+  // (siehe `seed/placement`). Die Reihenfolge im Array ist die Reihenfolge im
+  // Test – `sortOrder` hält sie fest, damit die Leiter nicht durcheinander
+  // gerät, wenn die Datenbank anders sortiert.
+  for (const [languageId, seeds] of [
+    [de, PLACEMENT_SEEDS_DE],
+    [en, PLACEMENT_SEEDS_EN],
+    [es, PLACEMENT_SEEDS_ES],
+  ] as const) {
+    await prisma.placementQuestion.deleteMany({ where: { languageId } });
+    await prisma.placementQuestion.createMany({
+      data: seeds.map((seed, index) => ({
+        languageId,
+        level: seed.level,
+        prompt: seed.prompt,
+        helperText: seed.helperText ?? null,
+        options: seed.options,
+        correctIndex: seed.correctIndex,
+        sortOrder: index,
+      })),
+    });
+  }
 
   // ------------------------------------------------------------- Vokabeln
   const deckSeeds = [
@@ -448,8 +241,23 @@ async function main(): Promise<void> {
     ...GERMAN_VOCAB_C2,
   ];
 
+  /**
+   * Spanisch als Fremdsprache: gleicher Aufbau wie die Deutsch-Stapel,
+   * 250 Wörter pro Niveau (A1–C2) in fünf Themenpaketen zu 50 Wörtern.
+   * Übersetzt wird hier ins Deutsche, weil die Oberfläche deutsch ist.
+   */
+  const spanishDeckSeeds = [
+    ...SPANISH_VOCAB_A1,
+    ...SPANISH_VOCAB_A2,
+    ...SPANISH_VOCAB_B1,
+    ...SPANISH_VOCAB_B2,
+    ...SPANISH_VOCAB_C1,
+    ...SPANISH_VOCAB_C2,
+  ];
+
   await seedVocabDecks(en, deckSeeds);
   await seedVocabDecks(de, germanDeckSeeds);
+  await seedVocabDecks(es, spanishDeckSeeds);
 
   // ----------------------------------------------------------- Bibliothek
   async function seedLibraryContent(languageId: string, seeds: LibraryContentSeed[]): Promise<void> {
@@ -508,37 +316,28 @@ async function main(): Promise<void> {
       level: CefrLevel.A1,
       title: 'At the Bakery',
       description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
-      durationSec: 96,
       tags: ['dialog', 'alltag'],
-      transcript:
-        'A: Good morning! What would you like?\nB: Good morning. Two rolls, please.\nA: Anything else?\nB: A small loaf of bread, please. How much is that?\nA: Three euros twenty.\nB: Here you are.\nA: Thank you. Have a nice day!',
     },
     {
       type: MediaType.AUDIO_LESSON,
       level: CefrLevel.A2,
       title: 'Talking About Your Weekend',
       description: 'Redemittel und Übungen zum Past Simple im Gespräch.',
-      durationSec: 421,
       tags: ['grammatik', 'past simple'],
-      transcript: null,
     },
     {
       type: MediaType.PODCAST,
       level: CefrLevel.B1,
       title: 'Slow News: Working From Anywhere',
       description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
-      durationSec: 738,
       tags: ['podcast', 'arbeit'],
-      transcript: null,
     },
     {
       type: MediaType.PODCAST,
       level: CefrLevel.B2,
       title: 'The Language Lab: How Accents Change',
       description: 'Interviewfolge über Sprachwandel und regionale Aussprache.',
-      durationSec: 1284,
       tags: ['podcast', 'linguistik'],
-      transcript: null,
     },
   ];
 
@@ -553,60 +352,65 @@ async function main(): Promise<void> {
       level: CefrLevel.A1,
       title: 'Beim Bäcker',
       description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
-      durationSec: 96,
       tags: ['dialog', 'alltag'],
-      transcript:
-        'A: Guten Morgen! Was darf es sein?\nB: Guten Morgen. Zwei Brötchen, bitte.\nA: Sonst noch etwas?\nB: Noch ein kleines Brot, bitte. Was macht das zusammen?\nA: Drei Euro zwanzig.\nB: Bitte schön.\nA: Danke schön. Einen schönen Tag noch!',
     },
     {
       type: MediaType.AUDIO_LESSON,
       level: CefrLevel.A2,
       title: 'Vom Wochenende erzählen',
       description: 'Redemittel und Übungen zum Perfekt im Gespräch.',
-      durationSec: 421,
       tags: ['grammatik', 'perfekt'],
-      transcript: null,
     },
     {
       type: MediaType.PODCAST,
       level: CefrLevel.B1,
       title: 'Langsame Nachrichten: Von überall arbeiten',
       description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
-      durationSec: 738,
       tags: ['podcast', 'arbeit'],
-      transcript: null,
     },
     {
       type: MediaType.PODCAST,
       level: CefrLevel.B2,
       title: 'Das Sprachlabor: Wie sich Akzente verändern',
       description: 'Interviewfolge über Sprachwandel und regionale Aussprache.',
-      durationSec: 1284,
       tags: ['podcast', 'linguistik'],
-      transcript: null,
     },
   ];
 
-  const mediaBase = process.env.MEDIA_BASE_URL ?? 'http://localhost:3000/static';
+  const mediaBase = process.env.MEDIA_BASE_URL ?? '/static';
   async function seedMediaItems(languageId: string, seeds: typeof mediaSeeds): Promise<void> {
     for (const seed of seeds) {
       const existing = await prisma.mediaItem.findFirst({
         where: { languageId, title: seed.title },
       });
       const slug = seed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      /*
+        Transkript und Spieldauer stammen aus dem Sprechtext (siehe
+        media-scripts.ts) – derselben Quelle, aus der `npm run media:tts` die
+        Aufnahme erzeugt. Vorher standen hier frei gewählte Zahlen: Ein
+        Eintrag behauptete 21 Minuten Spielzeit, während es überhaupt keine
+        Datei gab. Die Dauer ist zunächst aus der Textlänge geschätzt; der
+        Generator ersetzt sie durch die gemessene, sobald die MP3 existiert.
+      */
+      const script = MEDIA_SCRIPT_BY_TITLE.get(seed.title);
       const data = {
         languageId,
         level: seed.level,
         type: seed.type,
         title: seed.title,
         description: seed.description,
-        durationSec: seed.durationSec,
+        durationSec: script ? estimatedDurationSec(script) : 0,
         tags: seed.tags,
-        transcript: seed.transcript,
+        transcript: script ? transcriptOf(script) : null,
         audioUrl: `${mediaBase}/audio/${slug}.mp3`,
       };
 
       if (existing) {
+        // Die Dauer wird hier bewusst auf die Schätzung zurückgesetzt. Den
+        // genauen Wert trägt `npm run media:tts` nach – das Skript misst ihn
+        // auch dann, wenn die Datei schon vorhanden ist und nicht neu
+        // synthetisiert wird. Ein Sonderfall, der gemessene Werte im Seed
+        // verteidigt, hätte hier nur die alten Fantasiezahlen konserviert.
         await prisma.mediaItem.update({ where: { id: existing.id }, data });
       } else {
         await prisma.mediaItem.create({ data });
