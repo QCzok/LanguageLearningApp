@@ -17,7 +17,7 @@ export const es: TranslationDictionary = {
   commonMinutesShort: 'min',
   commonNothingFound: 'No se encontró nada',
   commonSomethingWentWrong: 'Algo ha salido mal.',
-  commonAppLoading: 'Cargando Lingua …',
+  commonAppLoading: 'Cargando Lingopanda …',
   commonNetworkTimeout: 'Tiempo agotado: comprueba tu conexión.',
   commonNetworkOffline: 'Sin conexión con el servidor.',
   commonErrorBoundaryTitle: 'No se pudo mostrar esta vista.',
@@ -106,7 +106,7 @@ export const es: TranslationDictionary = {
   homeWeekdaySat: 'Sá',
 
   // ---------------------------------------------------------- Autenticación
-  authLoginTitle: 'Bienvenido a Lingua',
+  authLoginTitle: 'Bienvenido a Lingopanda',
   authLoginSubtitle: 'Inicia sesión y sigue donde lo dejaste.',
   authEmail: 'Correo electrónico',
   authEmailPlaceholder: 'tu@ejemplo.com',
@@ -186,7 +186,7 @@ export const es: TranslationDictionary = {
   vocabTopicLabel: 'Tema',
   vocabTopicPlaceholder: 'p. ej. cocina, viajes, oficina …',
   vocabGenerate: 'Generar',
-  vocabPremiumTitle: 'Lingua Premium',
+  vocabPremiumTitle: 'Lingopanda Premium',
   vocabPremiumBody:
     'Los mazos de vocabulario generados por IA sobre el tema que elijas forman parte de Premium. Puedes activar Premium en tu perfil.',
   vocabTopicsCount: '{count} temas',
@@ -410,8 +410,8 @@ export const es: TranslationDictionary = {
   editorAiChecking: 'Comprobando …',
   editorAiHintReady: 'Revisar y explicar el texto que has escrito',
   editorAiHintTooShort: 'Escribe antes unas frases con la herramienta de texto',
-  editorAiHintPremium: 'Parte de Lingua Premium',
-  editorPremiumTitle: 'Lingua Premium',
+  editorAiHintPremium: 'Parte de Lingopanda Premium',
+  editorPremiumTitle: 'Lingopanda Premium',
   editorPremiumBody:
     'La corrección con IA, el chat, las explicaciones de gramática y las recomendaciones personales forman parte de Premium. Puedes activar Premium en tu perfil.',
   editorQuotaExceeded: 'Cuota agotada',
@@ -572,7 +572,7 @@ export const es: TranslationDictionary = {
   profileNativeLanguage: 'Lengua materna',
   profileNativeLanguageHint:
     'Los menús de la app, así como las explicaciones de gramática y las pistas en A1, aparecen en este idioma.',
-  profilePremiumTitle: 'Lingua Premium',
+  profilePremiumTitle: 'Lingopanda Premium',
   profilePremiumActive: 'Activo',
   profilePremiumActiveUntil: 'Activo hasta el {date}',
   profilePremiumFeatures: 'Corrección con IA, chat, explicaciones de gramática y recomendaciones',

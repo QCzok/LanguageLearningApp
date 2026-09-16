@@ -1,12 +1,13 @@
 {
   "expo": {
-    "name": "Lingua",
+    "name": "Lingopanda",
     "slug": "lingua",
     "owner": "languageappexpo",
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "lingua",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -14,13 +15,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.lingua.mobile",
       "infoPlist": {
-        "NSSpeechRecognitionUsageDescription": "Lingua benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
-        "NSMicrophoneUsageDescription": "Lingua benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst."
+        "NSSpeechRecognitionUsageDescription": "Lingopanda benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
+        "NSMicrophoneUsageDescription": "Lingopanda benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst."
       }
     },
     "android": {
       "package": "app.lingua.mobile",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#73030D"
       },
       "permissions": [
@@ -28,7 +30,8 @@
       ]
     },
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-secure-store",
@@ -36,8 +39,8 @@
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Lingua benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst.",
-          "speechRecognitionPermission": "Lingua benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
+          "microphonePermission": "Lingopanda benötigt Mikrofonzugriff, damit du Nachrichten im KI-Gespräch per Sprachaufnahme senden kannst.",
+          "speechRecognitionPermission": "Lingopanda benötigt Zugriff auf die Spracherkennung, um deine Sprachaufnahmen in Text umzuwandeln.",
           "androidSpeechServicePackages": [
             "com.google.android.googlequicksearchbox"
           ]

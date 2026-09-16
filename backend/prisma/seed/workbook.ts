@@ -6,6 +6,7 @@ import { SPANISH_CURRICULUM } from './spanish-curriculum';
 import { SPANISH_BEGINNER_1_UNITS } from './spanish-chapter-beginner-1';
 import { SPANISH_BEGINNER_2_UNITS } from './spanish-chapter-beginner-2';
 import { SPANISH_BEGINNER_3_UNITS } from './spanish-chapter-beginner-3';
+import { SPANISH_ADVANCED_1_UNITS } from './spanish-chapter-advanced-1';
 import { SPANISH_GRAMMAR_1_UNITS } from './spanish-chapter-grammar-1';
 import { SPANISH_GRAMMAR_2_UNITS } from './spanish-chapter-grammar-2';
 
@@ -62,6 +63,7 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.BEGINNER, order: 1, units: SPANISH_BEGINNER_1_UNITS },
       { book: WorkbookBook.BEGINNER, order: 2, units: SPANISH_BEGINNER_2_UNITS },
       { book: WorkbookBook.BEGINNER, order: 3, units: SPANISH_BEGINNER_3_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 1, units: SPANISH_ADVANCED_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: SPANISH_GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: SPANISH_GRAMMAR_2_UNITS },
     ],

@@ -316,7 +316,9 @@ function AddLanguageSection({
   });
 
   const existingLanguageIds = new Set(existingProfiles.map((profile) => profile.language.id));
-  const available = languages.filter((language) => !existingLanguageIds.has(language.id));
+  const available = languages.filter(
+    (language) => language.isLearnable && !existingLanguageIds.has(language.id),
+  );
 
   if (available.length === 0) return null;
 

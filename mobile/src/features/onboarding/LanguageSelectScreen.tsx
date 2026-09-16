@@ -31,28 +31,32 @@ export default function LanguageSelectScreen({ navigation }: Props) {
       </View>
 
       <View style={{ gap: spacing.md }}>
-        {data.map((language) => (
-          <Card
-            key={language.id}
-            onPress={() =>
-              navigation.navigate('LevelChoice', {
-                languageId: language.id,
-                // Der Name aus der API ist deutsch; weitergereicht wird der
-                // Name in der Muttersprache des Lernenden.
-                languageName: tLanguage(language.code, language.name),
-              })
-            }
-          >
-            <Row gap={spacing.md}>
-              <Text style={{ fontSize: 34 }}>{language.flagEmoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Heading>{tLanguage(language.code, language.name)}</Heading>
-                <Text style={[typography.caption, { color: colors.textMuted }]}>{language.nativeName}</Text>
-              </View>
-              <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
-            </Row>
-          </Card>
-        ))}
+        {data
+          .filter((language) => language.isLearnable)
+          .map((language) => (
+            <Card
+              key={language.id}
+              onPress={() =>
+                navigation.navigate('LevelChoice', {
+                  languageId: language.id,
+                  // Der Name aus der API ist deutsch; weitergereicht wird der
+                  // Name in der Muttersprache des Lernenden.
+                  languageName: tLanguage(language.code, language.name),
+                })
+              }
+            >
+              <Row gap={spacing.md}>
+                <Text style={{ fontSize: 34 }}>{language.flagEmoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Heading>{tLanguage(language.code, language.name)}</Heading>
+                  <Text style={[typography.caption, { color: colors.textMuted }]}>
+                    {language.nativeName}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 20, color: colors.textMuted }}>›</Text>
+              </Row>
+            </Card>
+          ))}
       </View>
     </Screen>
   );

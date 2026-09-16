@@ -33,6 +33,12 @@ export interface LanguageDto {
   name: string;
   nativeName: string;
   flagEmoji: string;
+  /**
+   * Ob die Sprache als Lernsprache wählbar ist (eigener Kurs mit Kapiteln,
+   * Vokabelstapeln, Einstufungstest). Manche Sprachen stehen nur als
+   * Muttersprache zur Wahl, weil es (noch) keinen Kurs für sie gibt.
+   */
+  isLearnable: boolean;
 }
 
 export interface LearningProfileDto {

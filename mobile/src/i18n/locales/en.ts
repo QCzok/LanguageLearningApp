@@ -17,7 +17,7 @@ export const en: TranslationDictionary = {
   commonMinutesShort: 'min',
   commonNothingFound: 'Nothing found',
   commonSomethingWentWrong: 'Something went wrong.',
-  commonAppLoading: 'Loading Lingua …',
+  commonAppLoading: 'Loading Lingopanda …',
   commonNetworkTimeout: 'Timed out – please check your connection.',
   commonNetworkOffline: 'No connection to the server.',
   commonErrorBoundaryTitle: 'This view could not be displayed.',
@@ -106,7 +106,7 @@ export const en: TranslationDictionary = {
   homeWeekdaySat: 'Sat',
 
   // ---------------------------------------------------------------- Auth
-  authLoginTitle: 'Welcome to Lingua',
+  authLoginTitle: 'Welcome to Lingopanda',
   authLoginSubtitle: 'Sign in and carry on where you left off.',
   authEmail: 'Email',
   authEmailPlaceholder: 'you@example.com',
@@ -186,7 +186,7 @@ export const en: TranslationDictionary = {
   vocabTopicLabel: 'Topic',
   vocabTopicPlaceholder: 'e.g. cooking, travel, office life …',
   vocabGenerate: 'Generate',
-  vocabPremiumTitle: 'Lingua Premium',
+  vocabPremiumTitle: 'Lingopanda Premium',
   vocabPremiumBody:
     'AI-generated vocabulary decks on a topic of your choice are part of Premium. You can activate Premium in your profile.',
   vocabTopicsCount: '{count} topics',
@@ -410,8 +410,8 @@ export const en: TranslationDictionary = {
   editorAiChecking: 'Checking …',
   editorAiHintReady: 'Have your written text checked and explained',
   editorAiHintTooShort: 'Write a few sentences with the text tool first',
-  editorAiHintPremium: 'Part of Lingua Premium',
-  editorPremiumTitle: 'Lingua Premium',
+  editorAiHintPremium: 'Part of Lingopanda Premium',
+  editorPremiumTitle: 'Lingopanda Premium',
   editorPremiumBody:
     'AI correction, chat, grammar explanations and personal recommendations are part of Premium. You can activate Premium in your profile.',
   editorQuotaExceeded: 'Quota used up',
@@ -572,7 +572,7 @@ export const en: TranslationDictionary = {
   profileNativeLanguage: 'Native language',
   profileNativeLanguageHint:
     'The app’s menus, as well as grammar explanations and hints at A1, appear in this language.',
-  profilePremiumTitle: 'Lingua Premium',
+  profilePremiumTitle: 'Lingopanda Premium',
   profilePremiumActive: 'Active',
   profilePremiumActiveUntil: 'Active until {date}',
   profilePremiumFeatures: 'AI correction, chat, grammar explanations and recommendations',

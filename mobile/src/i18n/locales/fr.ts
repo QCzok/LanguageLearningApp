@@ -17,7 +17,7 @@ export const fr: TranslationDictionary = {
   commonMinutesShort: 'min',
   commonNothingFound: 'Aucun résultat',
   commonSomethingWentWrong: 'Une erreur est survenue.',
-  commonAppLoading: 'Chargement de Lingua …',
+  commonAppLoading: 'Chargement de Lingopanda …',
   commonNetworkTimeout: 'Délai dépassé – vérifie ta connexion.',
   commonNetworkOffline: 'Pas de connexion au serveur.',
   commonErrorBoundaryTitle: 'Cette vue n’a pas pu s’afficher.',
@@ -106,7 +106,7 @@ export const fr: TranslationDictionary = {
   homeWeekdaySat: 'Sam',
 
   // ----------------------------------------------------------- Connexion
-  authLoginTitle: 'Bienvenue sur Lingua',
+  authLoginTitle: 'Bienvenue sur Lingopanda',
   authLoginSubtitle: 'Connecte-toi et reprends là où tu t’étais arrêté.',
   authEmail: 'E-mail',
   authEmailPlaceholder: 'toi@exemple.com',
@@ -186,7 +186,7 @@ export const fr: TranslationDictionary = {
   vocabTopicLabel: 'Sujet',
   vocabTopicPlaceholder: 'p. ex. cuisine, voyages, vie de bureau …',
   vocabGenerate: 'Générer',
-  vocabPremiumTitle: 'Lingua Premium',
+  vocabPremiumTitle: 'Lingopanda Premium',
   vocabPremiumBody:
     'Les paquets de vocabulaire générés par l’IA sur le sujet de ton choix font partie de Premium. Tu peux activer Premium dans ton profil.',
   vocabTopicsCount: '{count} sujets',
@@ -410,8 +410,8 @@ export const fr: TranslationDictionary = {
   editorAiChecking: 'Vérification …',
   editorAiHintReady: 'Faire vérifier et expliquer le texte écrit',
   editorAiHintTooShort: 'Écris d’abord quelques phrases avec l’outil texte',
-  editorAiHintPremium: 'Inclus dans Lingua Premium',
-  editorPremiumTitle: 'Lingua Premium',
+  editorAiHintPremium: 'Inclus dans Lingopanda Premium',
+  editorPremiumTitle: 'Lingopanda Premium',
   editorPremiumBody:
     'La correction IA, le chat, les explications de grammaire et les recommandations personnelles font partie de Premium. Tu peux activer Premium dans ton profil.',
   editorQuotaExceeded: 'Quota épuisé',
@@ -572,7 +572,7 @@ export const fr: TranslationDictionary = {
   profileNativeLanguage: 'Langue maternelle',
   profileNativeLanguageHint:
     'Les menus de l’application ainsi que les explications de grammaire et les indices en A1 apparaissent dans cette langue.',
-  profilePremiumTitle: 'Lingua Premium',
+  profilePremiumTitle: 'Lingopanda Premium',
   profilePremiumActive: 'Actif',
   profilePremiumActiveUntil: 'Actif jusqu’au {date}',
   profilePremiumFeatures: 'Correction IA, chat, explications de grammaire et recommandations',

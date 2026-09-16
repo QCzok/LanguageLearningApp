@@ -27,7 +27,7 @@ export const de = {
   commonMinutesShort: 'Min',
   commonNothingFound: 'Nichts gefunden',
   commonSomethingWentWrong: 'Etwas ist schiefgelaufen.',
-  commonAppLoading: 'Lingua wird geladen …',
+  commonAppLoading: 'Lingopanda wird geladen …',
   commonNetworkTimeout: 'Zeitüberschreitung – bitte Verbindung prüfen.',
   commonNetworkOffline: 'Keine Verbindung zum Server.',
   commonErrorBoundaryTitle: 'Diese Ansicht konnte nicht angezeigt werden.',
@@ -116,7 +116,7 @@ export const de = {
   homeWeekdaySat: 'Sa',
 
   // -------------------------------------------------------------- Anmelden
-  authLoginTitle: 'Willkommen bei Lingua',
+  authLoginTitle: 'Willkommen bei Lingopanda',
   authLoginSubtitle: 'Melde dich an und lerne dort weiter, wo du aufgehört hast.',
   authEmail: 'E-Mail',
   authEmailPlaceholder: 'du@beispiel.de',
@@ -196,7 +196,7 @@ export const de = {
   vocabTopicLabel: 'Thema',
   vocabTopicPlaceholder: 'z. B. Kochen, Reisen, Büroalltag …',
   vocabGenerate: 'Generieren',
-  vocabPremiumTitle: 'Lingua Premium',
+  vocabPremiumTitle: 'Lingopanda Premium',
   vocabPremiumBody:
     'KI-generierte Vokabelstapel zu einem Thema deiner Wahl sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
   vocabTopicsCount: '{count} Themen',
@@ -421,8 +421,8 @@ export const de = {
   editorAiChecking: 'Wird geprüft …',
   editorAiHintReady: 'Geschriebenen Text prüfen und erklären lassen',
   editorAiHintTooShort: 'Erst ein paar Sätze mit dem Textwerkzeug schreiben',
-  editorAiHintPremium: 'Teil von Lingua Premium',
-  editorPremiumTitle: 'Lingua Premium',
+  editorAiHintPremium: 'Teil von Lingopanda Premium',
+  editorPremiumTitle: 'Lingopanda Premium',
   editorPremiumBody:
     'KI-Korrektur, Chat, Grammatikerklärungen und persönliche Empfehlungen sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
   editorQuotaExceeded: 'Kontingent aufgebraucht',
@@ -583,7 +583,7 @@ export const de = {
   profileNativeLanguage: 'Muttersprache',
   profileNativeLanguageHint:
     'Die Menüführung der App sowie Grammatik-Erklärungen und Lösungshinweise auf A1 erscheinen in dieser Sprache.',
-  profilePremiumTitle: 'Lingua Premium',
+  profilePremiumTitle: 'Lingopanda Premium',
   profilePremiumActive: 'Aktiv',
   profilePremiumActiveUntil: 'Aktiv bis {date}',
   profilePremiumFeatures: 'KI-Korrektur, Chat, Grammatikerklärungen und Empfehlungen',

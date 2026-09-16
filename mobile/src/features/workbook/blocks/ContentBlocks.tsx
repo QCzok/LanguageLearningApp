@@ -8,6 +8,7 @@ import type {
   ImageBlock,
   InfoBlock,
   TextBlock,
+  TranslatableLanguage,
   VocabListBlock,
 } from '@lingua/shared';
 import { book, bookFont, bookLabel, bookSans } from '../../../theme';
@@ -228,8 +229,25 @@ export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
   );
 }
 
+/**
+ * Übersetzung eines Vokabeleintrags wählen: die Muttersprache der Lernperson,
+ * sonst Englisch als Brückensprache, sonst irgendein vorhandener Eintrag –
+ * nie ungeprüft der erstbeste Schlüssel, sonst sieht z. B. eine
+ * französischsprachige Person im Spanischkurs deutsche Wörter.
+ */
+function pickVocabTranslation(
+  translations: Partial<Record<TranslatableLanguage, string>>,
+  language: TranslatableLanguage | null,
+): string | undefined {
+  if (language && translations[language]) return translations[language];
+  if (translations.en) return translations.en;
+  return Object.values(translations)[0];
+}
+
 export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
   const { t } = useTranslation();
+  const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
+  const language = asTranslatableLanguage(nativeLanguage);
 
   return (
     <View style={vocabBox}>
@@ -260,7 +278,7 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
                 </Text>
               ) : null}
             </View>
-            <Text style={metaText}>{item.translation}</Text>
+            <Text style={metaText}>{pickVocabTranslation(item.translations, language)}</Text>
             {item.example ? <Text style={exampleText}>{item.example}</Text> : null}
           </View>
         ))}

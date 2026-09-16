@@ -94,7 +94,12 @@ export interface VocabListBlock {
   title?: string;
   items: Array<{
     term: string;
-    translation: string;
+    /**
+     * Übersetzung des Begriffs, je nach Sprache. Angezeigt wird der Eintrag
+     * für die Muttersprache der Lernperson; fehlt der, dient `en` als
+     * Rückfalloption, da nicht jeder Begriff in allen fünf Sprachen vorliegt.
+     */
+    translations: Partial<Record<TranslatableLanguage, string>>;
     /** Artikel bei Substantiven – im Deutschen lernentscheidend. */
     article?: 'der' | 'die' | 'das';
     plural?: string;
