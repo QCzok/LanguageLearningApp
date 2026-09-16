@@ -17,6 +17,7 @@ import {
   Title,
 } from '../../components';
 import { mediaApi } from '../../api/endpoints';
+import { resolveMediaUrl } from '../../api/client';
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatDuration } from './MediaListScreen';
 import type { MediaStackParamList } from '../../navigation/types';
@@ -56,7 +57,7 @@ export default function PlayerScreen({ route }: Props) {
   useEffect(() => {
     if (!data) return;
     hasSeekedInitial.current = false;
-    player.replace({ uri: data.audioUrl });
+    player.replace({ uri: resolveMediaUrl(data.audioUrl) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.id]);
 

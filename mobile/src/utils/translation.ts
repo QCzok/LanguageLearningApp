@@ -3,13 +3,16 @@ import { TRANSLATABLE_LANGUAGES } from '@lingua/shared';
 
 /**
  * Anzeige-Namen für den Umschalt-Link ("Auf Englisch anzeigen"). Dieselben
- * vier Sprachen wie `TRANSLATABLE_LANGUAGES` – die Auswahl im Profil bietet
- * zusätzlich Deutsch an, das braucht hier aber keinen Eintrag, weil bei
- * Deutsch als Muttersprache nichts zu übersetzen ist. Wird sowohl vom
- * Lehrwerk (Kapitel-Erklärungen) als auch von der Bibliothek (Lesetexte)
- * verwendet – deshalb hier zentral statt in einem einzelnen Feature.
+ * Sprachen wie `TRANSLATABLE_LANGUAGES`, Deutsch eingeschlossen: Im
+ * Spanischkurs sind die Seiten einsprachig spanisch, und für deutschsprachige
+ * Lernende ist Deutsch dort die Sprache, in die übersetzt wird. Im
+ * Deutschkurs führt derselbe Eintrag zu nichts, weil die deutschen Blöcke
+ * keine deutsche Übersetzung mitbringen – dann bleibt der Link aus. Wird
+ * sowohl vom Lehrwerk (Kapitel-Erklärungen) als auch von der Bibliothek
+ * (Lesetexte) verwendet – deshalb hier zentral statt in einem Feature.
  */
 export const LANGUAGE_LABELS: Record<TranslatableLanguage, string> = {
+  de: 'Deutsch',
   en: 'Englisch',
   es: 'Spanisch',
   fr: 'Französisch',

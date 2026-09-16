@@ -12,6 +12,7 @@ import { seedWorkbook } from './seed/workbook';
 import {
   MEDIA_SCRIPT_BY_TITLE,
   estimatedDurationSec,
+  mediaSlug,
   transcriptOf,
 } from './seed/media-scripts';
 import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, type LibraryContentSeed } from './seed/library';
@@ -383,7 +384,7 @@ async function main(): Promise<void> {
       const existing = await prisma.mediaItem.findFirst({
         where: { languageId, title: seed.title },
       });
-      const slug = seed.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const slug = mediaSlug(seed.title);
       /*
         Transkript und Spieldauer stammen aus dem Sprechtext (siehe
         media-scripts.ts) – derselben Quelle, aus der `npm run media:tts` die
@@ -418,8 +419,40 @@ async function main(): Promise<void> {
     }
   }
 
+  const mediaSeedsEs = [
+    {
+      type: MediaType.DIALOGUE,
+      level: CefrLevel.A1,
+      title: 'En la panadería',
+      description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
+      tags: ['dialog', 'alltag'],
+    },
+    {
+      type: MediaType.AUDIO_LESSON,
+      level: CefrLevel.A2,
+      title: 'Contar el fin de semana',
+      description: 'Redemittel und Übungen zum Indefinido im Gespräch.',
+      tags: ['grammatik', 'indefinido'],
+    },
+    {
+      type: MediaType.PODCAST,
+      level: CefrLevel.B1,
+      title: 'Noticias lentas: trabajar desde cualquier lugar',
+      description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
+      tags: ['podcast', 'arbeit'],
+    },
+    {
+      type: MediaType.PODCAST,
+      level: CefrLevel.B2,
+      title: 'El laboratorio de lenguas: cómo cambian los acentos',
+      description: 'Interviewfolge über Sprachwandel und die Varietäten des Spanischen.',
+      tags: ['podcast', 'linguistik'],
+    },
+  ];
+
   await seedMediaItems(en, mediaSeeds);
   await seedMediaItems(de, mediaSeedsDe);
+  await seedMediaItems(es, mediaSeedsEs);
 
   // ------------------------------------------------------------ Lehrplan
   await seedWorkbook(prisma);

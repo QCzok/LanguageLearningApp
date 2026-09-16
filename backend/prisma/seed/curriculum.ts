@@ -34,7 +34,7 @@ export interface ChapterSeed {
 }
 
 /** Ein Kapitel, wie der Lehrplan es notiert: nach Stufe, darin nummeriert. */
-type LevelChapterSeed = Omit<ChapterSeed, 'book' | 'order'> & {
+export type LevelChapterSeed = Omit<ChapterSeed, 'book' | 'order'> & {
   level: CefrLevel;
   orderInLevel: number;
 };
@@ -60,6 +60,24 @@ const IS_UPPER_LEVEL: Record<CefrLevel, boolean> = {
   C1: false,
   C2: true,
 };
+
+/**
+ * Lehrplansicht (Stufe + Nummer darin) in die Sicht des Buchs übersetzen:
+ * A1 füllt Beginner 1–6, A2 schließt mit 7–12 an, entsprechend in den anderen
+ * beiden Büchern.
+ *
+ * Steht hier als Funktion, weil der spanische Lehrplan dieselbe Zählung
+ * verwendet (siehe `spanish-curriculum.ts`) – die Regel soll nur einmal im
+ * Code stehen.
+ */
+export function toBookChapters(chapters: LevelChapterSeed[]): ChapterSeed[] {
+  return chapters.map(({ level, orderInLevel, ...rest }) => ({
+    ...rest,
+    level,
+    book: BOOK_BY_LEVEL[level],
+    order: orderInLevel + (IS_UPPER_LEVEL[level] ? CHAPTERS_PER_LEVEL : 0),
+  }));
+}
 
 const COURSE_CHAPTERS: LevelChapterSeed[] = [
   // ------------------------------------------------------------------- A1
@@ -659,11 +677,6 @@ const COURSE_CHAPTERS: LevelChapterSeed[] = [
  * anderen beiden Büchern.
  */
 export const CURRICULUM: ChapterSeed[] = [
-  ...COURSE_CHAPTERS.map(({ level, orderInLevel, ...rest }) => ({
-    ...rest,
-    level,
-    book: BOOK_BY_LEVEL[level],
-    order: orderInLevel + (IS_UPPER_LEVEL[level] ? CHAPTERS_PER_LEVEL : 0),
-  })),
+  ...toBookChapters(COURSE_CHAPTERS),
   ...GRAMMAR_CURRICULUM,
 ];

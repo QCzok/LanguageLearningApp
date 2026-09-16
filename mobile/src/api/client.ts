@@ -7,6 +7,30 @@ const API_URL =
   (Constants.expoConfig?.extra as { apiUrl?: string } | undefined)?.apiUrl ??
   'http://localhost:3000/api/v1';
 
+/** Schema und Host der API, ohne Pfad – die Wurzel, unter der auch /static liegt. */
+const API_ORIGIN = ((): string => {
+  const match = /^([a-z][a-z0-9+.-]*:\/\/[^/]+)/i.exec(API_URL);
+  return match ? match[1] : '';
+})();
+
+/**
+ * Macht aus einer vom Backend gelieferten Medien-Adresse eine abspielbare URL.
+ *
+ * Das Backend liefert Medien-Pfade relativ (`/static/audio/x.mp3`, siehe
+ * `MEDIA_BASE_URL`), weil eine absolute Adresse dort nicht zu bilden ist: Sie
+ * wird beim Seed in die Datenbank geschrieben und gilt dann für alle Clients
+ * gleichermaßen – aber „localhost" bedeutet auf einem Android-Gerät das Gerät
+ * selbst und nicht den Entwicklungsrechner. Welcher Host richtig ist, weiß nur
+ * die App, denn sie spricht ihn ohnehin schon an. Genau den setzt diese
+ * Funktion davor.
+ *
+ * Eine absolute Adresse (später ein CDN) bleibt unverändert.
+ */
+export function resolveMediaUrl(url: string): string {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(url) || url.startsWith('data:')) return url;
+  return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 /** Wird von der Auth-Store gesetzt, damit ein 401 die App ausloggen kann. */
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(handler: () => void): void {

@@ -22,6 +22,7 @@ import type {
   Paginated,
   PlacementQuestionDto,
   PlacementResultDto,
+  PlacementStageResultDto,
   RecommendationDto,
   ReviewCardDto,
   NotebookPageContent as AnnotationContent,
@@ -75,6 +76,11 @@ export const placementApi = {
     api
       .get<PlacementQuestionDto[]>('/placement/test', { params: { languageId } })
       .then((r) => r.data),
+  /** Eine Stufe auswerten: Hat es für die nächste gereicht? */
+  stage: (body: {
+    languageId: string;
+    answers: Array<{ questionId: string; selectedIndex: number }>;
+  }) => api.post<PlacementStageResultDto>('/placement/stage', body).then((r) => r.data),
   submit: (body: {
     languageId: string;
     answers: Array<{ questionId: string; selectedIndex: number }>;

@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CEFR_LEVELS } from '@lingua/shared';
 import type { CefrLevel, LibraryContentDto } from '@lingua/shared';
-import { EmptyState, ErrorState, Input, LevelBadge, Loading, ProgressBar } from '../../components';
+import { EmptyState, ErrorState, LevelBadge, Loading, ProgressBar } from '../../components';
 import { libraryApi } from '../../api/endpoints';
-import { colors, radius, shadow, spacing, typography } from '../../theme';
+import {
+  colors,
+  fontFamily,
+  levelColors,
+  radius,
+  reading,
+  readingLabel,
+  shadow,
+  spacing,
+  typography,
+} from '../../theme';
 import { LibraryCoverArt } from './LibraryCovers';
 import type { LibraryStackParamList } from '../../navigation/types';
 
@@ -20,12 +30,17 @@ const TYPE_FILTERS = [
 ] as const;
 
 /**
- * Bibliotheksübersicht als Kachelraster.
+ * Bibliotheksübersicht als Bücherregal.
  *
- * Jede Kachel besteht aus Bild, Titel und den ersten Zeichen des Texts – wie
- * ein Bücherregal, nicht wie eine Ergebnisliste. Das Bild kommt von
- * `LibraryCoverArt`: mangels echter Fotos eine zum Thema passende, selbst
- * gezeichnete Illustration (siehe dort für die Begründung).
+ * Die Seite ist wie das Schaufenster einer Buchhandlung aufgebaut: ganz oben
+ * die Suche, darunter die Rubriken als gesetzte Kolumnentitel (nicht als
+ * Knopfleiste), dann – falls vorhanden – der angefangene Text als breite
+ * Karte zum Weiterlesen, und erst darunter das Regal selbst.
+ *
+ * Jede Kachel ist ein Buchcover mit farbigem Rücken: Bild, Titel und die
+ * ersten Zeichen des Texts. Das Bild kommt von `LibraryCoverArt` – mangels
+ * echter Fotos eine zum Thema passende, selbst gezeichnete Illustration
+ * (siehe dort für die Begründung).
  */
 export default function LibraryListScreen({ navigation }: Props) {
   const [type, setType] = useState<string | undefined>(undefined);
@@ -37,31 +52,42 @@ export default function LibraryListScreen({ navigation }: Props) {
     queryFn: () => libraryApi.list({ type, level, search: search || undefined, page: 1 }),
   });
 
+  const items = data?.items ?? [];
+
+  // Angefangen, aber nicht zu Ende gelesen: der Text, den die Übersicht ganz
+  // oben anbietet, statt ihn irgendwo im Regal wiederfinden zu lassen.
+  const continueReading = items
+    .filter((item) => item.userProgress && item.userProgress.progressPercent > 0 && !item.userProgress.completedAt)
+    .sort((a, b) => (b.userProgress?.progressPercent ?? 0) - (a.userProgress?.progressPercent ?? 0))[0];
+
+  const shelf = items.filter((item) => item.id !== continueReading?.id);
+
+  function open(content: LibraryContentDto) {
+    navigation.navigate('Reader', { contentId: content.id, title: content.title });
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
       <ScrollView
-        contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl }}
+        contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         keyboardShouldPersistTaps="handled"
       >
-        <Input
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Suchen …"
-          autoCapitalize="none"
-          returnKeyType="search"
-        />
+        <SearchField value={search} onChange={setSearch} />
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterRow}>
+        {/* Rubriken wie im Inhaltsverzeichnis einer Zeitschrift: die aktive
+            Rubrik ist unterstrichen, nicht eingefärbt – das hält die
+            Leitfarbe für die Inhalte selbst frei. */}
+        <View style={rubricRow}>
           {TYPE_FILTERS.map((filter) => (
-            <FilterChip
+            <Rubric
               key={filter.label}
               label={filter.label}
               active={type === filter.value}
               onPress={() => setType(filter.value)}
             />
           ))}
-        </ScrollView>
+        </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterRow}>
           <FilterChip label="Mein Niveau" active={level === undefined} onPress={() => setLevel(undefined)} />
@@ -70,6 +96,7 @@ export default function LibraryListScreen({ navigation }: Props) {
               key={entry}
               label={entry}
               active={level === entry}
+              color={levelColors[entry]}
               onPress={() => setLevel(entry)}
             />
           ))}
@@ -78,7 +105,7 @@ export default function LibraryListScreen({ navigation }: Props) {
         {isLoading ? <Loading /> : null}
         {isError ? <ErrorState message="Die Bibliothek konnte nicht geladen werden." onRetry={refetch} /> : null}
 
-        {data?.items.length === 0 ? (
+        {items.length === 0 && !isLoading ? (
           <EmptyState
             emoji="📚"
             title="Nichts gefunden"
@@ -86,17 +113,122 @@ export default function LibraryListScreen({ navigation }: Props) {
           />
         ) : null}
 
-        <View style={tileGrid}>
-          {data?.items.map((content) => (
-            <ContentTile
-              key={content.id}
-              content={content}
-              onPress={() => navigation.navigate('Reader', { contentId: content.id, title: content.title })}
+        {continueReading ? (
+          <View style={{ gap: spacing.sm }}>
+            <SectionRule label="Weiterlesen" />
+            <ContinueCard content={continueReading} onPress={() => open(continueReading)} />
+          </View>
+        ) : null}
+
+        {shelf.length > 0 ? (
+          <View style={{ gap: spacing.md }}>
+            <SectionRule
+              label={continueReading ? 'Alle Texte' : 'Im Regal'}
+              trailing={`${items.length}`}
             />
-          ))}
-        </View>
+            <View style={tileGrid}>
+              {shelf.map((content) => (
+                <ContentTile key={content.id} content={content} onPress={() => open(content)} />
+              ))}
+            </View>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** Suchfeld mit Lupe und Löschknopf – ein Feld, keine Kartenzeile. */
+function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <View style={searchField}>
+      <Text style={{ fontSize: 15, opacity: 0.5 }}>🔍</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Titel, Thema oder Stichwort …"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        returnKeyType="search"
+        style={searchInput}
+      />
+      {value ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Suche löschen" onPress={() => onChange('')} hitSlop={8}>
+          <Text style={{ fontSize: 15, color: colors.textMuted }}>✕</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** Kolumnentitel mit durchlaufender Haarlinie, wie über einem Zeitungsteil. */
+function SectionRule({ label, trailing }: { label: string; trailing?: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+      <Text style={[readingLabel, { color: colors.text }]}>{label}</Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+      {trailing ? <Text style={[readingLabel, { color: colors.textMuted }]}>{trailing}</Text> : null}
+    </View>
+  );
+}
+
+function Rubric({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[rubric, active && rubricActive]}
+    >
+      <Text
+        style={{
+          fontFamily: active ? fontFamily.bold : fontFamily.medium,
+          fontSize: 14,
+          color: active ? colors.text : colors.textMuted,
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Der angefangene Text, quer statt hochkant: Cover links, daneben Titel,
+ * Fortschritt in Prozent und die verbleibende Lesezeit. So ist auf einen
+ * Blick klar, wie weit man war – die Kachel im Regal zeigt das nur als
+ * schmalen Balken.
+ */
+function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
+  const percent = content.userProgress?.progressPercent ?? 0;
+  const remaining = Math.max(1, Math.round(content.estimatedMinutes * (1 - percent / 100)));
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [continueCard, pressed && { opacity: 0.92 }]}
+    >
+      <View style={continueCover}>
+        <LibraryCoverArt content={content} />
+      </View>
+
+      <View style={{ flex: 1, gap: spacing.xs, justifyContent: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <LevelBadge level={content.level} small />
+          <Text style={[readingLabel, { color: colors.textMuted }]}>Noch ca. {remaining} Min</Text>
+        </View>
+
+        <Text style={[typography.bodyStrong, { fontSize: 16 }]} numberOfLines={2}>
+          {content.title}
+        </Text>
+
+        <View style={{ gap: 4, marginTop: 2 }}>
+          <ProgressBar value={percent} height={4} />
+          <Text style={[typography.caption, { color: colors.textMuted }]}>{percent} % gelesen</Text>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -104,11 +236,14 @@ export default function LibraryListScreen({ navigation }: Props) {
  * Eine Kachel ist ein Buchcover, kein Listenelement: Das Bild füllt die ganze
  * Kachel, Titel und Textauszug liegen als echter Text über dem abgedunkelten
  * unteren Rand (den die Illustration selbst mitbringt, siehe `LibraryCovers`).
- * Das hält die Kachel kompakt, statt Bild und Text als zwei separate Blöcke
- * übereinanderzustapeln.
+ *
+ * Dazu kommt der Buchrücken – ein schmaler Streifen in der Farbe des Niveaus
+ * am linken Rand. Er macht aus dem Raster ein Regal: Man sieht schon an der
+ * Farbkante, wie schwer ein Text ist, bevor man die Plakette liest.
  */
 function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
   const progress = content.userProgress;
+  const done = Boolean(progress?.completedAt);
 
   return (
     <Pressable
@@ -118,11 +253,13 @@ function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress
     >
       <LibraryCoverArt content={content} />
 
+      <View style={[spine, { backgroundColor: levelColors[content.level] ?? colors.primary }]} />
+
       <View style={topRow}>
         <LevelBadge level={content.level} small />
-        {progress?.completedAt ? (
+        {done ? (
           <View style={doneBadge}>
-            <Text style={{ fontSize: 12, color: colors.textInverse }}>✓</Text>
+            <Text style={{ fontSize: 11, color: colors.textInverse }}>✓</Text>
           </View>
         ) : null}
       </View>
@@ -139,7 +276,7 @@ function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress
           {content.excerpt}
         </Text>
 
-        {progress && progress.progressPercent > 0 && !progress.completedAt ? (
+        {progress && progress.progressPercent > 0 && !done ? (
           <View style={{ marginTop: 6 }}>
             <ProgressBar value={progress.progressPercent} height={3} />
           </View>
@@ -152,10 +289,13 @@ function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress
 export function FilterChip({
   label,
   active,
+  color = colors.primary,
   onPress,
 }: {
   label: string;
   active: boolean;
+  /** Aktive Farbe – bei Niveaus die Farbe des Niveaus, sonst die Leitfarbe. */
+  color?: string;
   onPress: () => void;
 }) {
   return (
@@ -163,16 +303,50 @@ export function FilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[chipStyle, active && chipActiveStyle]}
+      style={[chipStyle, active && { backgroundColor: color, borderColor: color }]}
     >
-      <Text
-        style={[typography.label, { color: active ? colors.textInverse : colors.textMuted }]}
-      >
+      <Text style={[typography.label, { color: active ? colors.textInverse : colors.textMuted }]}>
         {label}
       </Text>
     </Pressable>
   );
 }
+
+const searchField = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.sm,
+  minHeight: 46,
+  paddingHorizontal: spacing.md,
+  borderRadius: radius.full,
+  backgroundColor: colors.surface,
+  borderWidth: 1,
+  borderColor: colors.border,
+};
+
+const searchInput = {
+  flex: 1,
+  ...typography.body,
+  color: colors.text,
+};
+
+const rubricRow = {
+  flexDirection: 'row' as const,
+  gap: spacing.lg,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
+};
+
+const rubric = {
+  paddingBottom: spacing.sm,
+  borderBottomWidth: 2,
+  borderBottomColor: 'transparent',
+  marginBottom: -1,
+};
+
+const rubricActive = {
+  borderBottomColor: colors.primary,
+};
 
 const filterRow = { flexDirection: 'row' as const, gap: spacing.sm, paddingRight: spacing.lg };
 
@@ -185,7 +359,25 @@ const chipStyle = {
   borderColor: colors.border,
 };
 
-const chipActiveStyle = { backgroundColor: colors.primary, borderColor: colors.primary };
+const continueCard = {
+  flexDirection: 'row' as const,
+  gap: spacing.md,
+  padding: spacing.sm,
+  paddingRight: spacing.md,
+  borderRadius: radius.lg,
+  backgroundColor: colors.surface,
+  borderWidth: 1,
+  borderColor: colors.border,
+  ...shadow.card,
+};
+
+const continueCover = {
+  width: 68,
+  aspectRatio: 3 / 4,
+  borderRadius: radius.md,
+  overflow: 'hidden' as const,
+  backgroundColor: reading.paperDeep,
+};
 
 const tileGrid = {
   flexDirection: 'row' as const,
@@ -195,8 +387,9 @@ const tileGrid = {
 
 /**
  * Die ganze Kachel ist das Buchcover (3:4, siehe `LibraryCovers`) – deutlich
- * kompakter als das vorige breite 4:3-Bild mit separatem Textblock darunter.
- * Ein echter Schatten statt einer reinen Rahmenlinie macht sie zur Karte.
+ * kompakter als ein breites Bild mit separatem Textblock darunter. Ein
+ * kräftiger Schatten statt einer reinen Rahmenlinie macht sie zum Gegenstand
+ * im Regal.
  */
 const tile = {
   flexBasis: '47%' as const,
@@ -205,13 +398,22 @@ const tile = {
   borderRadius: radius.lg,
   overflow: 'hidden' as const,
   backgroundColor: colors.surfaceAlt,
-  ...shadow.card,
+  ...shadow.lift,
+};
+
+/** Der Buchrücken am linken Rand, in der Farbe des Niveaus. */
+const spine = {
+  position: 'absolute' as const,
+  left: 0,
+  top: 0,
+  bottom: 0,
+  width: 5,
 };
 
 const topRow = {
   position: 'absolute' as const,
   top: spacing.sm,
-  left: spacing.sm,
+  left: spacing.md,
   right: spacing.sm,
   flexDirection: 'row' as const,
   justifyContent: 'space-between' as const,
@@ -233,6 +435,7 @@ const bottomOverlay = {
   right: 0,
   bottom: 0,
   padding: spacing.sm,
+  paddingLeft: spacing.md,
   paddingTop: spacing.lg,
 };
 

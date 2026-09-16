@@ -17,12 +17,18 @@ import type { CefrLevel } from './cefr';
 export const WORKBOOK_CONTENT_VERSION = 1;
 
 /**
- * Sprachen, in die Erklärungen im Heft übersetzt werden. Dieselben vier
- * Sprachen wie unter den lernbaren Sprachen (siehe `Language`-Tabelle),
- * abzüglich Deutsch – wer Deutsch als Muttersprache angibt, braucht keine
- * Übersetzung der deutschen Erklärungen.
+ * Sprachen, in die Erklärungen im Heft übersetzt werden – dieselben Sprachen
+ * wie unter den lernbaren Sprachen (siehe `Language`-Tabelle).
+ *
+ * Deutsch steht hier mit, seit es neben dem Deutschkurs auch einen
+ * Spanischkurs gibt: Dessen Seiten sind einsprachig spanisch, und seine
+ * Lernenden sind deutschsprachig – genau der Fall, für den die aufklappbare
+ * Übersetzung gedacht ist. Dass eine Sprache hier steht, heißt nicht, dass
+ * jeder Block sie mitbringt: Übersetzt wird immer nur in die Sprachen, die
+ * nicht die Zielsprache des Kurses sind, und ein fehlender Eintrag blendet
+ * den Umschalt-Link schlicht aus.
  */
-export const TRANSLATABLE_LANGUAGES = ['en', 'es', 'fr', 'it'] as const;
+export const TRANSLATABLE_LANGUAGES = ['de', 'en', 'es', 'fr', 'it'] as const;
 export type TranslatableLanguage = (typeof TRANSLATABLE_LANGUAGES)[number];
 
 export const BLOCK_TYPES = [

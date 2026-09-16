@@ -1,9 +1,11 @@
 /**
  * Erzeugt die Audiodateien der Mediathek aus den Sprechtexten.
  *
- *   npm run media:tts            nur fehlende Dateien
- *   npm run media:tts -- --force alle neu
- *   npm run media:tts -- --only "Beim Bäcker"
+ *   npm run media:tts                         nur fehlende Dateien
+ *   npm run media:tts -- --force              alle neu
+ *   npm run media:tts -- --only "Beim Bäcker" eine einzelne
+ *   npm run media:tts -- --provider windows   lokale Windows-Stimmen
+ *   npm run media:tts -- --voices             nur zeigen, was installiert ist
  *
  * Jede Zeile eines Skripts wird einzeln synthetisiert – so bekommt ein Dialog
  * zwei unterscheidbare Stimmen – und die Ergebnisse werden zu einer Datei
@@ -11,6 +13,15 @@
  * Ein Decoder liest sie der Reihe nach, genau wie bei einem Datenstrom.
  * Zwischen zwei Zeilen steht eine kurze Stille, sonst fallen die Sprechenden
  * einander ins Wort.
+ *
+ * Zwei Wege zur Aufnahme:
+ *
+ *   openai   (Vorgabe)  Sprachsynthese über die API. Beste Qualität, braucht
+ *                       OPENAI_API_KEY und kostet pro Aufnahme ein paar Cent.
+ *   windows             Die in Windows installierten Stimmen. Kostenlos und
+ *                       offline, aber hörbar robotischer – und nur brauchbar,
+ *                       wenn für die jeweilige Sprache auch eine Stimme
+ *                       installiert ist (siehe `--voices`).
  *
  * Am Ende trägt das Skript die tatsächlich gemessene Spieldauer in die
  * Datenbank ein. Die Zahl aus dem Seed ist nur eine Schätzung aus der
@@ -23,11 +34,14 @@ import { config as loadEnv } from 'dotenv';
 import { PrismaClient } from '@prisma/client';
 import {
   MEDIA_SCRIPTS,
+  mediaSlug,
   transcriptOf,
   type MediaScript,
   type MediaScriptLine,
 } from '../prisma/seed/media-scripts';
 import { readMp3DurationSec, silentMp3 } from '../src/modules/media/mp3-duration';
+import { FFMPEG_HINT, ffmpegAvailable, wavToMp3 } from './ffmpeg';
+import { installedVoices, pickVoice, speakToWav } from './windows-voices';
 
 loadEnv();
 
@@ -38,6 +52,8 @@ const MODEL = process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts';
 /** Pause zwischen zwei Zeilen. Kurz genug, dass ein Dialog nicht zerfällt. */
 const GAP_SEC = 0.45;
 
+type Provider = 'openai' | 'windows';
+
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
@@ -45,20 +61,21 @@ async function main(): Promise<void> {
   const force = args.includes('--force');
   const onlyIndex = args.indexOf('--only');
   const only = onlyIndex >= 0 ? args[onlyIndex + 1] : null;
+  const providerIndex = args.indexOf('--provider');
+  const provider = (
+    providerIndex >= 0 ? args[providerIndex + 1] : (process.env.TTS_PROVIDER ?? 'openai')
+  ) as Provider;
 
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) {
-    console.error(
-      'OPENAI_API_KEY fehlt.\n' +
-        'Tragen Sie den Schlüssel in backend/.env ein und starten Sie das Skript erneut.\n' +
-        'Ohne Schlüssel lässt sich keine Sprachausgabe erzeugen; die Mediathek bleibt bis dahin ohne Ton.',
-    );
-    process.exitCode = 1;
+  if (args.includes('--voices')) {
+    showVoices();
     return;
   }
 
-  const outDir = join(process.cwd(), process.env.STATIC_DIR ?? 'static', 'audio');
-  mkdirSync(outDir, { recursive: true });
+  if (provider !== 'openai' && provider !== 'windows') {
+    console.error(`Unbekannter Anbieter "${provider}". Möglich sind: openai, windows.`);
+    process.exitCode = 1;
+    return;
+  }
 
   const scripts = only
     ? MEDIA_SCRIPTS.filter((script) => script.title === only)
@@ -69,10 +86,51 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`Sprachsynthese mit ${MODEL} – ${scripts.length} Aufnahme(n)\n`);
+  /*
+    Voraussetzungen vorab prüfen, nicht erst mitten im Durchlauf: Bricht die
+    fünfte von zwölf Aufnahmen ab, weil eine Stimme fehlt, liegen vier fertige
+    Dateien herum und die Datenbank kennt Dauern, die zum Rest nicht passen.
+  */
+  let speak: (script: MediaScript, line: MediaScriptLine) => Promise<Buffer>;
+
+  if (provider === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) {
+      console.error(
+        'OPENAI_API_KEY fehlt.\n' +
+          'Tragen Sie den Schlüssel in backend/.env ein und starten Sie das Skript erneut.\n\n' +
+          'Ohne Schlüssel geht es auch lokal:  npm run media:tts -- --provider windows\n' +
+          'Was dafür installiert sein muss, zeigt:  npm run media:tts -- --voices',
+      );
+      process.exitCode = 1;
+      return;
+    }
+    speak = (script, line) => speakOpenAi(apiKey, script, line);
+  } else {
+    if (!ffmpegAvailable()) {
+      console.error(FFMPEG_HINT);
+      process.exitCode = 1;
+      return;
+    }
+    // Wirft mit Anleitung, wenn für eine der Sprachen keine Stimme da ist.
+    try {
+      for (const script of scripts) pickVoice(script.language, script.lines[0].voice);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+      return;
+    }
+    speak = (script, line) => Promise.resolve(wavToMp3(speakToWav(script, line)));
+  }
+
+  const outDir = join(process.cwd(), process.env.STATIC_DIR ?? 'static', 'audio');
+  mkdirSync(outDir, { recursive: true });
+
+  const how = provider === 'openai' ? MODEL : 'lokalen Windows-Stimmen';
+  console.log(`Sprachsynthese mit ${how} – ${scripts.length} Aufnahme(n)\n`);
 
   for (const script of scripts) {
-    const file = join(outDir, `${slugify(script.title)}.mp3`);
+    const file = join(outDir, `${mediaSlug(script.title)}.mp3`);
 
     if (existsSync(file) && !force) {
       const seconds = readMp3DurationSec(readFileSync(file));
@@ -85,7 +143,7 @@ async function main(): Promise<void> {
     const parts: Buffer[] = [];
 
     for (const [index, line] of script.lines.entries()) {
-      parts.push(await speak(apiKey, script, line));
+      parts.push(await speak(script, line));
       if (index < script.lines.length - 1) parts.push(silentMp3(GAP_SEC));
       process.stdout.write('.');
     }
@@ -100,8 +158,40 @@ async function main(): Promise<void> {
   console.log(`\nAbgelegt in ${outDir}`);
 }
 
-/** Eine einzelne Zeile synthetisieren. */
-async function speak(apiKey: string, script: MediaScript, line: MediaScriptLine): Promise<Buffer> {
+/** Übersicht: Was ist installiert, und reicht es für die vorhandenen Texte? */
+function showVoices(): void {
+  const voices = installedVoices();
+  console.log('Installierte Windows-Stimmen:');
+  if (voices.length === 0) console.log('  keine');
+  for (const v of voices) console.log(`  ${v.name}  (${v.culture}, ${v.gender})`);
+
+  const languages = [...new Set(MEDIA_SCRIPTS.map((s) => s.language))].sort();
+  console.log('\nBenötigt für die vorhandenen Sprechtexte:');
+  for (const language of languages) {
+    const count = MEDIA_SCRIPTS.filter((s) => s.language === language).length;
+    const ok = voices.some((v) => v.culture.toLowerCase().startsWith(language));
+    console.log(`  ${language}  ${count} Aufnahme(n)  ${ok ? '✓ vorhanden' : '✗ fehlt'}`);
+  }
+
+  console.log(`\nffmpeg (WAV → MP3): ${ffmpegAvailable() ? '✓ gefunden' : '✗ fehlt'}`);
+  const missing = languages.filter(
+    (l) => !voices.some((v) => v.culture.toLowerCase().startsWith(l)),
+  );
+  if (missing.length > 0) {
+    console.log(
+      '\nFehlende Stimmen nachinstallieren: Einstellungen → Zeit und Sprache →\n' +
+        'Sprache und Region → Sprache hinzufügen → "Sprachausgabe" ankreuzen.\n' +
+        'Danach das Terminal neu starten.',
+    );
+  }
+}
+
+/** Eine einzelne Zeile über die OpenAI-Sprachsynthese erzeugen. */
+async function speakOpenAi(
+  apiKey: string,
+  script: MediaScript,
+  line: MediaScriptLine,
+): Promise<Buffer> {
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
@@ -133,11 +223,6 @@ async function saveDuration(script: MediaScript, seconds: number): Promise<void>
   if (result.count === 0) {
     console.warn(`    Hinweis: kein Mediathek-Eintrag "${script.title}" – Seed schon gelaufen?`);
   }
-}
-
-/** Dieselbe Regel wie im Seed, damit Datei und `audioUrl` zusammenpassen. */
-function slugify(title: string): string {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 }
 
 function format(seconds: number): string {

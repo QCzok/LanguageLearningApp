@@ -29,8 +29,13 @@ export interface MediaScriptLine {
 export interface MediaScript {
   /** Titel des Mediathek-Eintrags – darüber wird zugeordnet. */
   title: string;
-  /** Sprache der Aufnahme; steuert die Aussprache-Anweisung an das Modell. */
-  language: 'de' | 'en';
+  /**
+   * Sprache der Aufnahme. Steuert die Aussprache-Anweisung an das Modell und,
+   * bei der lokalen Sprachausgabe, die Wahl der installierten Stimme – eine
+   * englische Stimme, die einen spanischen Text vorliest, wäre als Hörvorlage
+   * schlimmer als keine Aufnahme.
+   */
+  language: 'de' | 'en' | 'es';
   /**
    * Sprechtempo. Auf den unteren Niveaus bewusst unter 1: Eine A2-Lektion in
    * Muttersprachlergeschwindigkeit ist kein Hörverstehen, sondern ein Test.
@@ -437,6 +442,184 @@ const LANGUAGE_LAB: MediaScript = {
   ],
 };
 
+// ----------------------------------------------------------------- Spanisch
+
+const EN_LA_PANADERIA: MediaScript = {
+  title: 'En la panadería',
+  language: 'es',
+  speed: 0.9,
+  instructions:
+    'Conversación cotidiana en el mostrador de una tienda. Amable, bien articulada, sin prisa. Pausa breve al final de cada frase.',
+  lines: [
+    { speaker: 'A', voice: 'nova', text: '¡Buenos días! ¿Qué le pongo?' },
+    { speaker: 'B', voice: 'onyx', text: 'Buenos días. Dos barras de pan, por favor.' },
+    { speaker: 'A', voice: 'nova', text: '¿Alguna cosa más?' },
+    { speaker: 'B', voice: 'onyx', text: 'Sí, una napolitana de chocolate. ¿Cuánto es todo?' },
+    { speaker: 'A', voice: 'nova', text: 'Son tres euros con veinte.' },
+    { speaker: 'B', voice: 'onyx', text: 'Aquí tiene.' },
+    { speaker: 'A', voice: 'nova', text: 'Gracias a usted. ¡Que tenga un buen día!' },
+  ],
+};
+
+const FIN_DE_SEMANA: MediaScript = {
+  title: 'Contar el fin de semana',
+  language: 'es',
+  speed: 0.9,
+  instructions:
+    'Lección de audio. La voz que enseña habla despacio y con claridad, deja una pausa después de cada modelo para que el oyente repita. Los ejemplos suenan naturales, no recitados.',
+  lines: [
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'En esta lección vamos a contar lo que hicimos el fin de semana. Para eso necesitamos el pretérito indefinido, el tiempo que usamos cuando algo ya terminó.',
+    },
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'Escuche primero un ejemplo sencillo. El sábado fui al cine con una amiga.',
+    },
+    { speaker: 'Profesora', voice: 'sage', text: 'Repita conmigo. El sábado fui al cine.' },
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'Fíjese en el verbo. En presente decimos voy. En indefinido decimos fui. Es una forma irregular, y aparece tantas veces que conviene aprenderla de memoria.',
+    },
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'Ahora escuche una conversación corta entre dos personas.',
+    },
+    { speaker: 'A', voice: 'nova', text: '¿Qué tal el fin de semana?' },
+    {
+      speaker: 'B',
+      voice: 'onyx',
+      text: 'Muy bien. El sábado comí en casa de mis padres y por la tarde salí a correr. ¿Y tú?',
+    },
+    {
+      speaker: 'A',
+      voice: 'nova',
+      text: 'Yo trabajé el sábado, pero el domingo descansé todo el día.',
+    },
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'Escuche otra vez las terminaciones. Comí, salí, trabajé, descansé. Los verbos en a terminan en é, los verbos en e y en i terminan en í.',
+    },
+    {
+      speaker: 'Profesora',
+      voice: 'sage',
+      text: 'Para terminar, responda usted mismo. ¿Qué hizo el fin de semana pasado? Diga dos frases en voz alta.',
+    },
+  ],
+};
+
+const NOTICIAS_LENTAS: MediaScript = {
+  title: 'Noticias lentas: trabajar desde cualquier lugar',
+  language: 'es',
+  speed: 0.85,
+  instructions:
+    'Boletín informativo leído despacio, con dicción clara y pausas marcadas entre las frases. Tono neutro, sin dramatismo.',
+  lines: [
+    {
+      voice: 'echo',
+      text: 'Noticias lentas. Un boletín en español claro, pensado para quienes están aprendiendo el idioma.',
+    },
+    {
+      voice: 'echo',
+      text: 'Nuestro tema de hoy: el trabajo a distancia. Cinco años después de que millones de personas empezaran a trabajar desde casa, las empresas siguen sin ponerse de acuerdo sobre cómo organizarlo.',
+    },
+    {
+      voice: 'echo',
+      text: 'Un estudio europeo publicado esta semana muestra que alrededor de un tercio de los empleados de oficina trabaja hoy al menos dos días por semana fuera de la empresa. En el sur del continente la proporción es menor que en el norte.',
+    },
+    {
+      voice: 'echo',
+      text: 'Las ventajas que más mencionan los trabajadores son dos: menos tiempo de desplazamiento y más tranquilidad para concentrarse. Entre los inconvenientes aparecen el aislamiento y la dificultad para separar el trabajo del tiempo libre.',
+    },
+    {
+      voice: 'echo',
+      text: 'Varias ciudades observan además un efecto inesperado. Los barrios de oficinas se vacían durante la semana, mientras que las cafeterías de los barrios residenciales tienen más clientes que antes.',
+    },
+    {
+      voice: 'echo',
+      text: 'Los expertos consideran que el modelo mixto se impondrá a largo plazo. La pregunta ya no es si se trabaja desde casa, sino cuántos días y quién los decide.',
+    },
+    { voice: 'echo', text: 'Esto ha sido todo por hoy. Gracias por escuchar.' },
+  ],
+};
+
+const EL_LABORATORIO: MediaScript = {
+  title: 'El laboratorio de lenguas: cómo cambian los acentos',
+  language: 'es',
+  speed: 1,
+  instructions:
+    'Entrevista de pódcast a velocidad normal. La presentación, curiosa y cercana; la experta, explicativa, con entonación natural.',
+  lines: [
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: 'Bienvenidos al laboratorio de lenguas. Hoy me acompaña una lingüista que estudia cómo cambia la pronunciación con el tiempo. Gracias por venir.',
+    },
+    { speaker: 'Invitada', voice: 'sage', text: 'Gracias a ustedes por la invitación.' },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: 'Empecemos por lo básico. ¿Por qué una lengua no suena igual en todas partes?',
+    },
+    {
+      speaker: 'Invitada',
+      voice: 'sage',
+      text: 'Porque la lengua no se decide en una oficina, sino en las conversaciones. Nos adaptamos continuamente a las personas con las que hablamos, casi siempre sin darnos cuenta. Quienes hablan mucho entre sí acaban sonando parecido; quienes tienen poco contacto se separan. De ese mecanismo tan sencillo nacen, a lo largo de generaciones, mapas dialectales enteros.',
+    },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: 'El español se habla en veinte países. ¿Cuál de todas esas variedades es la correcta?',
+    },
+    {
+      speaker: 'Invitada',
+      voice: 'sage',
+      text: 'Ninguna, y eso es importante decirlo. Durante mucho tiempo se presentó la norma de Madrid como el modelo, pero la mayoría de los hispanohablantes vive en América. Hoy se habla de una norma culta panhispánica: varias formas cultas, igual de válidas, que se entienden entre sí sin dificultad.',
+    },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: '¿Cómo detectan ustedes que algo está cambiando?',
+    },
+    {
+      speaker: 'Invitada',
+      voice: 'sage',
+      text: 'Comparamos grabaciones de distintas décadas y medimos sonidos concretos: cuánto dura una vocal, en qué punto de la boca se articula. Los desplazamientos son mínimos, casi imperceptibles. Pero a lo largo de cuarenta años se acumulan hasta que cualquiera nota la diferencia.',
+    },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: '¿Influyen los medios y las redes?',
+    },
+    {
+      speaker: 'Invitada',
+      voice: 'sage',
+      text: 'Menos de lo que se cree. Escuchar por sí solo apenas modifica la propia pronunciación. Lo decisivo es la conversación, aquella en la que uno responde. Lo que sí viaja rápido por los medios son palabras y expresiones sueltas; la pronunciación depende más bien de con quién se habla a diario.',
+    },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: '¿Y qué significa todo esto para quien aprende español?',
+    },
+    {
+      speaker: 'Invitada',
+      voice: 'sage',
+      text: 'Sobre todo un alivio. No existe una pronunciación única que haya que imitar. El objetivo es que le entiendan, no perder el acento. Yo recomendaría orientarse hacia la variedad de la región en la que uno vive realmente, y no tratar el propio acento como un error. Dice de dónde viene uno, igual que el de cualquier hablante nativo.',
+    },
+    {
+      speaker: 'Presentadora',
+      voice: 'nova',
+      text: 'Un buen final. Muchas gracias por la conversación.',
+    },
+    { speaker: 'Invitada', voice: 'sage', text: 'Con mucho gusto.' },
+  ],
+};
+
 export const MEDIA_SCRIPTS: MediaScript[] = [
   BEIM_BAECKER,
   WOCHENENDE,
@@ -446,9 +629,44 @@ export const MEDIA_SCRIPTS: MediaScript[] = [
   WEEKEND,
   SLOW_NEWS,
   LANGUAGE_LAB,
+  EN_LA_PANADERIA,
+  FIN_DE_SEMANA,
+  NOTICIAS_LENTAS,
+  EL_LABORATORIO,
 ];
 
 export const MEDIA_SCRIPT_BY_TITLE = new Map(MEDIA_SCRIPTS.map((script) => [script.title, script]));
+
+/**
+ * Der Dateiname einer Aufnahme, aus dem Titel abgeleitet.
+ *
+ * Steht hier, weil zwei Stellen dieselbe Regel brauchen und sie nicht
+ * auseinanderlaufen dürfen: Der Seed schreibt die `audioUrl` in die Datenbank,
+ * `scripts/generate-media-audio.ts` legt die Datei an. Ergäben die beiden
+ * verschiedene Namen, zeigte jeder Eintrag ins Leere – vorher stand die Regel
+ * doppelt im Code, einmal hier und einmal dort.
+ *
+ * Umlaute werden umschrieben, statt sie wegfallen zu lassen: Die frühere
+ * Fassung ersetzte jede Folge von Zeichen außerhalb von a–z0–9 durch einen
+ * Bindestrich, und aus „Beim Bäcker“ wurde `beim-b-cker.mp3`. Titel, die mit
+ * einem Umlaut beginnen, ergaben sogar einen führenden Bindestrich
+ * („Überall“ → `-berall.mp3`) – ein Dateiname, den jede Kommandozeile für
+ * eine Option hält. Die übrigen diakritischen Zeichen fallen über die
+ * Unicode-Zerlegung weg, was für die spanischen Titel wichtig wird
+ * („Canción“ → `cancion`).
+ */
+export function mediaSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 /**
  * Das Transkript, wie es in der App unter der Folge steht: Sprecherkürzel wie

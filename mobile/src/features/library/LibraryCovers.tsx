@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, Path, Polygon, Rect, Stop } from 'react-native-svg';
 import type { LibraryContentDto } from '@lingua/shared';
 
@@ -44,6 +44,32 @@ export function LibraryCoverArt({ content }: { content: LibraryContentDto }) {
   }
   const Cover = content.tags.map((tag) => COVERS_BY_TAG[tag]).find(Boolean) ?? BookCover;
   return <Cover />;
+}
+
+/**
+ * Abdunkelung, die über ein Titelbild gelegt wird, damit weißer Text darauf
+ * lesbar bleibt.
+ *
+ * `Frame` bringt für die Kachel bereits einen eigenen Verlauf mit – der sitzt
+ * aber im unteren Fünftel der Hochformat-Leinwand und wird weggeschnitten,
+ * sobald dasselbe Motiv als breites Band gezeigt wird (so wie im Lesekopf von
+ * `ReaderScreen`). Dieser Verlauf liegt deshalb als eigene Ebene über dem
+ * Bild und richtet sich nach dessen tatsächlicher Höhe, nicht nach der
+ * Leinwand.
+ */
+export function CoverScrim() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+      <Defs>
+        <LinearGradient id="coverScrim" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0D0D0D" stopOpacity={0.15} />
+          <Stop offset="0.45" stopColor="#0D0D0D" stopOpacity={0.35} />
+          <Stop offset="1" stopColor="#0D0D0D" stopOpacity={0.88} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#coverScrim)" />
+    </Svg>
+  );
 }
 
 /** Hochformat-Leinwand (120×160) plus abgedunkelter Verlauf für den Textbereich. */

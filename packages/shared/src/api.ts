@@ -80,13 +80,42 @@ export interface PlacementAnswerInput {
   selectedIndex: number;
 }
 
+/**
+ * Fragen je Niveau im Einstufungstest – und die Zahl davon, die richtig sein
+ * muss, um auf die nächste Stufe zu kommen.
+ *
+ * Beide Werte stehen hier statt nur im Backend, weil die Oberfläche die Regel
+ * ansagt, bevor der Test losgeht („5 Fragen je Stufe, 3 richtig führen
+ * weiter"): Sonst müsste sie die Zahlen doppelt führen und könnte still
+ * auseinanderlaufen.
+ */
+export const PLACEMENT_QUESTIONS_PER_LEVEL = 5;
+export const PLACEMENT_PASS_CORRECT = 3;
+
+/**
+ * Auswertung einer einzelnen Stufe.
+ *
+ * Der Test läuft Stufe für Stufe: Nach den fünf Fragen eines Niveaus fragt
+ * die App hier nach, ob es gereicht hat. Nur so kann sie frühzeitig abbrechen
+ * – ohne die Lösungen zu kennen, die das Backend nie herausgibt.
+ */
+export interface PlacementStageResultDto {
+  level: CefrLevel;
+  correct: number;
+  total: number;
+  passed: boolean;
+  /** Nächste Stufe – null, wenn durchgefallen oder C2 geschafft. */
+  nextLevel: CefrLevel | null;
+}
+
 export interface PlacementResultDto {
   attemptId: string;
   correct: number;
   total: number;
   scorePercent: number;
   resultLevel: CefrLevel;
-  perLevel: Array<{ level: CefrLevel; correct: number; total: number }>;
+  /** Eine Zeile je angetretener Stufe – die Leiter, wie sie gelaufen ist. */
+  perLevel: Array<{ level: CefrLevel; correct: number; total: number; passed: boolean }>;
   recommendation: string;
 }
 

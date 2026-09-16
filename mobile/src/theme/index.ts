@@ -196,6 +196,18 @@ export const shadow = {
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
+  /**
+   * Tiefer als `card` – für Flächen, die als Gegenstand gelesen werden sollen
+   * statt als Abschnitt der Oberfläche: das Buchcover im Regal der
+   * Bibliothek, der Vorspann einer Lesestrecke.
+   */
+  lift: {
+    shadowColor: '#0D0D0D',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
 } as const;
 
 /**
@@ -227,4 +239,49 @@ export const bookColors = {
   INTERMEDIATE: { accent: '#8E2833', soft: '#F1D7D9' },
   ADVANCED: { accent: '#5E040D', soft: '#EBD2D4' },
   GRAMMAR: { accent: '#2B4B6F', soft: '#DCE5EF' },
+} as const;
+
+/**
+ * Tokens der Lesestrecke – des Bereichs „Lesen“.
+ *
+ * Ein Lesetext soll nach Zeitschriftenseite aussehen, nicht nach App-Liste:
+ * warmes Papier statt des grauen App-Hintergrunds, Haarlinien statt Kästen,
+ * ein Vorspann vor dem eigentlichen Text und eine Schriftgröße, die der
+ * Lesende selbst einstellt. Die Farben bleiben die der App – nur das Papier
+ * ist eine Spur wärmer als jede andere Fläche, weil längere Texte davon
+ * spürbar ruhiger werden.
+ */
+export const reading = {
+  paper: colors.readingBackground,
+  /** Leicht abgetönt – für Vorspann, Übersetzung und Worterklärungen. */
+  paperDeep: '#EFEDE8',
+  edge: '#E3E0D9',
+  /** Haarlinie zwischen zwei Blöcken; deutlich blasser als eine Rahmenlinie. */
+  rule: '#DDD9D1',
+  ink: colors.text,
+  inkSoft: '#5E5A54',
+  inkFaint: '#968F86',
+
+  /**
+   * Vier Stufen für die Schriftgröße des Fließtexts (A−/A+ im Lesekopf).
+   * Der Zeilenabstand folgt daraus, statt eigene Werte zu führen – so bleibt
+   * das Verhältnis von Größe zu Durchschuss auf jeder Stufe dasselbe.
+   */
+  textSizes: [16, 17.5, 19, 21] as const,
+  lineHeightRatio: 1.62,
+
+  /**
+   * Maximale Zeilenbreite. Auf dem Telefon greift sie nie, auf dem Web-Layout
+   * verhindert sie die überlange Zeile, die kein Auge mehr zurückfindet.
+   */
+  measure: 660,
+} as const;
+
+/** Etikett über einem Block der Lesestrecke: gesperrte Versalien, wie im Druck. */
+export const readingLabel = {
+  fontFamily: fontFamily.semiBold,
+  fontSize: 11,
+  fontWeight: '700' as const,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
 } as const;

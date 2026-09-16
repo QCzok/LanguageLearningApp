@@ -1,23 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { LibrarySection } from '@lingua/shared';
-import { Caption } from '../../components';
 import { useAuthStore } from '../../store/auth.store';
 import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../utils/translation';
-import { colors, fontFamily, radius, spacing, typography } from '../../theme';
+import { colors, fontFamily, radius, reading, readingLabel, spacing } from '../../theme';
 
 /**
  * Ein Abschnitt eines Lesetexts – in der Regel ein Absatz.
  *
- * Drei eigenständige Aufklapp-Elemente pro Abschnitt: die Übersetzung in die
- * Muttersprache (wie die Erklärungen im Lehrwerk), und je Glossar-Begriff
- * eine kurze, einsprachige Erklärung schwieriger Wörter. Beides bleibt
- * standardmäßig eingeklappt, damit der Text selbst im Vordergrund steht –
- * nur wer nicht weiterkommt, blendet Hilfe ein.
+ * Der Absatz selbst ist das Einzige, was ohne Zutun sichtbar ist. Alles
+ * andere ist „Apparat“ am Rand des Satzspiegels, wie in einer kommentierten
+ * Ausgabe: je Glossar-Begriff eine kurze einsprachige Erklärung und die
+ * Übersetzung in die Muttersprache. Beides bleibt eingeklappt – nur wer nicht
+ * weiterkommt, blendet es ein.
+ *
+ * Gestaltet ist der Apparat deshalb bewusst leiser als der Text: getönte
+ * Fläche statt Karte, Haarlinie in der Leitfarbe statt Rahmen, gesperrte
+ * Versalien als Etikett. Er soll als Randbemerkung zu lesen sein, nicht als
+ * zweite Ebene, die mit dem Absatz um Aufmerksamkeit konkurriert.
  */
-export function ReadingSection({ section }: { section: LibrarySection }) {
-  const [translationOpen, setTranslationOpen] = useState(false);
+export function ReadingSection({
+  section,
+  fontSize = reading.textSizes[1],
+  dropCap = false,
+  translationsOpen = false,
+}: {
+  section: LibrarySection;
+  /** Vom Lesekopf eingestellte Schriftgröße (siehe `ReaderScreen`). */
+  fontSize?: number;
+  /** Nur der erste Absatz eines Texts bekommt die Initiale. */
+  dropCap?: boolean;
+  /** Stand des „Alle Übersetzungen“-Schalters im Lesekopf. */
+  translationsOpen?: boolean;
+}) {
+  const [translationOpen, setTranslationOpen] = useState(translationsOpen);
   const [openTerms, setOpenTerms] = useState<Set<number>>(new Set());
+
+  // Der Schalter im Lesekopf setzt alle Absätze gleichzeitig; danach kann
+  // jeder Absatz wieder für sich auf- und zugeklappt werden.
+  useEffect(() => setTranslationOpen(translationsOpen), [translationsOpen]);
 
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
@@ -33,43 +54,81 @@ export function ReadingSection({ section }: { section: LibrarySection }) {
     });
   }
 
+  const lineHeight = Math.round(fontSize * reading.lineHeightRatio);
+  // Die Initiale trägt nur, wenn der Absatz mit einem Buchstaben beginnt –
+  // bei einem Anführungszeichen oder einer Ziffer sähe sie wie ein Fehler aus.
+  // Geprüft wird über den Groß-/Kleinschreibungs-Unterschied statt über eine
+  // Buchstabenliste: das gilt für jedes lateinische Alphabet, das die App
+  // unterstützt, ohne dass Umlaute einzeln aufgezählt werden müssten.
+  const first = section.text.charAt(0);
+  const initial = dropCap && first.toLowerCase() !== first.toUpperCase() ? first : null;
+
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={[typography.body, sectionText]}>{section.text}</Text>
+      <Text style={[bodyText, { fontSize, lineHeight }]}>
+        {initial ? (
+          <Text style={[initialStyle, { fontSize: fontSize * 2.1, lineHeight: lineHeight * 1.25 }]}>
+            {initial}
+          </Text>
+        ) : null}
+        {initial ? section.text.slice(1) : section.text}
+      </Text>
 
       {section.glossary?.length ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-          {section.glossary.map((entry, index) => {
-            const open = openTerms.has(index);
-            return (
-              <Pressable
-                key={entry.term}
-                onPress={() => toggleTerm(index)}
-                style={[glossaryChip, open && glossaryChipOpen]}
-              >
-                <Text style={[glossaryChipText, open && { color: colors.textInverse }]}>{entry.term}</Text>
-              </Pressable>
-            );
-          })}
+        <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, alignItems: 'center' }}>
+            <Text style={apparatusLabel}>Wörter</Text>
+            {section.glossary.map((entry, index) => {
+              const open = openTerms.has(index);
+              return (
+                <Pressable
+                  key={entry.term}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: open }}
+                  onPress={() => toggleTerm(index)}
+                  style={[glossaryChip, open && glossaryChipOpen]}
+                >
+                  <Text style={[glossaryChipText, open && { color: colors.textInverse }]}>
+                    {entry.term}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {section.glossary
+            .filter((_, index) => openTerms.has(index))
+            .map((entry) => (
+              <View key={entry.term} style={apparatusPanel}>
+                <Text style={glossaryTerm}>{entry.term}</Text>
+                <Text style={apparatusText}>{entry.explanation}</Text>
+              </View>
+            ))}
         </View>
       ) : null}
 
-      {section.glossary
-        ?.filter((_, index) => openTerms.has(index))
-        .map((entry) => (
-          <View key={entry.term} style={glossaryExplanation}>
-            <Text style={glossaryTerm}>{entry.term}</Text>
-            <Caption>{entry.explanation}</Caption>
-          </View>
-        ))}
-
       {translation ? (
-        <View style={{ gap: 4 }}>
-          {translationOpen ? <Text style={translationText}>{translation}</Text> : null}
-          <Pressable onPress={() => setTranslationOpen((value) => !value)} hitSlop={8}>
+        <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
+          {translationOpen ? (
+            <View style={apparatusPanel}>
+              <Text style={apparatusLabel}>{languageLabel}</Text>
+              <Text style={[translationText, { fontSize: fontSize - 2, lineHeight: lineHeight - 4 }]}>
+                {translation}
+              </Text>
+            </View>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: translationOpen }}
+            onPress={() => setTranslationOpen((value) => !value)}
+            hitSlop={8}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+          >
             <Text style={translationToggle}>
-              {translationOpen ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+              {translationOpen ? 'Übersetzung ausblenden' : `Auf ${languageLabel} lesen`}
             </Text>
+            <View style={toggleRule} />
           </Pressable>
         </View>
       ) : null}
@@ -77,14 +136,31 @@ export function ReadingSection({ section }: { section: LibrarySection }) {
   );
 }
 
-const sectionText = {
-  fontSize: 17,
-  lineHeight: 28,
+const bodyText = {
+  fontFamily: fontFamily.regular,
+  color: reading.ink,
+};
+
+/**
+ * Initiale des ersten Absatzes. Eine echte, vom Text umflossene Initiale kann
+ * React Native nicht setzen – ein deutlich größerer erster Buchstabe in
+ * derselben Zeile kommt dem Bild eines gedruckten Textanfangs am nächsten und
+ * kostet keine Sonderbehandlung des Umbruchs.
+ */
+const initialStyle = {
+  fontFamily: fontFamily.bold,
+  color: colors.primary,
+};
+
+const apparatusLabel = {
+  ...readingLabel,
+  color: reading.inkFaint,
+  marginRight: spacing.xs,
 };
 
 const glossaryChip = {
   paddingHorizontal: spacing.sm,
-  paddingVertical: 4,
+  paddingVertical: 3,
   borderRadius: radius.full,
   borderWidth: 1,
   borderStyle: 'dashed' as const,
@@ -98,31 +174,51 @@ const glossaryChipOpen = {
 };
 
 const glossaryChipText = {
-  ...typography.caption,
+  fontFamily: fontFamily.semiBold,
+  fontSize: 12,
+  fontWeight: '600' as const,
   color: colors.primary,
 };
 
-const glossaryExplanation = {
+/** Gemeinsame Fläche für Worterklärung und Übersetzung – getöntes Papier mit Haarlinie. */
+const apparatusPanel = {
+  backgroundColor: reading.paperDeep,
+  borderRadius: radius.md,
   borderLeftWidth: 3,
   borderLeftColor: colors.primary,
-  paddingLeft: spacing.sm,
+  paddingVertical: spacing.sm,
+  paddingHorizontal: spacing.md,
   gap: 2,
 };
 
 const glossaryTerm = {
-  ...typography.bodyStrong,
+  fontFamily: fontFamily.semiBold,
   fontSize: 14,
+  fontWeight: '600' as const,
+  color: reading.ink,
 };
 
-const translationToggle = {
-  ...typography.label,
-  color: colors.textMuted,
+const apparatusText = {
+  fontFamily: fontFamily.regular,
+  fontSize: 14,
+  lineHeight: 21,
+  color: reading.inkSoft,
 };
 
 const translationText = {
   fontFamily: fontFamily.regular,
-  fontSize: 16,
-  lineHeight: 24,
   fontStyle: 'italic' as const,
-  color: colors.textMuted,
+  color: reading.inkSoft,
+};
+
+const translationToggle = {
+  ...readingLabel,
+  color: reading.inkFaint,
+};
+
+/** Die Linie hinter dem Schalter füllt die Zeile aus, wie eine Kolumnenlinie. */
+const toggleRule = {
+  flex: 1,
+  height: 1,
+  backgroundColor: reading.rule,
 };
