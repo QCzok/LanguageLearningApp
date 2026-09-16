@@ -53,7 +53,7 @@ export class UsersService {
     dto: UpsertLearningProfileDto,
   ): Promise<LearningProfileDto> {
     const language = await this.prisma.language.findUnique({ where: { id: dto.languageId } });
-    if (!language || !language.isActive) {
+    if (!language || !language.isActive || !language.isLearnable) {
       throw new BadRequestException(ERR['content.language_unavailable']);
     }
 
@@ -245,6 +245,7 @@ export class UsersService {
         name: profile.language.name,
         nativeName: profile.language.nativeName,
         flagEmoji: profile.language.flagEmoji,
+        isLearnable: profile.language.isLearnable,
       },
       level: profile.level as CefrLevel,
       levelSource: profile.levelSource,

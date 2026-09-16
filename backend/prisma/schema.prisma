@@ -171,6 +171,10 @@ model Language {
   nativeName String // "English"
   flagEmoji  String
   isActive   Boolean @default(true)
+  // Nur wählbar als Lernsprache (eigener Kurs), wenn true. Sprachen ohne
+  // Kursinhalt (Kapitel, Vokabelstapel, Einstufungstest) stehen trotzdem als
+  // Muttersprache zur Wahl, siehe LanguagesService.findAll.
+  isLearnable Boolean @default(true)
   sortOrder  Int     @default(0)
 
   profiles           LearningProfile[]

@@ -29,6 +29,7 @@ export function toLanguageDto(language: {
   name: string;
   nativeName: string;
   flagEmoji: string;
+  isLearnable: boolean;
 }): LanguageDto {
   return {
     id: language.id,
@@ -36,5 +37,6 @@ export function toLanguageDto(language: {
     name: language.name,
     nativeName: language.nativeName,
     flagEmoji: language.flagEmoji,
+    isLearnable: language.isLearnable,
   };
 }

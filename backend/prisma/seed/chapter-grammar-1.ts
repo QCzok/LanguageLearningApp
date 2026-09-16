@@ -97,12 +97,12 @@ export const GRAMMAR_1_UNITS: UnitSeed[] = [
           type: 'VOCAB_LIST',
           title: 'Wortschatz: Nomen mit Artikel',
           items: [
-            { term: 'Tisch', article: 'der', translation: 'table', plural: 'die Tische' },
-            { term: 'Lampe', article: 'die', translation: 'lamp', plural: 'die Lampen' },
-            { term: 'Bild', article: 'das', translation: 'picture', plural: 'die Bilder' },
-            { term: 'Stuhl', article: 'der', translation: 'chair', plural: 'die Stühle' },
-            { term: 'Tür', article: 'die', translation: 'door', plural: 'die Türen' },
-            { term: 'Fenster', article: 'das', translation: 'window', plural: 'die Fenster' },
+            { term: 'Tisch', article: 'der', translations: { en: 'table' }, plural: 'die Tische' },
+            { term: 'Lampe', article: 'die', translations: { en: 'lamp' }, plural: 'die Lampen' },
+            { term: 'Bild', article: 'das', translations: { en: 'picture' }, plural: 'die Bilder' },
+            { term: 'Stuhl', article: 'der', translations: { en: 'chair' }, plural: 'die Stühle' },
+            { term: 'Tür', article: 'die', translations: { en: 'door' }, plural: 'die Türen' },
+            { term: 'Fenster', article: 'das', translations: { en: 'window' }, plural: 'die Fenster' },
           ],
         },
         {

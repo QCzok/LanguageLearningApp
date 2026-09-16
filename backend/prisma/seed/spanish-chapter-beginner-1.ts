@@ -10,12 +10,14 @@ import type { UnitSeed } from './chapter-beginner-1';
  * der Erklärung, zu der sie gehört. Wer den Kasten zu „tú oder usted“ gelesen
  * hat, entscheidet zwei Zeilen weiter, wie man die Chefin anspricht.
  *
- * Die Seiten sind einsprachig spanisch gehalten. Anders als im Deutschband,
- * wo die Muttersprachen der Lernenden auseinandergehen und deshalb in vier
- * Sprachen übersetzt wird, ist die Zielgruppe hier deutschsprachig – wie schon
- * bei den Vokabelstapeln, die ebenfalls ins Deutsche übersetzen. Erklärkästen
- * und Fließtext tragen daher genau eine Übersetzung, `de`, die in der App
- * aufklappbar ist. Tabellen bleiben spanisch: Sie enthalten den zu lernenden
+ * Die Seiten sind einsprachig spanisch gehalten. Erklärkästen und Fließtext
+ * tragen bislang nur die deutsche Übersetzung, `de`, die in der App
+ * aufklappbar ist – aus der Zeit, als der Kurs für deutschsprachige Lernende
+ * gedacht war. Die Vokabellisten sind seither sprachneutraler: Jeder Eintrag
+ * trägt `en` als Brückensprache plus `de`, damit auch nicht-deutschsprachige
+ * Lernende eine verständliche Übersetzung sehen (siehe `VocabListBlock` in
+ * `workbook.ts`); weitere Sprachen (es entfällt hier als Zielsprache, fr, it)
+ * fehlen noch. Tabellen bleiben spanisch: Sie enthalten den zu lernenden
  * Stoff selbst.
  *
  * Die Illustrationen sind dieselben vier Szenen wie im Deutschband (siehe
@@ -80,16 +82,16 @@ export const SPANISH_BEGINNER_1_UNITS: UnitSeed[] = [
           type: 'VOCAB_LIST',
           title: 'Vocabulario: saludos y despedidas',
           items: [
-            { term: 'buenos días', translation: 'guten Morgen', example: '¡Buenos días, señora Herrera!' },
-            { term: 'buenas tardes', translation: 'guten Tag (nachmittags)', example: '¡Buenas tardes!' },
-            { term: 'buenas noches', translation: 'guten Abend, gute Nacht' },
-            { term: 'hola', translation: 'hallo', example: '¡Hola, Jonas!' },
-            { term: 'adiós', translation: 'auf Wiedersehen' },
-            { term: 'hasta luego', translation: 'bis später' },
-            { term: 'hasta mañana', translation: 'bis morgen' },
-            { term: '¿cómo está usted?', translation: 'wie geht es Ihnen?' },
-            { term: '¿qué tal?', translation: 'wie geht’s?' },
-            { term: 'gracias', translation: 'danke' },
+            { term: 'buenos días', translations: { en: 'good morning', de: 'guten Morgen' }, example: '¡Buenos días, señora Herrera!' },
+            { term: 'buenas tardes', translations: { en: 'good afternoon', de: 'guten Tag (nachmittags)' }, example: '¡Buenas tardes!' },
+            { term: 'buenas noches', translations: { en: 'good evening, good night', de: 'guten Abend, gute Nacht' } },
+            { term: 'hola', translations: { en: 'hi / hello', de: 'hallo' }, example: '¡Hola, Jonas!' },
+            { term: 'adiós', translations: { en: 'goodbye', de: 'auf Wiedersehen' } },
+            { term: 'hasta luego', translations: { en: 'see you later', de: 'bis später' } },
+            { term: 'hasta mañana', translations: { en: 'see you tomorrow', de: 'bis morgen' } },
+            { term: '¿cómo está usted?', translations: { en: 'how are you? (formal)', de: 'wie geht es Ihnen?' } },
+            { term: '¿qué tal?', translations: { en: 'how are you? (informal)', de: 'wie geht’s?' } },
+            { term: 'gracias', translations: { en: 'thank you', de: 'danke' } },
           ],
         },
         {
@@ -282,16 +284,16 @@ export const SPANISH_BEGINNER_1_UNITS: UnitSeed[] = [
           type: 'VOCAB_LIST',
           title: 'Vocabulario: presentarse',
           items: [
-            { term: 'llamarse', translation: 'heißen', example: 'Me llamo Nadia.' },
-            { term: 'el nombre', translation: 'der Name' },
-            { term: 'el apellido', translation: 'der Nachname' },
-            { term: 'ser', translation: 'sein', example: 'Soy la profesora.' },
-            { term: 'vivir', translation: 'wohnen, leben', example: 'Vivo en Valencia.' },
-            { term: 'hablar', translation: 'sprechen', example: '¿Habláis español?' },
-            { term: 'estudiar', translation: 'lernen, studieren' },
-            { term: 'bienvenido', translation: 'willkommen' },
-            { term: 'un poco', translation: 'ein bisschen' },
-            { term: 'en casa', translation: 'zu Hause' },
+            { term: 'llamarse', translations: { en: 'to be called', de: 'heißen' }, example: 'Me llamo Nadia.' },
+            { term: 'el nombre', translations: { en: 'name', de: 'der Name' } },
+            { term: 'el apellido', translations: { en: 'surname', de: 'der Nachname' } },
+            { term: 'ser', translations: { en: 'to be', de: 'sein' }, example: 'Soy la profesora.' },
+            { term: 'vivir', translations: { en: 'to live', de: 'wohnen, leben' }, example: 'Vivo en Valencia.' },
+            { term: 'hablar', translations: { en: 'to speak', de: 'sprechen' }, example: '¿Habláis español?' },
+            { term: 'estudiar', translations: { en: 'to learn, to study', de: 'lernen, studieren' } },
+            { term: 'bienvenido', translations: { en: 'welcome', de: 'willkommen' } },
+            { term: 'un poco', translations: { en: 'a little', de: 'ein bisschen' } },
+            { term: 'en casa', translations: { en: 'at home', de: 'zu Hause' } },
           ],
         },
         {
@@ -492,16 +494,16 @@ export const SPANISH_BEGINNER_1_UNITS: UnitSeed[] = [
           type: 'VOCAB_LIST',
           title: 'Vocabulario: países y nacionalidades',
           items: [
-            { term: 'Alemania', translation: 'Deutschland', example: 'Soy de Alemania.' },
-            { term: 'alemán / alemana', translation: 'deutsch' },
-            { term: 'España', translation: 'Spanien' },
-            { term: 'español / española', translation: 'spanisch' },
-            { term: 'México', translation: 'Mexiko' },
-            { term: 'mexicano / mexicana', translation: 'mexikanisch' },
-            { term: 'Argentina', translation: 'Argentinien' },
-            { term: 'argentino / argentina', translation: 'argentinisch' },
-            { term: 'el país', translation: 'das Land' },
-            { term: 'el idioma', translation: 'die Sprache' },
+            { term: 'Alemania', translations: { en: 'Germany', de: 'Deutschland' }, example: 'Soy de Alemania.' },
+            { term: 'alemán / alemana', translations: { en: 'German', de: 'deutsch' } },
+            { term: 'España', translations: { en: 'Spain', de: 'Spanien' } },
+            { term: 'español / española', translations: { en: 'Spanish', de: 'spanisch' } },
+            { term: 'México', translations: { en: 'Mexico', de: 'Mexiko' } },
+            { term: 'mexicano / mexicana', translations: { en: 'Mexican', de: 'mexikanisch' } },
+            { term: 'Argentina', translations: { en: 'Argentina', de: 'Argentinien' } },
+            { term: 'argentino / argentina', translations: { en: 'Argentinian', de: 'argentinisch' } },
+            { term: 'el país', translations: { en: 'country', de: 'das Land' } },
+            { term: 'el idioma', translations: { en: 'language', de: 'die Sprache' } },
           ],
         },
         {

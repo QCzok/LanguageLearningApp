@@ -121,6 +121,34 @@ async function main(): Promise<void> {
     { code: 'es', name: 'Spanisch', nativeName: 'Español', flagEmoji: '🇪🇸', sortOrder: 2 },
     { code: 'fr', name: 'Französisch', nativeName: 'Français', flagEmoji: '🇫🇷', sortOrder: 3 },
     { code: 'it', name: 'Italienisch', nativeName: 'Italiano', flagEmoji: '🇮🇹', sortOrder: 4 },
+    // Nur als Muttersprache wählbar (siehe `isLearnable`): Für sie gibt es
+    // keinen eigenen Kurs – kein Kapitel, kein Vokabelstapel, kein
+    // Einstufungstest –, deshalb dürfen sie in der Lernsprachen-Auswahl
+    // nicht auftauchen.
+    {
+      code: 'uk',
+      name: 'Ukrainisch',
+      nativeName: 'Українська',
+      flagEmoji: '🇺🇦',
+      sortOrder: 5,
+      isLearnable: false,
+    },
+    {
+      code: 'pl',
+      name: 'Polnisch',
+      nativeName: 'Polski',
+      flagEmoji: '🇵🇱',
+      sortOrder: 6,
+      isLearnable: false,
+    },
+    {
+      code: 'tr',
+      name: 'Türkisch',
+      nativeName: 'Türkçe',
+      flagEmoji: '🇹🇷',
+      sortOrder: 7,
+      isLearnable: false,
+    },
   ];
 
   const languages = new Map<string, string>();
