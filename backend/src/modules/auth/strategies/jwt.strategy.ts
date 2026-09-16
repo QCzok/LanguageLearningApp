@@ -7,6 +7,8 @@ import { authConfig } from '../../../config/configuration';
 import { PrismaService } from '../../../prisma/prisma.service';
 import type { AuthenticatedUser } from '../../../common/decorators/current-user.decorator';
 
+import { ERR } from '../../../common/i18n/messages';
+
 export interface JwtPayload {
   sub: string;
   email: string;
@@ -31,13 +33,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
    * damit ein Downgrade oder eine Sperre sofort greift.
    */
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
-    if (payload.type !== 'access') throw new UnauthorizedException('Falscher Token-Typ');
+    if (payload.type !== 'access') throw new UnauthorizedException(ERR['auth.wrong_token_type']);
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: { id: true, email: true, role: true, plan: true, premiumUntil: true },
     });
-    if (!user) throw new UnauthorizedException('Konto existiert nicht mehr');
+    if (!user) throw new UnauthorizedException(ERR['auth.account_gone']);
 
     return user;
   }

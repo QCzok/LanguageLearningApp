@@ -8,6 +8,7 @@ import type {
   StrokePoint,
   TextElement,
 } from '@lingua/shared';
+import { useTranslation } from '../../i18n';
 import { colors } from '../../theme';
 import type { CanvasTool } from './ToolDock';
 
@@ -47,6 +48,7 @@ export default function Canvas({
   onEditText,
   transparent = false,
 }: CanvasProps) {
+  const { t } = useTranslation();
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [liveStroke, setLiveStroke] = useState<StrokePoint[] | null>(null);
   // Getippter Text bleibt lokal, solange editiert wird – erst beim Verlassen
@@ -307,7 +309,7 @@ export default function Canvas({
                 lineHeight: editing.fontSize * scale * 1.3,
               },
             ]}
-            placeholder="Text eingeben …"
+            placeholder={t('canvasTextPlaceholder')}
             placeholderTextColor={colors.textMuted}
           />
         ) : null}

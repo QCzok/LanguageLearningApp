@@ -20,6 +20,7 @@ import * as Speech from 'expo-speech';
 import type { AiCorrectionDto, AiMessageDto, AiMessageSource } from '@lingua/shared';
 import { Caption, ErrorState, Loading } from '../../components';
 import { aiApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import type { AiStackParamList } from '../../navigation/types';
 
@@ -43,6 +44,7 @@ const MIC_RESTART_DELAY_MS = 400;
 
 export default function AiChatScreen({ route }: Props) {
   const { conversationId, languageCode } = route.params;
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const listRef = useRef<FlatList<ChatItem>>(null);
   const headerHeight = useHeaderHeight();
@@ -183,10 +185,10 @@ export default function AiChatScreen({ route }: Props) {
     setInterimText(finalRef.current);
 
     if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
+      setError(t('chatMicPermission'));
       exitVoiceMode();
     } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-      setError('Spracherkennung fehlgeschlagen.');
+      setError(t('chatRecognitionFailed'));
       exitVoiceMode();
     }
   });
@@ -220,7 +222,7 @@ export default function AiChatScreen({ route }: Props) {
 
     const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
     if (!permission.granted) {
-      setError('Für die Spracherkennung wird Mikrofonzugriff benötigt.');
+      setError(t('chatMicPermission'));
       exitVoiceMode();
       return;
     }
@@ -332,7 +334,7 @@ export default function AiChatScreen({ route }: Props) {
   if (messages.isLoading) return <Loading />;
   if (messages.isError) {
     return (
-      <ErrorState message="Das Gespräch konnte nicht geladen werden." onRetry={messages.refetch} />
+      <ErrorState message={t('chatError')} onRetry={messages.refetch} />
     );
   }
 
@@ -395,17 +397,17 @@ export default function AiChatScreen({ route }: Props) {
 // ------------------------------------------------------------------ Verlauf
 
 function EmptyConversation() {
+  const { t } = useTranslation();
+
   return (
     <View style={emptyStyle}>
       <View style={emptyIconStyle}>
         <Text style={{ fontSize: 34 }}>🎙️</Text>
       </View>
       <Text style={[typography.title, { color: colors.text, textAlign: 'center' }]}>
-        Sag einfach etwas
+        {t('chatEmptyTitle')}
       </Text>
-      <Text style={[typography.body, emptyTextStyle]}>
-        Tippe auf das Mikrofon und sprich drauflos – oder schreib, wenn dir gerade danach ist.
-      </Text>
+      <Text style={[typography.body, emptyTextStyle]}>{t('chatEmptyBody')}</Text>
     </View>
   );
 }
@@ -423,6 +425,7 @@ function MessageRow({
   speaking: boolean;
   onToggleSpeak: (id: string, content: string) => void;
 }) {
+  const { t, formatTime } = useTranslation();
   const isUser = message.role === 'user';
   const body = isUser ? message.content : spokenPart(message.content);
   // Gespräche von vor der Umstellung tragen die Korrektur noch als Zeile im
@@ -467,7 +470,7 @@ function MessageRow({
               {isUser ? null : (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={speaking ? 'Vorlesen stoppen' : 'Vorlesen'}
+                  accessibilityLabel={speaking ? t('chatStopSpeakA11y') : t('chatSpeakA11y')}
                   onPress={() => onToggleSpeak(message.id, message.content)}
                   hitSlop={10}
                 >
@@ -477,7 +480,7 @@ function MessageRow({
                       { color: speaking ? colors.primary : colors.textMuted },
                     ]}
                   >
-                    {speaking ? '⏹ Stopp' : '🔊 Vorlesen'}
+                    {speaking ? t('chatStopSpeak') : t('chatSpeak')}
                   </Text>
                 </Pressable>
               )}
@@ -506,6 +509,7 @@ function Avatar() {
  * eingeklappt, damit die Zeile im Gesprächsfluss nicht dominiert.
  */
 function Correction({ correction, original }: { correction: AiCorrectionDto; original: string }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const segments = useMemo(() => diffWords(original, correction.text), [original, correction.text]);
   const hasNotes = correction.notes.length > 0;
@@ -513,12 +517,12 @@ function Correction({ correction, original }: { correction: AiCorrectionDto; ori
   return (
     <Pressable
       accessibilityRole={hasNotes ? 'button' : undefined}
-      accessibilityLabel="Korrektur"
+      accessibilityLabel={t('chatCorrection')}
       onPress={hasNotes ? () => setExpanded((value) => !value) : undefined}
       style={correctionStyles.card}
     >
       <View style={correctionStyles.header}>
-        <Text style={correctionStyles.label}>Korrektur</Text>
+        <Text style={correctionStyles.label}>{t('chatCorrection')}</Text>
         {hasNotes ? (
           <Text style={[typography.caption, { color: colors.warning }]}>
             {expanded ? '▾' : '▸'}
@@ -602,6 +606,7 @@ function Composer({
   onSend: () => void;
   onVoice: () => void;
 }) {
+  const { t } = useTranslation();
   const hasText = Boolean(draft.trim());
   const canSend = hasText && !busy;
 
@@ -610,7 +615,7 @@ function Composer({
       <TextInput
         value={draft}
         onChangeText={onChange}
-        placeholder="Nachricht schreiben …"
+        placeholder={t('chatMessagePlaceholder')}
         placeholderTextColor={colors.textMuted}
         multiline
         style={composerStyles.input}
@@ -618,7 +623,7 @@ function Composer({
       {hasText ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Senden"
+          accessibilityLabel={t('chatSend')}
           onPress={onSend}
           disabled={!canSend}
           style={[composerStyles.send, !canSend && { opacity: 0.4 }]}
@@ -628,7 +633,7 @@ function Composer({
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Freisprechen starten"
+          accessibilityLabel={t('chatStartVoice')}
           onPress={onVoice}
           style={composerStyles.mic}
         >
@@ -659,6 +664,7 @@ function VoicePanel({
   onInterrupt: () => void;
   onExit: () => void;
 }) {
+  const { t } = useTranslation();
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -684,10 +690,10 @@ function VoicePanel({
     phase === 'speaking'
       ? ''
       : phase === 'thinking'
-        ? 'Einen Moment …'
+        ? t('chatThinking')
         : recognizing
-          ? 'Ich höre zu – hör einfach auf, wenn du fertig bist'
-          : 'Mikrofon startet …';
+          ? t('chatListening')
+          : t('chatMicStarting');
 
   const ringColor = phase === 'speaking' ? colors.premium : colors.primary;
 
@@ -730,10 +736,10 @@ function VoicePanel({
           accessibilityRole="button"
           accessibilityLabel={
             phase === 'speaking'
-              ? 'KI unterbrechen'
+              ? t('chatInterrupt')
               : phase === 'thinking'
-                ? 'Antwort wird erstellt'
-                : 'Jetzt senden'
+                ? t('chatReplyPending')
+                : t('chatSendNow')
           }
           onPress={
             phase === 'speaking' ? onInterrupt : phase === 'listening' ? onSendNow : undefined
@@ -754,7 +760,7 @@ function VoicePanel({
       </View>
 
       <Pressable accessibilityRole="button" onPress={onExit} hitSlop={10}>
-        <Caption>Freisprechen beenden · Tastatur</Caption>
+        <Caption>{t('chatExitVoice')}</Caption>
       </Pressable>
     </View>
   );
@@ -794,9 +800,6 @@ function legacyCorrection(content: string): string | null {
   return index === -1 ? null : content.slice(index).trim();
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
 
 interface DiffSegment {
   text: string;

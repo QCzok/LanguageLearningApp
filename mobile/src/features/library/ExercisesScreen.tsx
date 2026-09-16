@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ExerciseResultDto } from '@lingua/shared';
 import { Button, ErrorState, Loading, Screen } from '../../components';
 import { libraryApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import {
   colors,
   fontFamily,
@@ -37,6 +38,7 @@ const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
  */
 export default function ExercisesScreen({ route, navigation }: Props) {
   const { contentId } = route.params;
+  const { t } = useTranslation();
 
   const [choices, setChoices] = useState<Record<string, number>>({});
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -62,7 +64,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data?.exercises?.length) {
-    return <ErrorState message="Zu diesem Text gibt es keine Übungen." onRetry={refetch} />;
+    return <ErrorState message={t('exercisesError')} onRetry={refetch} />;
   }
 
   const exercises = data.exercises;
@@ -78,7 +80,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
       ) : (
         <View style={{ gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text style={[readingLabel, { color: colors.text }]}>Verständnisfragen</Text>
+            <Text style={[readingLabel, { color: colors.text }]}>{t('exercisesHeading')}</Text>
             <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
             <Text style={[readingLabel, { color: colors.textMuted }]}>
               {answered} / {exercises.length}
@@ -110,7 +112,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
           >
             <Text style={{ fontSize: 13, color: colors.primary }}>{textVisible ? '▾' : '▸'}</Text>
             <Text style={[readingLabel, { color: colors.text }]}>
-              {textVisible ? 'Text ausblenden' : 'Text nachlesen'}
+              {textVisible ? t('exercisesHideText') : t('exercisesShowText')}
             </Text>
           </Pressable>
 
@@ -141,7 +143,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
                 value={texts[exercise.id] ?? ''}
                 onChangeText={(value) => setTexts((prev) => ({ ...prev, [exercise.id]: value }))}
                 editable={!result}
-                placeholder="Deine Antwort …"
+                placeholder={t('exercisesAnswerPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 style={openInputStyle}
               />
@@ -185,7 +187,9 @@ export default function ExercisesScreen({ route, navigation }: Props) {
             {/* Erklärungen liefert das Backend erst nach der Abgabe mit. */}
             {feedback?.explanation ? (
               <View style={explanationBox}>
-                <Text style={[readingLabel, { color: reading.inkFaint }]}>Erklärung</Text>
+                <Text style={[readingLabel, { color: reading.inkFaint }]}>
+                  {t('exercisesExplanation')}
+                </Text>
                 <Text style={explanationText}>{feedback.explanation}</Text>
               </View>
             ) : null}
@@ -196,7 +200,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
       {result ? (
         <>
           <Button
-            label="Nochmal versuchen"
+            label={t('exercisesTryAgain')}
             variant="secondary"
             onPress={() => {
               setResult(null);
@@ -204,11 +208,11 @@ export default function ExercisesScreen({ route, navigation }: Props) {
               setTexts({});
             }}
           />
-          <Button label="Fertig" onPress={() => navigation.goBack()} />
+          <Button label={t('commonDone')} onPress={() => navigation.goBack()} />
         </>
       ) : (
         <Button
-          label="Antworten abgeben"
+          label={t('exercisesSubmit')}
           onPress={() => submit.mutate()}
           disabled={answered === 0}
           loading={submit.isPending}
@@ -226,6 +230,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
  * Gelb – ist dieselbe wie überall in der App für „geschafft“ und „knapp“.
  */
 function ResultBanner({ result, passed }: { result: ExerciseResultDto; passed: boolean }) {
+  const { t } = useTranslation();
   const tone = passed
     ? { background: colors.successSoft, accent: colors.success }
     : { background: colors.warningSoft, accent: colors.warning };
@@ -233,12 +238,12 @@ function ResultBanner({ result, passed }: { result: ExerciseResultDto; passed: b
   return (
     <View style={[resultBox, { backgroundColor: tone.background }]}>
       <Text style={[readingLabel, { color: tone.accent }]}>
-        {passed ? 'Bestanden' : 'Fast geschafft'}
+        {passed ? t('exercisesPassed') : t('exercisesAlmost')}
       </Text>
 
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm }}>
         <Text style={[resultScore, { color: tone.accent }]}>{result.score}</Text>
-        <Text style={resultTotal}>von {result.total} richtig</Text>
+        <Text style={resultTotal}>{t('exercisesOfCorrect', { total: result.total })}</Text>
         <View style={{ flex: 1 }} />
         <Text style={[resultXp, { color: tone.accent }]}>+{result.xpEarned} XP</Text>
       </View>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CEFR_LABELS, CEFR_LEVELS } from '@lingua/shared';
+import { CEFR_LEVELS } from '@lingua/shared';
 import type { CefrLevel, LanguageDto, LearningProfileDto } from '@lingua/shared';
 import {
   Body,
@@ -17,10 +17,12 @@ import {
   Title,
 } from '../../components';
 import { languagesApi, subscriptionApi, usersApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useAuthStore, useIsPremium } from '../../store/auth.store';
 import { colors, radius, spacing, typography } from '../../theme';
 
 export default function ProfileScreen() {
+  const { t, formatDate } = useTranslation();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
@@ -34,8 +36,10 @@ export default function ProfileScreen() {
     mutationFn: (nativeLanguage: string) => usersApi.update({ nativeLanguage }),
     onSuccess: async () => {
       await refreshUser();
-      // Erklärungen im Heft übersetzen sich anhand dieser Einstellung.
-      await queryClient.invalidateQueries({ queryKey: ['workbook-unit'] });
+      // Die Menüsprache und die Erklärungen im Heft hängen beide an dieser
+      // Einstellung – alles neu laden, damit nichts in der alten Sprache
+      // stehen bleibt.
+      await queryClient.invalidateQueries();
     },
   });
 
@@ -45,7 +49,7 @@ export default function ProfileScreen() {
       await refreshUser();
       await queryClient.invalidateQueries({ queryKey: ['subscription'] });
       await queryClient.invalidateQueries({ queryKey: ['ai-quota'] });
-      alert('Premium aktiv', 'Alle KI-Funktionen stehen dir jetzt zur Verfügung.');
+      alert(t('profilePremiumActivatedTitle'), t('profilePremiumActivatedBody'));
     },
   });
 
@@ -79,16 +83,16 @@ export default function ProfileScreen() {
         </Card>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{user.streakDays}</Text>
-          <Caption>Tage Serie</Caption>
+          <Caption>{t('profileStatStreak')}</Caption>
         </Card>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{user.profiles.length}</Text>
-          <Caption>Sprachen</Caption>
+          <Caption>{t('profileStatLanguages')}</Caption>
         </Card>
       </Row>
 
       <Card>
-        <Heading>Deine Sprachen</Heading>
+        <Heading>{t('profileYourLanguages')}</Heading>
         {user.profiles.map((profile) => (
           <LanguageProfileCard
             key={profile.id}
@@ -97,16 +101,16 @@ export default function ProfileScreen() {
           />
         ))}
         {activeProfile ? (
-          <Caption>Tagesziel: {activeProfile.dailyGoalMinutes} Minuten</Caption>
+          <Caption>
+            {t('profileDailyGoal', { minutes: activeProfile.dailyGoalMinutes })}
+          </Caption>
         ) : null}
         <AddLanguageSection languages={languages.data ?? []} existingProfiles={user.profiles} />
       </Card>
 
       <Card>
-        <Heading>Muttersprache</Heading>
-        <Caption>
-          Grammatik-Erklärungen und Lösungshinweise auf A1 erscheinen zusätzlich in dieser Sprache.
-        </Caption>
+        <Heading>{t('profileNativeLanguage')}</Heading>
+        <Caption>{t('profileNativeLanguageHint')}</Caption>
         <Row gap={spacing.sm} style={{ flexWrap: 'wrap', marginTop: spacing.xs }}>
           {(languages.data ?? []).map((language) => {
             const active = language.code === user.nativeLanguage;
@@ -135,40 +139,40 @@ export default function ProfileScreen() {
         <Row gap={spacing.sm}>
           <Text style={{ fontSize: 24 }}>✨</Text>
           <View style={{ flex: 1 }}>
-            <Heading>Lingua Premium</Heading>
+            <Heading>{t('profilePremiumTitle')}</Heading>
             <Caption>
               {isPremium
-                ? `Aktiv${
-                    subscription.data?.premiumUntil
-                      ? ` bis ${new Date(subscription.data.premiumUntil).toLocaleDateString('de-DE')}`
-                      : ''
-                  }`
-                : 'KI-Korrektur, Chat, Grammatikerklärungen und Empfehlungen'}
+                ? subscription.data?.premiumUntil
+                  ? t('profilePremiumActiveUntil', {
+                      date: formatDate(subscription.data.premiumUntil),
+                    })
+                  : t('profilePremiumActive')
+                : t('profilePremiumFeatures')}
             </Caption>
           </View>
         </Row>
         {!isPremium ? (
           <>
             <Button
-              label="Premium aktivieren"
+              label={t('profileActivatePremium')}
               variant="premium"
               loading={activatePremium.isPending}
               onPress={() => activatePremium.mutate()}
             />
             {/* Entwicklungsstand: Die Store-Anbindung (StoreKit / Play Billing)
                 ersetzt diesen Knopf später durch den echten Kaufvorgang. */}
-            <Caption>Testmodus – noch ohne Zahlungsanbieter.</Caption>
+            <Caption>{t('profileTestMode')}</Caption>
           </>
         ) : null}
       </Card>
 
       <Button
-        label="Abmelden"
+        label={t('profileLogout')}
         variant="secondary"
         onPress={() =>
-          alert('Abmelden?', 'Du kannst dich jederzeit wieder anmelden.', [
-            { text: 'Abbrechen', style: 'cancel' },
-            { text: 'Abmelden', style: 'destructive', onPress: () => void logout() },
+          alert(t('profileLogoutTitle'), t('profileLogoutBody'), [
+            { text: t('commonCancel'), style: 'cancel' },
+            { text: t('profileLogout'), style: 'destructive', onPress: () => void logout() },
           ])
         }
       />
@@ -191,6 +195,7 @@ function LanguageProfileCard({
   profile: LearningProfileDto;
   onSwitch: () => void;
 }) {
+  const { t, tLanguage, tLevelShort } = useTranslation();
   const queryClient = useQueryClient();
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [editingLevel, setEditingLevel] = useState(false);
@@ -225,20 +230,28 @@ function LanguageProfileCard({
       <Row gap={spacing.md}>
         <Text style={{ fontSize: 28 }}>{profile.language.flagEmoji}</Text>
         <View style={{ flex: 1 }}>
-          <Body>{profile.language.name}</Body>
+          <Body>{tLanguage(profile.language.code, profile.language.name)}</Body>
           <Caption>
-            {CEFR_LABELS[profile.level].short} ·{' '}
-            {profile.levelSource === 'PLACEMENT_TEST' ? 'per Test ermittelt' : 'selbst gewählt'}
+            {tLevelShort(profile.level)} ·{' '}
+            {profile.levelSource === 'PLACEMENT_TEST'
+              ? t('profileLevelFromTest')
+              : t('profileLevelSelfSelected')}
           </Caption>
         </View>
         <LevelBadge level={profile.level} />
       </Row>
 
       <Row gap={spacing.sm}>
-        {profile.isActive ? <Caption>Aktiv</Caption> : <Caption>Zum Wechseln tippen</Caption>}
+        {profile.isActive ? (
+          <Caption>{t('profileActive')}</Caption>
+        ) : (
+          <Caption>{t('profileTapToSwitch')}</Caption>
+        )}
         <View style={{ flex: 1 }} />
         <Pressable onPress={() => setEditingLevel((value) => !value)} hitSlop={8}>
-          <Text style={changeLevelLink}>{editingLevel ? 'Abbrechen' : 'Niveau ändern'}</Text>
+          <Text style={changeLevelLink}>
+            {editingLevel ? t('commonCancel') : t('profileChangeLevel')}
+          </Text>
         </Pressable>
       </Row>
 
@@ -280,6 +293,7 @@ function AddLanguageSection({
   languages: LanguageDto[];
   existingProfiles: LearningProfileDto[];
 }) {
+  const { t, tLanguage } = useTranslation();
   const queryClient = useQueryClient();
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [open, setOpen] = useState(false);
@@ -315,7 +329,9 @@ function AddLanguageSection({
         }}
         hitSlop={8}
       >
-        <Text style={changeLevelLink}>{open ? 'Abbrechen' : '+ Sprache hinzufügen'}</Text>
+        <Text style={changeLevelLink}>
+          {open ? t('commonCancel') : t('profileAddLanguage')}
+        </Text>
       </Pressable>
 
       {open
@@ -330,7 +346,7 @@ function AddLanguageSection({
                   <Row gap={spacing.md}>
                     <Text style={{ fontSize: 24 }}>{language.flagEmoji}</Text>
                     <View style={{ flex: 1 }}>
-                      <Body>{language.name}</Body>
+                      <Body>{tLanguage(language.code, language.name)}</Body>
                     </View>
                     <Text style={{ fontSize: 20, color: colors.textMuted }}>{picking ? '−' : '+'}</Text>
                   </Row>

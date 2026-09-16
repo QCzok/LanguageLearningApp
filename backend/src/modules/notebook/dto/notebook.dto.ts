@@ -16,6 +16,8 @@ import {
 } from 'class-validator';
 import type { NotebookPageContent } from '@lingua/shared';
 
+import { ERR } from '../../../common/i18n/messages';
+
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 
 export class CreateNotebookDto {
@@ -26,7 +28,7 @@ export class CreateNotebookDto {
 
   @ApiPropertyOptional({ example: '#2563EB' })
   @IsOptional()
-  @Matches(HEX_COLOR, { message: 'coverColor muss ein Hex-Farbwert sein (#RRGGBB)' })
+  @Matches(HEX_COLOR, { message: ERR['validation.cover_color'] })
   coverColor?: string;
 
   @ApiPropertyOptional()

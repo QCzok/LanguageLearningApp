@@ -3,6 +3,8 @@ import { ConfigType } from '@nestjs/config';
 import OpenAI, { toFile } from 'openai';
 import { aiConfig } from '../../config/configuration';
 
+import { ERR } from '../../common/i18n/messages';
+
 /**
  * Transkribiert Sprachaufnahmen über die OpenAI-Whisper-API. Läuft bewusst
  * getrennt vom Anthropic-Chat-Client (`AiClient`), da Anthropic keine
@@ -30,7 +32,7 @@ export class WhisperClient {
 
   async transcribe(buffer: Buffer, filename: string, mimeType: string): Promise<string> {
     if (!this.client) {
-      throw new ServiceUnavailableException('Spracherkennung ist derzeit nicht verfügbar.');
+      throw new ServiceUnavailableException(ERR['ai.speech_unavailable']);
     }
 
     const file = await toFile(buffer, filename, { type: mimeType });

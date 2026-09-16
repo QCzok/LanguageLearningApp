@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import Constants from 'expo-constants';
 import type { AuthTokens } from '@lingua/shared';
+import { deviceLocale, translate, type SupportedLocale } from '../i18n/translations';
 import { tokenStorage } from './token-storage';
 
 const API_URL =
@@ -31,6 +32,20 @@ export function resolveMediaUrl(url: string): string {
   return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
+/**
+ * Menüsprache für die Meldungen dieser Schicht (Zeitüberschreitung, kein
+ * Server) und für den `Accept-Language`-Kopf, mit dem das Backend seine
+ * Fehlertexte übersetzt.
+ *
+ * Als Modulzustand statt über den Store gelesen: Der Auth-Store importiert
+ * diese Datei bereits, ein Import zurück wäre ein Zyklus. Bis der Nutzer
+ * geladen ist, gilt die Gerätesprache.
+ */
+let locale: SupportedLocale = deviceLocale();
+export function setApiLocale(next: SupportedLocale): void {
+  locale = next;
+}
+
 /** Wird von der Auth-Store gesetzt, damit ein 401 die App ausloggen kann. */
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(handler: () => void): void {
@@ -46,6 +61,9 @@ export const api: AxiosInstance = axios.create({
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await tokenStorage.getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  // Das Backend übersetzt seine Fehlermeldungen anhand dieses Kopfes
+  // (siehe `AllExceptionsFilter`); ohne ihn bleibt es bei Deutsch.
+  config.headers['Accept-Language'] = locale;
   return config;
 });
 
@@ -114,9 +132,7 @@ function normalizeError(error: AxiosError): ApiError {
   const message =
     messages?.[0] ??
     (typeof data?.message === 'string' ? data.message : undefined) ??
-    (error.code === 'ECONNABORTED'
-      ? 'Zeitüberschreitung – bitte Verbindung prüfen.'
-      : 'Keine Verbindung zum Server.');
+    translate(locale, error.code === 'ECONNABORTED' ? 'commonNetworkTimeout' : 'commonNetworkOffline');
 
   const apiError = new Error(message) as ApiError;
   apiError.status = error.response?.status ?? 0;

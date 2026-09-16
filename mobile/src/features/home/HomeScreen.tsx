@@ -17,12 +17,23 @@ import {
   Title,
 } from '../../components';
 import { progressApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import { AiCover, LibraryShelfCover, MediaCover, NotebookCover, VocabCover } from './HomeCovers';
 import type { MainTabParamList } from '../../navigation/types';
 
-const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+/** Sonntag zuerst – `Date.getUTCDay()` zählt so. */
+const WEEKDAY_KEYS: TranslationKey[] = [
+  'homeWeekdaySun',
+  'homeWeekdayMon',
+  'homeWeekdayTue',
+  'homeWeekdayWed',
+  'homeWeekdayThu',
+  'homeWeekdayFri',
+  'homeWeekdaySat',
+];
 
 /**
  * Startseite als Kachelraster.
@@ -37,6 +48,7 @@ const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
  */
 export default function HomeScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
@@ -47,7 +59,7 @@ export default function HomeScreen() {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Das Dashboard konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('homeDashboardError')} onRetry={refetch} />;
   }
 
   const goalProgress = data.dailyGoalMinutes
@@ -60,32 +72,35 @@ export default function HomeScreen() {
     {
       key: 'vocabulary',
       Cover: VocabCover,
-      label: 'Vokabeltrainer',
-      subtitle: data.dueCards > 0 ? `${data.dueCards} fällig` : 'Karten üben',
+      label: t('homeTileVocabulary'),
+      subtitle:
+        data.dueCards > 0
+          ? t('homeTileVocabularyDue', { count: data.dueCards })
+          : t('homeTileVocabularyPractice'),
       accent: colors.primary,
       onPress: () => navigation.navigate('Vocabulary', { screen: 'DeckList' }),
     },
     {
       key: 'notebook',
       Cover: NotebookCover,
-      label: 'Lehrwerk',
-      subtitle: 'Vier Bücher',
+      label: t('homeTileNotebook'),
+      subtitle: t('homeTileNotebookSubtitle'),
       accent: colors.warning,
       onPress: () => navigation.navigate('Notebook', { screen: 'Bookshelf' }),
     },
     {
       key: 'library',
       Cover: LibraryShelfCover,
-      label: 'Bibliothek',
-      subtitle: 'Texte lesen',
+      label: t('homeTileLibrary'),
+      subtitle: t('homeTileLibrarySubtitle'),
       accent: colors.success,
       onPress: () => navigation.navigate('Library', { screen: 'LibraryList' }),
     },
     {
       key: 'media',
       Cover: MediaCover,
-      label: 'Mediathek',
-      subtitle: 'Hören',
+      label: t('homeTileMedia'),
+      subtitle: t('homeTileMediaSubtitle'),
       accent: colors.info,
       onPress: () => navigation.navigate('Media', { screen: 'MediaList' }),
     },
@@ -101,8 +116,8 @@ export default function HomeScreen() {
       >
         <Row>
           <View style={{ flex: 1 }}>
-            <Caption>{greeting()}</Caption>
-            <Title>{user?.displayName ?? 'Willkommen'}</Title>
+            <Caption>{t(greetingKey())}</Caption>
+            <Title>{user?.displayName ?? t('homeWelcomeFallback')}</Title>
           </View>
           {data.activeProfile ? (
             <Row gap={spacing.xs}>
@@ -117,16 +132,16 @@ export default function HomeScreen() {
             sie müssen nicht so viel Fläche beanspruchen wie die Kacheln. */}
         <Card>
           <Row gap={spacing.lg}>
-            <StatBlock icon="🔥" value={data.user.streakDays} label="Tage Serie" />
+            <StatBlock icon="🔥" value={data.user.streakDays} label={t('homeStatStreak')} />
             <View style={statDivider} />
-            <StatBlock icon="⭐" value={data.user.xp} label="XP" />
+            <StatBlock icon="⭐" value={data.user.xp} label={t('homeStatXp')} />
           </Row>
           <View style={{ gap: spacing.xs, paddingTop: spacing.md }}>
             <Row>
-              <Caption>Tagesziel</Caption>
+              <Caption>{t('homeDailyGoal')}</Caption>
               <View style={{ flex: 1 }} />
               <Caption>
-                {data.minutesToday} / {data.dailyGoalMinutes} Min
+                {data.minutesToday} / {data.dailyGoalMinutes} {t('commonMinutesShort')}
               </Caption>
             </Row>
             <ProgressBar value={goalProgress} color={goalReached ? colors.success : colors.primary} height={8} />
@@ -153,21 +168,21 @@ export default function HomeScreen() {
           </View>
           <View style={{ padding: spacing.lg, gap: 4 }}>
             <Row>
-              <Heading>Mit der KI üben</Heading>
+              <Heading>{t('homeAiCardTitle')}</Heading>
               <View style={{ flex: 1 }} />
               <Text style={{ fontSize: 20, color: colors.premium }}>›</Text>
             </Row>
-            <Caption>Gespräche, Korrektur und Erklärungen auf Ihrem Niveau.</Caption>
+            <Caption>{t('homeAiCardSubtitle')}</Caption>
           </View>
         </Card>
 
         {hasResume ? (
           <Card>
-            <Heading>Weitermachen</Heading>
+            <Heading>{t('homeResumeHeading')}</Heading>
             <View style={{ gap: spacing.sm, paddingTop: spacing.xs }}>
               {data.continueReading ? (
                 <ResumeRow
-                  label="Weiterlesen"
+                  label={t('homeResumeReading')}
                   title={data.continueReading.title}
                   progress={data.continueReading.userProgress?.progressPercent ?? 0}
                   onPress={() =>
@@ -180,7 +195,7 @@ export default function HomeScreen() {
               ) : null}
               {data.continueListening ? (
                 <ResumeRow
-                  label="Weiterhören"
+                  label={t('homeResumeListening')}
                   title={data.continueListening.title}
                   progress={
                     data.continueListening.durationSec
@@ -203,11 +218,11 @@ export default function HomeScreen() {
 
         {/* Wochenübersicht als schlanke Balken – ohne Chart-Bibliothek. */}
         <Card>
-          <Heading>Diese Woche</Heading>
+          <Heading>{t('homeWeekHeading')}</Heading>
           <Row gap={spacing.sm} style={{ alignItems: 'flex-end', height: 110 }}>
             {data.weeklyActivity.map((entry) => {
               const height = Math.max(4, (entry.minutes / maxMinutes) * 80);
-              const weekday = WEEKDAYS[new Date(entry.date).getUTCDay()];
+              const weekday = t(WEEKDAY_KEYS[new Date(entry.date).getUTCDay()]);
               return (
                 <View key={entry.date} style={{ flex: 1, alignItems: 'center', gap: spacing.xs }}>
                   <Text style={[typography.label, { color: colors.textMuted }]}>
@@ -306,11 +321,11 @@ function ResumeRow({
   );
 }
 
-function greeting(): string {
+function greetingKey(): TranslationKey {
   const hour = new Date().getHours();
-  if (hour < 11) return 'Guten Morgen';
-  if (hour < 18) return 'Hallo';
-  return 'Guten Abend';
+  if (hour < 11) return 'homeGreetingMorning';
+  if (hour < 18) return 'homeGreetingDay';
+  return 'homeGreetingEvening';
 }
 
 // ------------------------------------------------------------------ Styles

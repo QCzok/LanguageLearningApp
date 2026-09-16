@@ -4,10 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BOOK_LABELS } from '@lingua/shared';
 import type { ChapterDetailDto, UnitSummaryDto } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { CheckMark, ChevronRightIcon, LockMark } from './BookIcons';
 import type { NotebookStackParamList } from '../../navigation/types';
@@ -30,7 +30,7 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'BookContents'>;
  */
 export default function BookContentsScreen({ route, navigation }: Props) {
   const { book: bookId } = route.params;
-  const label = BOOK_LABELS[bookId];
+  const { t, tBookLabel, tBookDescription } = useTranslation();
   const accent = bookColors[bookId].accent;
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
@@ -48,7 +48,7 @@ export default function BookContentsScreen({ route, navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Das Buch konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('contentsError')} onRetry={refetch} />;
   }
 
   function openUnit(unit: UnitSummaryDto) {
@@ -67,12 +67,12 @@ export default function BookContentsScreen({ route, navigation }: Props) {
       >
         <View style={sheet}>
           <View style={{ paddingHorizontal: book.margin, paddingTop: 22 }}>
-            <Text style={[eyebrow, { color: accent }]}>Inhalt</Text>
-            <Text style={sheetTitle}>{label.label}</Text>
-            <Text style={sheetSubtitle}>{label.description}</Text>
+            <Text style={[eyebrow, { color: accent }]}>{t('contentsEyebrow')}</Text>
+            <Text style={sheetTitle}>{tBookLabel(bookId)}</Text>
+            <Text style={sheetSubtitle}>{tBookDescription(bookId)}</Text>
             {pages.length > 0 ? (
               <Text style={progressLine}>
-                {done} von {pages.length} Seiten erledigt
+                {t('contentsPagesDone', { done, total: pages.length })}
               </Text>
             ) : null}
             <View style={[titleRule, { backgroundColor: accent }]} />
@@ -160,6 +160,7 @@ function UnitRow({
   accent: string;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const done = unit.status === 'COMPLETED';
   const started = unit.status === 'IN_PROGRESS';
 
@@ -176,9 +177,11 @@ function UnitRow({
         <Text style={unitMeta} numberOfLines={1}>
           {unit.subtitle ? `${unit.subtitle} · ` : ''}
           {unit.exerciseCount > 0
-            ? `${unit.exerciseCount} ${unit.exerciseCount === 1 ? 'Aufgabe' : 'Aufgaben'}`
-            : 'zum Lesen'}
-          {` · ${unit.estimatedMinutes} Min`}
+            ? unit.exerciseCount === 1
+              ? t('contentsTaskCountOne')
+              : t('contentsTaskCount', { count: unit.exerciseCount })
+            : t('contentsToRead')}
+          {` · ${unit.estimatedMinutes} ${t('commonMinutesShort')}`}
         </Text>
       </View>
 
@@ -190,7 +193,7 @@ function UnitRow({
           <CheckMark color={book.correct} size={15} />
         </View>
       ) : started ? (
-        <Text style={[unitScore, { color: accent }]}>begonnen</Text>
+        <Text style={[unitScore, { color: accent }]}>{t('contentsStarted')}</Text>
       ) : (
         <ChevronRightIcon color={book.inkFaint} size={15} />
       )}

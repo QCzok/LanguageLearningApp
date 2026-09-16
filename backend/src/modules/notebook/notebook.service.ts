@@ -12,6 +12,8 @@ import {
   UpdatePageDto,
 } from './dto/notebook.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** Schutz vor Speicherfressern: eine Seite darf nicht beliebig groß werden. */
 const MAX_ELEMENTS_PER_PAGE = 5_000;
 const MAX_POINTS_PER_STROKE = 10_000;
@@ -113,8 +115,8 @@ export class NotebookService {
       where: { id: pageId },
       include: { notebook: true },
     });
-    if (!page) throw new NotFoundException('Seite nicht gefunden');
-    if (page.notebook.userId !== userId) throw new ForbiddenException('Kein Zugriff auf diese Seite');
+    if (!page) throw new NotFoundException(ERR['notfound.page']);
+    if (page.notebook.userId !== userId) throw new ForbiddenException(ERR['forbidden.page']);
     return this.toPageDto(page);
   }
 
@@ -154,9 +156,9 @@ export class NotebookService {
       where: { id: pageId },
       include: { notebook: { select: { userId: true } } },
     });
-    if (!existing) throw new NotFoundException('Seite nicht gefunden');
+    if (!existing) throw new NotFoundException(ERR['notfound.page']);
     if (existing.notebook.userId !== userId) {
-      throw new ForbiddenException('Kein Zugriff auf diese Seite');
+      throw new ForbiddenException(ERR['forbidden.page']);
     }
 
     const content = dto.content ? this.validateContent(dto.content) : undefined;
@@ -179,11 +181,11 @@ export class NotebookService {
       where: { id: pageId },
       include: { notebook: { select: { userId: true } } },
     });
-    if (!page) throw new NotFoundException('Seite nicht gefunden');
-    if (page.notebook.userId !== userId) throw new ForbiddenException('Kein Zugriff auf diese Seite');
+    if (!page) throw new NotFoundException(ERR['notfound.page']);
+    if (page.notebook.userId !== userId) throw new ForbiddenException(ERR['forbidden.page']);
 
     const remaining = await this.prisma.notebookPage.count({ where: { notebookId: page.notebookId } });
-    if (remaining <= 1) throw new BadRequestException('Ein Heft muss mindestens eine Seite behalten');
+    if (remaining <= 1) throw new BadRequestException(ERR['notebook.keep_one_page']);
 
     // Nach dem Löschen werden die Indizes lückenlos neu vergeben.
     await this.prisma.$transaction(async (tx) => {
@@ -208,7 +210,7 @@ export class NotebookService {
     });
     const known = new Set(pages.map((page) => page.id));
     if (dto.pageIds.length !== known.size || dto.pageIds.some((id) => !known.has(id))) {
-      throw new BadRequestException('Die Reihenfolge muss genau alle Seiten des Hefts enthalten');
+      throw new BadRequestException(ERR['notebook.order_mismatch']);
     }
 
     await this.prisma.$transaction((tx) => this.writeIndices(tx, dto.pageIds));
@@ -224,7 +226,7 @@ export class NotebookService {
    */
   private validateContent(content: NotebookPageContent): NotebookPageContent {
     if (!Array.isArray(content.elements)) {
-      throw new BadRequestException('content.elements muss ein Array sein');
+      throw new BadRequestException(ERR['notebook.elements_array']);
     }
     if (content.elements.length > MAX_ELEMENTS_PER_PAGE) {
       throw new BadRequestException(
@@ -233,7 +235,7 @@ export class NotebookService {
     }
     for (const element of content.elements) {
       if (element.type === 'STROKE' && element.points.length > MAX_POINTS_PER_STROKE) {
-        throw new BadRequestException('Ein Strich enthält zu viele Punkte');
+        throw new BadRequestException(ERR['notebook.stroke_too_long']);
       }
     }
 
@@ -260,8 +262,8 @@ export class NotebookService {
 
   private async assertOwnNotebook(userId: string, notebookId: string) {
     const notebook = await this.prisma.notebook.findUnique({ where: { id: notebookId } });
-    if (!notebook) throw new NotFoundException('Heft nicht gefunden');
-    if (notebook.userId !== userId) throw new ForbiddenException('Kein Zugriff auf dieses Heft');
+    if (!notebook) throw new NotFoundException(ERR['notfound.notebook']);
+    if (notebook.userId !== userId) throw new ForbiddenException(ERR['forbidden.notebook']);
     return notebook;
   }
 

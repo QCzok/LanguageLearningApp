@@ -13,16 +13,23 @@ import {
   Title,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { colors, radius, spacing, typography } from '../../theme';
 
-const STATUS_META = [
-  { key: 'NEW', label: 'Neu', color: colors.textMuted },
-  { key: 'LEARNING', label: 'Am Lernen', color: colors.warning },
-  { key: 'REVIEW', label: 'In Wiederholung', color: colors.primary },
-  { key: 'MASTERED', label: 'Gemeistert', color: colors.success },
-] as const;
+const STATUS_META: ReadonlyArray<{
+  key: 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED';
+  label: TranslationKey;
+  color: string;
+}> = [
+  { key: 'NEW', label: 'statsStatusNew', color: colors.textMuted },
+  { key: 'LEARNING', label: 'statsStatusLearning', color: colors.warning },
+  { key: 'REVIEW', label: 'statsStatusReview', color: colors.primary },
+  { key: 'MASTERED', label: 'statsStatusMastered', color: colors.success },
+];
 
 export default function VocabStatsScreen() {
+  const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['vocab-stats'],
     queryFn: vocabularyApi.stats,
@@ -30,7 +37,7 @@ export default function VocabStatsScreen() {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Die Statistik konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('statsError')} onRetry={refetch} />;
   }
 
   const maxReviews = Math.max(...data.history.map((entry) => entry.reviews), 1);
@@ -40,27 +47,27 @@ export default function VocabStatsScreen() {
       <Row gap={spacing.md}>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{data.totalCards}</Text>
-          <Caption>Karten gesamt</Caption>
+          <Caption>{t('statsTotalCards')}</Caption>
         </Card>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{data.dueToday}</Text>
-          <Caption>Heute fällig</Caption>
+          <Caption>{t('statsDueToday')}</Caption>
         </Card>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{data.accuracy7d}%</Text>
-          <Caption>Trefferquote 7T</Caption>
+          <Caption>{t('statsAccuracy7d')}</Caption>
         </Card>
       </Row>
 
       <Card>
-        <Heading>Verteilung</Heading>
+        <Heading>{t('statsDistribution')}</Heading>
         {STATUS_META.map((status) => {
           const value = data.byStatus[status.key] ?? 0;
           const percent = data.totalCards ? (value / data.totalCards) * 100 : 0;
           return (
             <View key={status.key} style={{ gap: spacing.xs, paddingVertical: spacing.xs }}>
               <Row>
-                <Caption>{status.label}</Caption>
+                <Caption>{t(status.label)}</Caption>
                 <View style={{ flex: 1 }} />
                 <Caption>{value}</Caption>
               </Row>
@@ -71,7 +78,7 @@ export default function VocabStatsScreen() {
       </Card>
 
       <Card>
-        <Heading>Letzte 7 Tage</Heading>
+        <Heading>{t('statsLast7Days')}</Heading>
         <Row gap={spacing.sm} style={{ alignItems: 'flex-end', height: 130 }}>
           {data.history.map((entry) => {
             const total = Math.max(4, (entry.reviews / maxReviews) * 90);
@@ -99,13 +106,13 @@ export default function VocabStatsScreen() {
             );
           })}
         </Row>
-        <Caption>Grün = korrekt beantwortet</Caption>
+        <Caption>{t('statsGreenIsCorrect')}</Caption>
       </Card>
 
       <Card style={{ alignItems: 'center', gap: spacing.sm }}>
         <Text style={{ fontSize: 34 }}>🔥</Text>
-        <Title>{data.streakDays} Tage in Folge</Title>
-        <Caption>Wiederhole täglich, um die Serie zu halten.</Caption>
+        <Title>{t('statsStreakDays', { count: data.streakDays })}</Title>
+        <Caption>{t('statsStreakHint')}</Caption>
       </Card>
     </Screen>
   );

@@ -486,17 +486,48 @@ async function main(): Promise<void> {
     update: { plan: 'PREMIUM', premiumUntil: new Date(Date.now() + 365 * 86_400_000) },
   });
 
+  /*
+    Das Startprofil der Demo-Konten.
+
+    Der Seed läuft auch auf einer Datenbank, in der schon gearbeitet wurde.
+    Vorher setzte er das Englisch-Profil dabei hart auf aktiv, ohne die
+    anderen abzuschalten – wer in der App auf Deutsch gewechselt hatte, hatte
+    danach zwei aktive Profile, und App und Dashboard suchten sich
+    verschiedene davon aus. Deshalb läuft das Aktivieren hier durch dieselbe
+    Transaktion wie im `UsersService`: erst alle abschalten, dann genau eines
+    einschalten. Der partielle Unique-Index aus der Migration
+    `20260916150000_one_active_profile_per_user` würde einen Rückfall ohnehin
+    abweisen.
+
+    Ein bereits aktives Profil in einer anderen Sprache bleibt unangetastet:
+    Wer die Demo-Konten zum Deutschlernen benutzt, soll nach einem erneuten
+    Seed nicht wieder bei Englisch landen.
+  */
   for (const user of [demo, premium]) {
-    await prisma.learningProfile.upsert({
-      where: { userId_languageId: { userId: user.id, languageId: en } },
-      create: {
-        userId: user.id,
-        languageId: en,
-        level: CefrLevel.A2,
-        levelSource: 'SELF_SELECTED',
-        isActive: true,
-      },
-      update: { isActive: true },
+    await prisma.$transaction(async (tx) => {
+      const alreadyActive = await tx.learningProfile.findFirst({
+        where: { userId: user.id, isActive: true },
+      });
+      const makeActive = !alreadyActive || alreadyActive.languageId === en;
+
+      if (makeActive) {
+        await tx.learningProfile.updateMany({
+          where: { userId: user.id, isActive: true },
+          data: { isActive: false },
+        });
+      }
+
+      await tx.learningProfile.upsert({
+        where: { userId_languageId: { userId: user.id, languageId: en } },
+        create: {
+          userId: user.id,
+          languageId: en,
+          level: CefrLevel.A2,
+          levelSource: 'SELF_SELECTED',
+          isActive: makeActive,
+        },
+        update: { isActive: makeActive },
+      });
     });
   }
 

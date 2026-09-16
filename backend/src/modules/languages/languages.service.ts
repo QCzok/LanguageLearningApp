@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { LanguageDto } from '@lingua/shared';
 
+import { ERR } from '../../common/i18n/messages';
+
 @Injectable()
 export class LanguagesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -16,7 +18,7 @@ export class LanguagesService {
 
   async findByIdOrThrow(id: string): Promise<LanguageDto> {
     const language = await this.prisma.language.findUnique({ where: { id } });
-    if (!language) throw new NotFoundException('Sprache nicht gefunden');
+    if (!language) throw new NotFoundException(ERR['notfound.language']);
     return toLanguageDto(language);
   }
 }

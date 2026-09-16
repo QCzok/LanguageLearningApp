@@ -19,17 +19,19 @@ import {
 } from '../../components';
 import { FilterChip } from '../library/LibraryListScreen';
 import { mediaApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { MediaStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<MediaStackParamList, 'MediaList'>;
 
-const TYPE_FILTERS = [
-  { value: undefined, label: 'Alle' },
-  { value: 'PODCAST', label: 'Podcasts' },
-  { value: 'AUDIO_LESSON', label: 'Lektionen' },
-  { value: 'DIALOGUE', label: 'Dialoge' },
-] as const;
+const TYPE_FILTERS: ReadonlyArray<{ value?: string; label: TranslationKey }> = [
+  { value: undefined, label: 'mediaFilterAll' },
+  { value: 'PODCAST', label: 'mediaFilterPodcasts' },
+  { value: 'AUDIO_LESSON', label: 'mediaFilterLessons' },
+  { value: 'DIALOGUE', label: 'mediaFilterDialogues' },
+];
 
 const TYPE_ICONS: Record<string, string> = {
   PODCAST: '🎙️',
@@ -38,6 +40,7 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 export default function MediaListScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const [type, setType] = useState<string | undefined>(undefined);
   const [level, setLevel] = useState<CefrLevel | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -54,13 +57,18 @@ export default function MediaListScreen({ navigation }: Props) {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
         keyboardShouldPersistTaps="handled"
       >
-        <Input value={search} onChangeText={setSearch} placeholder="Suchen …" autoCapitalize="none" />
+        <Input
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('mediaSearchPlaceholder')}
+          autoCapitalize="none"
+        />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterRow}>
           {TYPE_FILTERS.map((filter) => (
             <FilterChip
               key={filter.label}
-              label={filter.label}
+              label={t(filter.label)}
               active={type === filter.value}
               onPress={() => setType(filter.value)}
             />
@@ -68,17 +76,25 @@ export default function MediaListScreen({ navigation }: Props) {
         </ScrollView>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterRow}>
-          <FilterChip label="Mein Niveau" active={level === undefined} onPress={() => setLevel(undefined)} />
+          <FilterChip
+            label={t('libraryMyLevel')}
+            active={level === undefined}
+            onPress={() => setLevel(undefined)}
+          />
           {CEFR_LEVELS.map((entry) => (
             <FilterChip key={entry} label={entry} active={level === entry} onPress={() => setLevel(entry)} />
           ))}
         </ScrollView>
 
         {isLoading ? <Loading /> : null}
-        {isError ? <ErrorState message="Die Mediathek konnte nicht geladen werden." onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('mediaError')} onRetry={refetch} /> : null}
 
         {data?.items.length === 0 ? (
-          <EmptyState emoji="🎧" title="Nichts gefunden" description="Passe die Filter an." />
+          <EmptyState
+            emoji="🎧"
+            title={t('commonNothingFound')}
+            description={t('mediaNothingFoundBody')}
+          />
         ) : null}
 
         {data?.items.map((item) => {
@@ -99,7 +115,7 @@ export default function MediaListScreen({ navigation }: Props) {
                   <Row gap={spacing.xs}>
                     <LevelBadge level={item.level} small />
                     <Caption>· {formatDuration(item.durationSec)}</Caption>
-                    {item.hasTranscript ? <Caption>· Transkript</Caption> : null}
+                    {item.hasTranscript ? <Caption>· {t('mediaTranscriptBadge')}</Caption> : null}
                   </Row>
                   <Text style={[typography.caption, { color: colors.textMuted }]} numberOfLines={2}>
                     {item.description}

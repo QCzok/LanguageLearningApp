@@ -15,6 +15,8 @@ import { UsersService } from '../users/users.service';
 import { ChangePasswordDto, LoginDto, RegisterDto } from './dto/auth.dto';
 import type { AuthResponse, AuthTokens } from '@lingua/shared';
 
+import { ERR } from '../../common/i18n/messages';
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -28,7 +30,7 @@ export class AuthService {
 
   async register(dto: RegisterDto, userAgent?: string): Promise<AuthResponse> {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (existing) throw new ConflictException('Für diese E-Mail existiert bereits ein Konto');
+    if (existing) throw new ConflictException(ERR['auth.email_taken']);
 
     const user = await this.prisma.user.create({
       data: {
@@ -51,7 +53,7 @@ export class AuthService {
       ? await argon2.verify(user.passwordHash, dto.password).catch(() => false)
       : await this.dummyVerify(dto.password);
 
-    if (!user || !valid) throw new UnauthorizedException('E-Mail oder Passwort ist falsch');
+    if (!user || !valid) throw new UnauthorizedException(ERR['auth.invalid_credentials']);
 
     return this.buildAuthResponse(user.id, user.email, userAgent);
   }
@@ -65,20 +67,20 @@ export class AuthService {
     try {
       payload = await this.jwt.verifyAsync(refreshToken, { secret: this.config.refreshSecret });
     } catch {
-      throw new UnauthorizedException('Refresh-Token ist ungültig oder abgelaufen');
+      throw new UnauthorizedException(ERR['auth.refresh_invalid']);
     }
-    if (payload.type !== 'refresh') throw new UnauthorizedException('Falscher Token-Typ');
+    if (payload.type !== 'refresh') throw new UnauthorizedException(ERR['auth.wrong_token_type']);
 
     const tokenHash = this.hashToken(refreshToken);
     const stored = await this.prisma.refreshToken.findFirst({
       where: { userId: payload.sub, tokenHash },
     });
 
-    if (!stored) throw new UnauthorizedException('Refresh-Token ist unbekannt');
+    if (!stored) throw new UnauthorizedException(ERR['auth.refresh_unknown']);
 
     if (stored.revokedAt || stored.expiresAt.getTime() < Date.now()) {
       await this.revokeAllSessions(payload.sub);
-      throw new UnauthorizedException('Sitzung abgelaufen – bitte erneut anmelden');
+      throw new UnauthorizedException(ERR['auth.session_expired']);
     }
 
     await this.prisma.refreshToken.update({
@@ -100,7 +102,7 @@ export class AuthService {
   async changePassword(userId: string, dto: ChangePasswordDto): Promise<void> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const valid = await argon2.verify(user.passwordHash, dto.currentPassword).catch(() => false);
-    if (!valid) throw new UnauthorizedException('Das aktuelle Passwort ist falsch');
+    if (!valid) throw new UnauthorizedException(ERR['auth.wrong_password']);
 
     await this.prisma.user.update({
       where: { id: userId },

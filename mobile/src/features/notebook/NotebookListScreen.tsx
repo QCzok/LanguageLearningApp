@@ -6,6 +6,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Body, Button, ErrorState, Input, Loading, Row, Title } from '../../components';
 import { notebookApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
 import { book, bookFont, bookLabel, bookSans, colors, radius, spacing } from '../../theme';
 import { BookMark, PlusIcon, TrashIcon } from '../workbook/BookIcons';
@@ -24,6 +25,7 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookList'>;
 const COVER_COLORS = ['#73030D', '#4D0209', '#33363B', '#2F6F4F', '#5C3D74', '#8A5A1E'];
 
 export default function NotebookListScreen({ navigation }: Props) {
+  const { t, tLanguage, formatDate } = useTranslation();
   const queryClient = useQueryClient();
   const profile = useActiveProfile();
 
@@ -50,15 +52,15 @@ export default function NotebookListScreen({ navigation }: Props) {
   });
 
   function confirmDelete(id: string, name: string): void {
-    alert('Heft löschen?', `„${name}“ wird mit allen Seiten unwiderruflich gelöscht.`, [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Löschen', style: 'destructive', onPress: () => remove.mutate(id) },
+    alert(t('notebooksDeleteTitle'), t('notebooksDeleteBody', { title: name }), [
+      { text: t('commonCancel'), style: 'cancel' },
+      { text: t('commonDelete'), style: 'destructive', onPress: () => remove.mutate(id) },
     ]);
   }
 
   if (notebooks.isLoading) return <Loading />;
   if (notebooks.isError || !notebooks.data) {
-    return <ErrorState message="Deine Hefte konnten nicht geladen werden." onRetry={notebooks.refetch} />;
+    return <ErrorState message={t('notebooksError')} onRetry={notebooks.refetch} />;
   }
 
   return (
@@ -67,16 +69,14 @@ export default function NotebookListScreen({ navigation }: Props) {
         <ScrollView contentContainerStyle={{ padding: 10, paddingBottom: spacing.xxl }}>
           <View style={sheet}>
             <View style={{ paddingHorizontal: book.margin, paddingTop: 22 }}>
-              <Text style={eyebrow}>Eigene Hefte</Text>
-              <Text style={sheetTitle}>Deine Hefte</Text>
-              <Text style={sheetSubtitle}>Schreiben, markieren, später weiterbearbeiten.</Text>
+              <Text style={eyebrow}>{t('notebooksEyebrow')}</Text>
+              <Text style={sheetTitle}>{t('notebooksTitle')}</Text>
+              <Text style={sheetSubtitle}>{t('notebooksSubtitle')}</Text>
               <View style={titleRule} />
             </View>
 
             {notebooks.data.length === 0 ? (
-              <Text style={emptyText}>
-                Noch kein Heft. Lege eines an, um Notizen, Übungen und eigene Texte zu sammeln.
-              </Text>
+              <Text style={emptyText}>{t('notebooksEmpty')}</Text>
             ) : (
               notebooks.data.map((notebook) => (
                 <Pressable
@@ -97,15 +97,22 @@ export default function NotebookListScreen({ navigation }: Props) {
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={notebookTitle}>{notebook.title}</Text>
                     <Text style={notebookMeta}>
-                      {notebook.pageCount} {notebook.pageCount === 1 ? 'Seite' : 'Seiten'} · zuletzt{' '}
-                      {formatDate(notebook.updatedAt)}
-                      {notebook.language ? ` · ${notebook.language.name}` : ''}
+                      {notebook.pageCount === 1
+                        ? t('notebooksPageCountOne')
+                        : t('notebooksPageCount', { count: notebook.pageCount })}
+                      {' · '}
+                      {t('notebooksLastEdited', {
+                        date: formatDate(notebook.updatedAt, { day: '2-digit', month: 'short' }),
+                      })}
+                      {notebook.language
+                        ? ` · ${tLanguage(notebook.language.code, notebook.language.name)}`
+                        : ''}
                     </Text>
                   </View>
 
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Heft ${notebook.title} löschen`}
+                    accessibilityLabel={t('notebooksDeleteA11y', { title: notebook.title })}
                     hitSlop={8}
                     onPress={() => confirmDelete(notebook.id, notebook.title)}
                     style={{ padding: spacing.sm }}
@@ -122,7 +129,7 @@ export default function NotebookListScreen({ navigation }: Props) {
               style={({ pressed }) => [newRow, pressed && { backgroundColor: book.tint }]}
             >
               <PlusIcon color={book.ink} size={18} />
-              <Text style={newRowLabel}>Neues Heft anlegen</Text>
+              <Text style={newRowLabel}>{t('notebooksNew')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -131,23 +138,23 @@ export default function NotebookListScreen({ navigation }: Props) {
       <Modal visible={isCreating} animationType="slide" transparent onRequestClose={() => setIsCreating(false)}>
         <View style={sheetBackdrop}>
           <SafeAreaView edges={['bottom']} style={sheetStyle}>
-            <Title>Neues Heft</Title>
+            <Title>{t('notebooksNewTitle')}</Title>
             <Input
-              label="Titel"
+              label={t('notebooksTitleLabel')}
               value={title}
               onChangeText={setTitle}
-              placeholder="z. B. Grammatik, Vokabelnotizen …"
+              placeholder={t('notebooksTitlePlaceholder')}
               autoFocus
             />
 
             <View style={{ gap: spacing.sm }}>
-              <Body muted>Umschlag</Body>
+              <Body muted>{t('notebooksCover')}</Body>
               <Row gap={spacing.sm}>
                 {COVER_COLORS.map((color) => (
                   <Pressable
                     key={color}
                     accessibilityRole="button"
-                    accessibilityLabel={`Umschlagfarbe ${color}`}
+                    accessibilityLabel={t('notebooksCoverA11y', { color })}
                     accessibilityState={{ selected: coverColor === color }}
                     onPress={() => setCoverColor(color)}
                     style={[
@@ -161,21 +168,17 @@ export default function NotebookListScreen({ navigation }: Props) {
             </View>
 
             <Button
-              label="Heft anlegen"
+              label={t('notebooksCreate')}
               onPress={() => create.mutate()}
               disabled={title.trim().length < 1}
               loading={create.isPending}
             />
-            <Button label="Abbrechen" variant="ghost" onPress={() => setIsCreating(false)} />
+            <Button label={t('commonCancel')} variant="ghost" onPress={() => setIsCreating(false)} />
           </SafeAreaView>
         </View>
       </Modal>
     </>
   );
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' });
 }
 
 // ------------------------------------------------------------------ Styles

@@ -20,6 +20,8 @@ import {
   SubmitReviewDto,
 } from './dto/vocabulary.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** XP pro korrekt beantworteter Karte. */
 const XP_PER_CORRECT_REVIEW = 2;
 /** Maximale Anzahl neuer Karten, die pro Sitzung eingeführt werden. */
@@ -76,9 +78,9 @@ export class VocabularyService {
       where: { id: deckId },
       include: { ...deckWithCount, items: { orderBy: { sortOrder: 'asc' } } },
     });
-    if (!deck) throw new NotFoundException('Deck nicht gefunden');
+    if (!deck) throw new NotFoundException(ERR['notfound.deck']);
     if (!deck.isSystem && deck.ownerId !== userId) {
-      throw new ForbiddenException('Dieses Deck gehört einem anderen Nutzer');
+      throw new ForbiddenException(ERR['forbidden.deck_other_user']);
     }
 
     const progress = (await this.progressByDeck(userId, [deck.id])).get(deck.id);
@@ -136,9 +138,9 @@ export class VocabularyService {
       where: { id: itemId },
       include: { deck: true },
     });
-    if (!item) throw new NotFoundException('Vokabel nicht gefunden');
+    if (!item) throw new NotFoundException(ERR['notfound.vocab_item']);
     if (item.deck.isSystem || item.deck.ownerId !== userId) {
-      throw new ForbiddenException('Diese Vokabel kann nicht gelöscht werden');
+      throw new ForbiddenException(ERR['forbidden.vocab_readonly']);
     }
     await this.prisma.vocabItem.delete({ where: { id: itemId } });
   }
@@ -327,7 +329,7 @@ export class VocabularyService {
       // statt einer Progress-ID (siehe dort). Die erste Bewertung legt die
       // Zeile jetzt an, nicht schon beim bloßen Anzeigen.
       const item = await this.prisma.vocabItem.findUnique({ where: { id: dto.cardId } });
-      if (!item) throw new NotFoundException('Karte nicht gefunden');
+      if (!item) throw new NotFoundException(ERR['notfound.card']);
       card = await this.prisma.vocabProgress.upsert({
         where: { userId_vocabItemId: { userId, vocabItemId: item.id } },
         create: { userId, vocabItemId: item.id, dueAt: new Date(), ...SRS_DEFAULTS },
@@ -449,9 +451,9 @@ export class VocabularyService {
 
   private async assertOwnDeck(userId: string, deckId: string) {
     const deck = await this.prisma.vocabDeck.findUnique({ where: { id: deckId } });
-    if (!deck) throw new NotFoundException('Deck nicht gefunden');
+    if (!deck) throw new NotFoundException(ERR['notfound.deck']);
     if (deck.isSystem || deck.ownerId !== userId) {
-      throw new ForbiddenException('Dieses Deck kann nicht bearbeitet werden');
+      throw new ForbiddenException(ERR['forbidden.deck_readonly']);
     }
     return deck;
   }

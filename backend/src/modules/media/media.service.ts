@@ -8,6 +8,8 @@ import { toLanguageDto } from '../languages/languages.service';
 import { UsersService } from '../users/users.service';
 import { ListMediaQueryDto, UpdateMediaProgressDto } from './dto/media.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** Ab diesem Anteil gilt eine Folge als gehört. */
 const COMPLETION_RATIO = 0.9;
 
@@ -70,12 +72,12 @@ export class MediaService {
 
   async getById(user: AuthenticatedUser, id: string): Promise<MediaItemDto> {
     const item = await this.prisma.mediaItem.findUnique({ where: { id }, include: mediaInclude });
-    if (!item) throw new NotFoundException('Medieninhalt nicht gefunden');
+    if (!item) throw new NotFoundException(ERR['notfound.media']);
 
     const premiumActive =
       user.plan === 'PREMIUM' && (!user.premiumUntil || user.premiumUntil.getTime() > Date.now());
     if (item.isPremium && !premiumActive) {
-      throw new ForbiddenException('Diese Folge ist Teil von Lingua Premium');
+      throw new ForbiddenException(ERR['premium.media']);
     }
 
     const progress = await this.prisma.mediaProgress.findUnique({
@@ -97,7 +99,7 @@ export class MediaService {
    */
   async updateProgress(userId: string, mediaItemId: string, dto: UpdateMediaProgressDto) {
     const item = await this.prisma.mediaItem.findUnique({ where: { id: mediaItemId } });
-    if (!item) throw new NotFoundException('Medieninhalt nicht gefunden');
+    if (!item) throw new NotFoundException(ERR['notfound.media']);
 
     const positionSec = Math.min(dto.positionSec, item.durationSec);
     const completed = dto.completed ?? positionSec >= item.durationSec * COMPLETION_RATIO;

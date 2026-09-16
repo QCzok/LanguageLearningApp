@@ -18,22 +18,25 @@ import {
   Title,
 } from '../../components';
 import { aiApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { useIsPremium } from '../../store/auth.store';
 import { colors, radius, spacing } from '../../theme';
 import type { AiStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AiStackParamList, 'AiHub'>;
 
-const TOPIC_SUGGESTIONS = [
-  'Reisen und Urlaub',
-  'Arbeit und Karriere',
-  'Umwelt und Klima',
-  'Filme und Serien',
-  'Essen und Kochen',
-  'Technik im Alltag',
+const TOPIC_SUGGESTIONS: TranslationKey[] = [
+  'aiTopicTravel',
+  'aiTopicWork',
+  'aiTopicEnvironment',
+  'aiTopicMovies',
+  'aiTopicFood',
+  'aiTopicTech',
 ];
 
 export default function AiHubScreen({ navigation }: Props) {
+  const { t, formatDate } = useTranslation();
   const queryClient = useQueryClient();
   const isPremium = useIsPremium();
 
@@ -52,7 +55,7 @@ export default function AiHubScreen({ navigation }: Props) {
     mutationFn: (payload: { topic?: string }) =>
       aiApi.createConversation({
         topic: payload.topic,
-        title: payload.topic ?? 'Gespräch',
+        title: payload.topic ?? t('aiConversationDefaultTitle'),
       }),
     onSuccess: async (conversation) => {
       await queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
@@ -75,7 +78,7 @@ export default function AiHubScreen({ navigation }: Props) {
         {quota.data ? (
           <Card>
             <Row>
-              <Heading>KI-Kontingent</Heading>
+              <Heading>{t('aiQuotaTitle')}</Heading>
               <View style={{ flex: 1 }} />
               <Caption>
                 {quota.data.used} / {quota.data.limit}
@@ -86,33 +89,29 @@ export default function AiHubScreen({ navigation }: Props) {
               color={colors.premium}
               height={6}
             />
-            <Caption>
-              Zurückgesetzt am {new Date(quota.data.resetsAt).toLocaleDateString('de-DE')}
-            </Caption>
+            <Caption>{t('aiQuotaResets', { date: formatDate(quota.data.resetsAt) })}</Caption>
           </Card>
         ) : null}
 
         <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md }}>
           <Text style={{ fontSize: 48 }}>🤖</Text>
-          <Title>Sprich mit deinem KI-Partner</Title>
-          <Caption>
-            Rede oder schreib einfach drauflos – die KI passt sich deinem Niveau an.
-          </Caption>
+          <Title>{t('aiHubTitle')}</Title>
+          <Caption>{t('aiHubSubtitle')}</Caption>
         </View>
 
         <Button
-          label="Gespräch starten"
+          label={t('aiStartConversation')}
           variant="premium"
           loading={start.isPending && !showStarter}
           onPress={() => start.mutate({})}
         />
-        <Button label="Eigenes Thema wählen" variant="ghost" onPress={() => setShowStarter(true)} />
+        <Button label={t('aiOwnTopic')} variant="ghost" onPress={() => setShowStarter(true)} />
 
         {conversations.data && conversations.data.length > 0 ? (
           <>
             <Card onPress={() => setRecentExpanded((value) => !value)}>
               <Row gap={spacing.sm}>
-                <Heading>Zuletzt</Heading>
+                <Heading>{t('aiRecent')}</Heading>
                 <View style={{ flex: 1 }} />
                 <Caption>{conversations.data.length}</Caption>
                 <Text style={{ fontSize: 16, color: colors.textMuted }}>
@@ -137,8 +136,8 @@ export default function AiHubScreen({ navigation }: Props) {
                       <View style={{ flex: 1 }}>
                         <Body>{conversation.title}</Body>
                         <Caption>
-                          {conversation.messageCount} Nachrichten ·{' '}
-                          {new Date(conversation.updatedAt).toLocaleDateString('de-DE')}
+                          {t('aiMessagesCount', { count: conversation.messageCount })} ·{' '}
+                          {formatDate(conversation.updatedAt)}
                         </Caption>
                       </View>
                     </Row>
@@ -157,35 +156,38 @@ export default function AiHubScreen({ navigation }: Props) {
       >
         <View style={sheetBackdrop}>
           <SafeAreaView edges={['bottom']} style={sheetStyle}>
-            <Title>Gespräch starten</Title>
-            <Caption>Wähle ein Thema oder lass die KI eins vorschlagen.</Caption>
+            <Title>{t('aiStartConversation')}</Title>
+            <Caption>{t('aiStarterSubtitle')}</Caption>
 
             <Row gap={spacing.sm} style={{ flexWrap: 'wrap' }}>
-              {TOPIC_SUGGESTIONS.map((entry) => (
-                <Button
-                  key={entry}
-                  label={entry}
-                  variant={topic === entry ? 'primary' : 'secondary'}
-                  fullWidth={false}
-                  onPress={() => setTopic(entry)}
-                />
-              ))}
+              {TOPIC_SUGGESTIONS.map((key) => {
+                const label = t(key);
+                return (
+                  <Button
+                    key={key}
+                    label={label}
+                    variant={topic === label ? 'primary' : 'secondary'}
+                    fullWidth={false}
+                    onPress={() => setTopic(label)}
+                  />
+                );
+              })}
             </Row>
 
             <Input
-              label="Eigenes Thema"
+              label={t('aiOwnTopicLabel')}
               value={topic}
               onChangeText={setTopic}
-              placeholder="Worüber möchtest du sprechen?"
+              placeholder={t('aiOwnTopicPlaceholder')}
             />
 
             <Button
-              label="Starten"
+              label={t('aiStart')}
               variant="premium"
               loading={start.isPending}
               onPress={() => start.mutate({ topic: topic.trim() || undefined })}
             />
-            <Button label="Abbrechen" variant="ghost" onPress={() => setShowStarter(false)} />
+            <Button label={t('commonCancel')} variant="ghost" onPress={() => setShowStarter(false)} />
           </SafeAreaView>
         </View>
       </Modal>
@@ -194,28 +196,27 @@ export default function AiHubScreen({ navigation }: Props) {
 }
 
 function PremiumTeaser({ quota }: { quota?: { used: number; limit: number } }) {
+  const { t } = useTranslation();
+
   return (
     <Screen scroll>
       <View style={{ alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl }}>
         <Text style={{ fontSize: 60 }}>✨</Text>
         <PremiumBadge />
-        <Title>Dein KI-Sprachpartner</Title>
-        <Body muted>
-          Mit Premium übst du jederzeit im Gespräch, bekommst deine Texte korrigiert und erhältst
-          Erklärungen zu jedem Fehler.
-        </Body>
+        <Title>{t('aiTeaserTitle')}</Title>
+        <Body muted>{t('aiTeaserBody')}</Body>
       </View>
 
       {[
         {
           icon: '🎙️',
-          title: 'Sprechen oder schreiben',
-          text: 'Rede frei oder tippe – ganz wie du magst.',
+          title: t('aiTeaserFeature1Title'),
+          text: t('aiTeaserFeature1Text'),
         },
         {
           icon: '📝',
-          title: 'Korrektur im Lernheft',
-          text: 'Deine geschriebenen Texte werden geprüft und erklärt.',
+          title: t('aiTeaserFeature2Title'),
+          text: t('aiTeaserFeature2Text'),
         },
       ].map((feature) => (
         <Card key={feature.title}>
@@ -232,13 +233,15 @@ function PremiumTeaser({ quota }: { quota?: { used: number; limit: number } }) {
       {quota ? (
         <Card>
           <Caption>
-            Zum Ausprobieren: {Math.max(0, quota.limit - quota.used)} von {quota.limit} kostenlosen
-            KI-Anfragen diesen Monat übrig.
+            {t('aiTeaserQuota', {
+              left: Math.max(0, quota.limit - quota.used),
+              limit: quota.limit,
+            })}
           </Caption>
         </Card>
       ) : null}
 
-      <Caption>Premium kannst du im Profil aktivieren.</Caption>
+      <Caption>{t('aiTeaserActivate')}</Caption>
     </Screen>
   );
 }

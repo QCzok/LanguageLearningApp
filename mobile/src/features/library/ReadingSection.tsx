@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { LibrarySection } from '@lingua/shared';
+import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
-import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../utils/translation';
+import { asTranslatableLanguage } from '../../utils/translation';
 import { colors, fontFamily, radius, reading, readingLabel, spacing } from '../../theme';
 
 /**
@@ -40,9 +41,10 @@ export function ReadingSection({
   // jeder Absatz wieder für sich auf- und zugeklappt werden.
   useEffect(() => setTranslationOpen(translationsOpen), [translationsOpen]);
 
+  const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
-  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const languageLabel = language ? tLanguage(language) : '';
   const translation = language ? section.translations?.[language] : undefined;
 
   function toggleTerm(index: number) {
@@ -77,7 +79,7 @@ export function ReadingSection({
       {section.glossary?.length ? (
         <View style={{ gap: spacing.sm, marginTop: spacing.xs }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, alignItems: 'center' }}>
-            <Text style={apparatusLabel}>Wörter</Text>
+            <Text style={apparatusLabel}>{t('readingWordsLabel')}</Text>
             {section.glossary.map((entry, index) => {
               const open = openTerms.has(index);
               return (
@@ -126,7 +128,9 @@ export function ReadingSection({
             style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
           >
             <Text style={translationToggle}>
-              {translationOpen ? 'Übersetzung ausblenden' : `Auf ${languageLabel} lesen`}
+              {translationOpen
+                ? t('blockHideTranslation')
+                : t('readingReadInLanguage', { language: languageLabel })}
             </Text>
             <View style={toggleRule} />
           </Pressable>

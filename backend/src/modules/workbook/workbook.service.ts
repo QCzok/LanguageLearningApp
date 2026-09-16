@@ -23,6 +23,8 @@ import { UsersService } from '../users/users.service';
 import { evaluateBlock, stripSolutions } from './evaluation';
 import { CheckUnitDto, SaveAnnotationsDto, SaveAnswersDto } from './dto/workbook.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** XP für eine vollständig abgeschlossene Lerneinheit, skaliert mit dem Ergebnis. */
 const XP_PER_UNIT = 30;
 
@@ -130,7 +132,7 @@ export class WorkbookService {
       where: { id: chapterId },
       include: { units: { orderBy: { order: 'asc' } } },
     });
-    if (!chapter) throw new NotFoundException('Kapitel nicht gefunden');
+    if (!chapter) throw new NotFoundException(ERR['notfound.chapter']);
 
     const progressRows = await this.prisma.unitProgress.findMany({
       where: { userId, unitId: { in: chapter.units.map((unit) => unit.id) } },
@@ -151,7 +153,7 @@ export class WorkbookService {
       where: { id: unitId },
       include: { chapter: true },
     });
-    if (!unit) throw new NotFoundException('Lerneinheit nicht gefunden');
+    if (!unit) throw new NotFoundException(ERR['notfound.unit']);
 
     const progress = await this.prisma.unitProgress.upsert({
       where: { userId_unitId: { userId, unitId } },
@@ -220,13 +222,13 @@ export class WorkbookService {
    */
   async check(userId: string, unitId: string, dto: CheckUnitDto): Promise<UnitCheckResult> {
     const unit = await this.prisma.chapterUnit.findUnique({ where: { id: unitId } });
-    if (!unit) throw new NotFoundException('Lerneinheit nicht gefunden');
+    if (!unit) throw new NotFoundException(ERR['notfound.unit']);
 
     const content = unit.content as unknown as UnitContent;
     const exercises = content.blocks.filter(isExerciseBlock);
 
     if (exercises.length === 0) {
-      throw new BadRequestException('Diese Lerneinheit enthält keine Aufgaben');
+      throw new BadRequestException(ERR['content.unit_no_exercises']);
     }
 
     const isPartial = Boolean(dto.blockIds?.length);
@@ -234,7 +236,7 @@ export class WorkbookService {
       ? exercises.filter((block) => dto.blockIds!.includes(block.id))
       : exercises;
 
-    if (targets.length === 0) throw new BadRequestException('Keine passenden Aufgaben gefunden');
+    if (targets.length === 0) throw new BadRequestException(ERR['content.no_matching_blocks']);
 
     // Gespeicherte Antworten mit den übergebenen zusammenführen, damit eine
     // Zwischenprüfung nicht die restlichen Eingaben verwirft.
@@ -310,7 +312,7 @@ export class WorkbookService {
   /** Reine Leseseiten enthalten keine Aufgaben – sie werden manuell abgehakt. */
   async markComplete(userId: string, unitId: string): Promise<{ status: UnitStatus; xpEarned: number }> {
     const unit = await this.prisma.chapterUnit.findUnique({ where: { id: unitId } });
-    if (!unit) throw new NotFoundException('Lerneinheit nicht gefunden');
+    if (!unit) throw new NotFoundException(ERR['notfound.unit']);
 
     const stored = await this.prisma.unitProgress.findUnique({
       where: { userId_unitId: { userId, unitId } },
@@ -347,7 +349,7 @@ export class WorkbookService {
 
   private async assertUnitExists(unitId: string): Promise<void> {
     const exists = await this.prisma.chapterUnit.count({ where: { id: unitId } });
-    if (exists === 0) throw new NotFoundException('Lerneinheit nicht gefunden');
+    if (exists === 0) throw new NotFoundException(ERR['notfound.unit']);
   }
 
   /**

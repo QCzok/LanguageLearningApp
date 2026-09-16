@@ -7,6 +7,8 @@ import { CEFR_LEVELS } from '@lingua/shared';
 import type { CefrLevel, LibraryContentDto } from '@lingua/shared';
 import { EmptyState, ErrorState, LevelBadge, Loading, ProgressBar } from '../../components';
 import { libraryApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import {
   colors,
   fontFamily,
@@ -23,11 +25,11 @@ import type { LibraryStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'LibraryList'>;
 
-const TYPE_FILTERS = [
-  { value: undefined, label: 'Alle' },
-  { value: 'ARTICLE', label: 'Artikel' },
-  { value: 'STORY', label: 'Geschichten' },
-] as const;
+const TYPE_FILTERS: ReadonlyArray<{ value?: string; label: TranslationKey }> = [
+  { value: undefined, label: 'libraryFilterAll' },
+  { value: 'ARTICLE', label: 'libraryFilterArticles' },
+  { value: 'STORY', label: 'libraryFilterStories' },
+];
 
 /**
  * Bibliotheksübersicht als Bücherregal.
@@ -43,6 +45,7 @@ const TYPE_FILTERS = [
  * (siehe dort für die Begründung).
  */
 export default function LibraryListScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const [type, setType] = useState<string | undefined>(undefined);
   const [level, setLevel] = useState<CefrLevel | undefined>(undefined);
   const [search, setSearch] = useState('');
@@ -82,7 +85,7 @@ export default function LibraryListScreen({ navigation }: Props) {
           {TYPE_FILTERS.map((filter) => (
             <Rubric
               key={filter.label}
-              label={filter.label}
+              label={t(filter.label)}
               active={type === filter.value}
               onPress={() => setType(filter.value)}
             />
@@ -90,7 +93,11 @@ export default function LibraryListScreen({ navigation }: Props) {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={filterRow}>
-          <FilterChip label="Mein Niveau" active={level === undefined} onPress={() => setLevel(undefined)} />
+          <FilterChip
+            label={t('libraryMyLevel')}
+            active={level === undefined}
+            onPress={() => setLevel(undefined)}
+          />
           {CEFR_LEVELS.map((entry) => (
             <FilterChip
               key={entry}
@@ -103,19 +110,19 @@ export default function LibraryListScreen({ navigation }: Props) {
         </ScrollView>
 
         {isLoading ? <Loading /> : null}
-        {isError ? <ErrorState message="Die Bibliothek konnte nicht geladen werden." onRetry={refetch} /> : null}
+        {isError ? <ErrorState message={t('libraryError')} onRetry={refetch} /> : null}
 
         {items.length === 0 && !isLoading ? (
           <EmptyState
             emoji="📚"
-            title="Nichts gefunden"
-            description="Passe die Filter an oder suche nach einem anderen Begriff."
+            title={t('commonNothingFound')}
+            description={t('libraryNothingFoundBody')}
           />
         ) : null}
 
         {continueReading ? (
           <View style={{ gap: spacing.sm }}>
-            <SectionRule label="Weiterlesen" />
+            <SectionRule label={t('libraryContinueReading')} />
             <ContinueCard content={continueReading} onPress={() => open(continueReading)} />
           </View>
         ) : null}
@@ -123,7 +130,7 @@ export default function LibraryListScreen({ navigation }: Props) {
         {shelf.length > 0 ? (
           <View style={{ gap: spacing.md }}>
             <SectionRule
-              label={continueReading ? 'Alle Texte' : 'Im Regal'}
+              label={continueReading ? t('libraryAllTexts') : t('libraryOnTheShelf')}
               trailing={`${items.length}`}
             />
             <View style={tileGrid}>
@@ -140,20 +147,27 @@ export default function LibraryListScreen({ navigation }: Props) {
 
 /** Suchfeld mit Lupe und Löschknopf – ein Feld, keine Kartenzeile. */
 function SearchField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
+
   return (
     <View style={searchField}>
       <Text style={{ fontSize: 15, opacity: 0.5 }}>🔍</Text>
       <TextInput
         value={value}
         onChangeText={onChange}
-        placeholder="Titel, Thema oder Stichwort …"
+        placeholder={t('librarySearchPlaceholder')}
         placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         returnKeyType="search"
         style={searchInput}
       />
       {value ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Suche löschen" onPress={() => onChange('')} hitSlop={8}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('librarySearchClear')}
+          onPress={() => onChange('')}
+          hitSlop={8}
+        >
           <Text style={{ fontSize: 15, color: colors.textMuted }}>✕</Text>
         </Pressable>
       ) : null}
@@ -200,6 +214,7 @@ function Rubric({ label, active, onPress }: { label: string; active: boolean; on
  * schmalen Balken.
  */
 function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
+  const { t } = useTranslation();
   const percent = content.userProgress?.progressPercent ?? 0;
   const remaining = Math.max(1, Math.round(content.estimatedMinutes * (1 - percent / 100)));
 
@@ -216,7 +231,9 @@ function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPres
       <View style={{ flex: 1, gap: spacing.xs, justifyContent: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <LevelBadge level={content.level} small />
-          <Text style={[readingLabel, { color: colors.textMuted }]}>Noch ca. {remaining} Min</Text>
+          <Text style={[readingLabel, { color: colors.textMuted }]}>
+            {t('libraryRemainingMinutes', { count: remaining })}
+          </Text>
         </View>
 
         <Text style={[typography.bodyStrong, { fontSize: 16 }]} numberOfLines={2}>
@@ -225,7 +242,9 @@ function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPres
 
         <View style={{ gap: 4, marginTop: 2 }}>
           <ProgressBar value={percent} height={4} />
-          <Text style={[typography.caption, { color: colors.textMuted }]}>{percent} % gelesen</Text>
+          <Text style={[typography.caption, { color: colors.textMuted }]}>
+            {t('libraryPercentRead', { percent })}
+          </Text>
         </View>
       </View>
     </Pressable>
@@ -242,6 +261,7 @@ function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPres
  * Farbkante, wie schwer ein Text ist, bevor man die Plakette liest.
  */
 function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
+  const { t } = useTranslation();
   const progress = content.userProgress;
   const done = Boolean(progress?.completedAt);
 
@@ -266,7 +286,8 @@ function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress
 
       <View style={bottomOverlay}>
         <Text style={tileMeta}>
-          {content.type === 'STORY' ? 'Geschichte' : 'Artikel'} · {content.estimatedMinutes} Min
+          {content.type === 'STORY' ? t('libraryTypeStory') : t('libraryTypeArticle')} ·{' '}
+          {content.estimatedMinutes} {t('commonMinutesShort')}
         </Text>
         <Text style={tileTitle} numberOfLines={2}>
           {content.title}

@@ -6,6 +6,8 @@ import type * as z from 'zod/v4';
 import { aiConfig } from '../../config/configuration';
 import type { AiClient, TokenUsage } from './ai-client.interface';
 
+import { ERR } from '../../common/i18n/messages';
+
 export type { TokenUsage };
 
 /**
@@ -39,7 +41,7 @@ export class AnthropicClient implements AiClient {
 
   private get sdk(): Anthropic {
     if (!this.client) {
-      throw new ServiceUnavailableException('Die KI-Funktionen sind derzeit nicht verfügbar');
+      throw new ServiceUnavailableException(ERR['ai.unavailable']);
     }
     return this.client;
   }
@@ -75,7 +77,7 @@ export class AnthropicClient implements AiClient {
       this.assertNotRefused(response.stop_reason);
 
       if (!response.parsed_output) {
-        throw new ServiceUnavailableException('Die KI-Antwort hatte ein unerwartetes Format');
+        throw new ServiceUnavailableException(ERR['ai.bad_format']);
       }
 
       return { parsed: response.parsed_output as T, usage: this.toUsage(response.usage) };
@@ -161,7 +163,7 @@ export class AnthropicClient implements AiClient {
   private assertNotRefused(stopReason: string | null): void {
     if (stopReason === 'refusal') {
       throw new ServiceUnavailableException(
-        'Diese Anfrage konnte nicht bearbeitet werden. Bitte formuliere sie anders.',
+        ERR['ai.content_filtered'],
       );
     }
   }
@@ -178,16 +180,16 @@ export class AnthropicClient implements AiClient {
     if (error instanceof Anthropic.RateLimitError) {
       this.logger.warn('Anthropic Rate-Limit erreicht');
       return new ServiceUnavailableException(
-        'Gerade sind sehr viele Anfragen unterwegs – bitte in einem Moment erneut versuchen.',
+        ERR['ai.rate_limited'],
       );
     }
     if (error instanceof Anthropic.AuthenticationError) {
       this.logger.error('Anthropic-Authentifizierung fehlgeschlagen – API-Key prüfen');
-      return new ServiceUnavailableException('Die KI-Funktionen sind derzeit nicht verfügbar');
+      return new ServiceUnavailableException(ERR['ai.unavailable']);
     }
     if (error instanceof Anthropic.APIError) {
       this.logger.error(`Anthropic API-Fehler ${error.status}: ${error.message}`);
-      return new ServiceUnavailableException('Die KI-Antwort konnte nicht erzeugt werden');
+      return new ServiceUnavailableException(ERR['ai.failed']);
     }
     return error instanceof Error ? error : new Error(String(error));
   }

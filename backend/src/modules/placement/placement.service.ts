@@ -11,6 +11,8 @@ import { UsersService } from '../users/users.service';
 import { SubmitPlacementDto, SubmitStageDto } from './dto/placement.dto';
 import { determineLevel, isLevelPassed, nextLevel } from './placement.rules';
 
+import { ERR, t, type MessageLanguage } from '../../common/i18n/messages';
+
 /** Fragen pro Niveau im Test – dieselbe Zahl, die die Oberfläche ansagt. */
 const QUESTIONS_PER_LEVEL = PLACEMENT_QUESTIONS_PER_LEVEL;
 
@@ -34,7 +36,7 @@ export class PlacementService {
     });
 
     if (questions.length === 0) {
-      throw new BadRequestException('Für diese Sprache gibt es noch keinen Einstufungstest');
+      throw new BadRequestException(ERR['placement.no_test']);
     }
 
     const perLevel = new Map<CefrLevel, typeof questions>();
@@ -74,12 +76,12 @@ export class PlacementService {
     });
 
     if (questions.length !== dto.answers.length) {
-      throw new BadRequestException('Der Test enthält unbekannte oder fremde Fragen');
+      throw new BadRequestException(ERR['placement.foreign_questions']);
     }
 
     const level = questions[0].level as CefrLevel;
     if (questions.some((question) => question.level !== level)) {
-      throw new BadRequestException('Eine Stufe wird immer als Ganzes ausgewertet');
+      throw new BadRequestException(ERR['placement.stage_as_whole']);
     }
 
     const byId = new Map(questions.map((question) => [question.id, question]));
@@ -101,13 +103,17 @@ export class PlacementService {
    * Abschluss des Tests: alle bisher beantworteten Stufen zusammen auswerten,
    * das Ergebnis im Lernprofil festhalten.
    */
-  async submit(userId: string, dto: SubmitPlacementDto): Promise<PlacementResultDto> {
+  async submit(
+    userId: string,
+    dto: SubmitPlacementDto,
+    language: MessageLanguage,
+  ): Promise<PlacementResultDto> {
     const questions = await this.prisma.placementQuestion.findMany({
       where: { id: { in: dto.answers.map((answer) => answer.questionId) }, languageId: dto.languageId },
     });
 
     if (questions.length !== dto.answers.length) {
-      throw new BadRequestException('Der Test enthält unbekannte oder fremde Fragen');
+      throw new BadRequestException(ERR['placement.foreign_questions']);
     }
 
     const byId = new Map(questions.map((question) => [question.id, question]));
@@ -166,7 +172,7 @@ export class PlacementService {
           passed: isLevelPassed(bucket),
         };
       }),
-      recommendation: this.recommendation(resultLevel, scorePercent),
+      recommendation: this.recommendation(resultLevel, scorePercent, language),
     };
   }
 
@@ -203,13 +209,14 @@ export class PlacementService {
     return count > 0 ? next : null;
   }
 
-  private recommendation(level: CefrLevel, scorePercent: number): string {
-    if (level === 'C2') {
-      return 'Du hast jede Stufe bestanden – wir starten auf C2. Wenn dir etwas zu leicht vorkommt, sag uns im Profil Bescheid.';
-    }
-    if (scorePercent >= 80) {
-      return `Knapp an der nächsten Stufe vorbei: Du steigst auf ${level} ein und hast es nicht weit bis darüber.`;
-    }
-    return `Auf ${level} hakte es – genau dort setzen wir an. Vokabeln, Texte und Podcasts kommen ab jetzt auf diesem Niveau.`;
+  /** Der Schlusssatz des Tests – in der Sprache, in der die App gerade läuft. */
+  private recommendation(
+    level: CefrLevel,
+    scorePercent: number,
+    language: MessageLanguage,
+  ): string {
+    if (level === 'C2') return t(language, 'placement.recommendation_top');
+    if (scorePercent >= 80) return t(language, 'placement.recommendation_close', { level });
+    return t(language, 'placement.recommendation_start', { level });
   }
 }

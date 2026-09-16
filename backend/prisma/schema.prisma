@@ -196,6 +196,11 @@ model LearningProfile {
   levelSource      LevelSource @default(SELF_SELECTED)
   dailyGoalMinutes Int         @default(15)
   /// Genau ein Profil pro Nutzer ist aktiv; die App lernt in dieser Sprache.
+  /// Erzwungen von einem partiellen Unique-Index (`userId WHERE isActive`),
+  /// den Prisma im Schema nicht ausdrücken kann – er steht als reines SQL in
+  /// der Migration `20260916150000_one_active_profile_per_user`. Wer hier
+  /// `isActive` setzt, muss die anderen Profile des Nutzers in derselben
+  /// Transaktion abschalten (siehe `UsersService.activateProfile`).
   isActive         Boolean     @default(false)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt

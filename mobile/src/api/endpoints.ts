@@ -44,7 +44,13 @@ import { api } from './client';
  * nachgezogen.
  */
 export const authApi = {
-  register: (body: { email: string; password: string; displayName: string }) =>
+  register: (body: {
+    email: string;
+    password: string;
+    displayName: string;
+    /** Muttersprache beim Anlegen – bestimmt die Menüsprache (siehe `auth.store`). */
+    nativeLanguage?: string;
+  }) =>
     api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
   login: (body: { email: string; password: string }) =>
     api.post<AuthResponse>('/auth/login', body).then((r) => r.data),

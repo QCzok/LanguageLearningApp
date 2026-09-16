@@ -17,6 +17,8 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestLanguage } from '../../common/decorators/request-language.decorator';
+import type { MessageLanguage } from '../../common/i18n/messages';
 import { RequiresPremium } from '../../common/decorators/premium.decorator';
 import { AiService } from './ai.service';
 import {
@@ -49,8 +51,12 @@ export class AiController {
   @RequiresPremium()
   @Post('conversations')
   @ApiOperation({ summary: 'Premium: neues Gespräch oder neue Diskussion starten' })
-  createConversation(@CurrentUser('id') userId: string, @Body() dto: CreateConversationDto) {
-    return this.ai.createConversation(userId, dto);
+  createConversation(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateConversationDto,
+    @RequestLanguage() language: MessageLanguage,
+  ) {
+    return this.ai.createConversation(userId, dto, language);
   }
 
   @RequiresPremium()

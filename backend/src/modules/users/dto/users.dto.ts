@@ -13,6 +13,8 @@ import {
   Min,
 } from 'class-validator';
 
+import { ERR } from '../../../common/i18n/messages';
+
 export class UpdateProfileDto {
   @ApiPropertyOptional()
   @IsOptional()
@@ -22,7 +24,7 @@ export class UpdateProfileDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({}, { message: 'avatarUrl muss eine gültige URL sein' })
+  @IsUrl({}, { message: ERR['validation.avatar_url'] })
   avatarUrl?: string;
 
   @ApiPropertyOptional({ example: 'de' })

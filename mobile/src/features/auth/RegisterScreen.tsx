@@ -2,31 +2,38 @@ import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Button, Input, Screen, Title } from '../../components';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/auth.store';
 import type { AuthStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 
-/** Spiegelt die Backend-Regeln, damit Fehler schon vor dem Request sichtbar werden. */
+/**
+ * Spiegelt die Backend-Regeln, damit Fehler schon vor dem Request sichtbar
+ * werden. Gibt Schlüssel statt Texte zurück – übersetzt wird erst beim
+ * Anzeigen, damit die Meldung der Menüsprache folgt.
+ */
 function validate(fields: { email: string; password: string; displayName: string }) {
-  const errors: Partial<Record<keyof typeof fields, string>> = {};
+  const errors: Partial<Record<keyof typeof fields, TranslationKey>> = {};
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(fields.email)) {
-    errors.email = 'Bitte eine gültige E-Mail-Adresse angeben.';
+    errors.email = 'authErrorEmail';
   }
   if (fields.displayName.trim().length < 2) {
-    errors.displayName = 'Mindestens 2 Zeichen.';
+    errors.displayName = 'authErrorName';
   }
   if (fields.password.length < 8) {
-    errors.password = 'Mindestens 8 Zeichen.';
+    errors.password = 'authErrorPasswordLength';
   } else if (!/[A-Za-z]/.test(fields.password) || !/\d/.test(fields.password)) {
-    errors.password = 'Mindestens ein Buchstabe und eine Ziffer.';
+    errors.password = 'authErrorPasswordChars';
   }
   return errors;
 }
 
 export default function RegisterScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,20 +63,20 @@ export default function RegisterScreen({ navigation }: Props) {
     >
       <Screen scroll>
         <View style={{ gap: spacing.sm, paddingVertical: spacing.lg }}>
-          <Title>Konto erstellen</Title>
-          <Body muted>Danach wählst du deine Lernsprache und dein Niveau.</Body>
+          <Title>{t('authRegisterTitle')}</Title>
+          <Body muted>{t('authRegisterSubtitle')}</Body>
         </View>
 
         <View style={{ gap: spacing.md }}>
           <Input
-            label="Name"
+            label={t('authName')}
             value={displayName}
             onChangeText={setDisplayName}
-            placeholder="Wie sollen wir dich nennen?"
-            error={touched ? errors.displayName : undefined}
+            placeholder={t('authNamePlaceholder')}
+            error={touched && errors.displayName ? t(errors.displayName) : undefined}
           />
           <Input
-            label="E-Mail"
+            label={t('authEmail')}
             value={email}
             onChangeText={(value) => {
               setEmail(value);
@@ -78,26 +85,26 @@ export default function RegisterScreen({ navigation }: Props) {
             autoCapitalize="none"
             keyboardType="email-address"
             autoComplete="email"
-            placeholder="du@beispiel.de"
-            error={touched ? errors.email : undefined}
+            placeholder={t('authEmailPlaceholder')}
+            error={touched && errors.email ? t(errors.email) : undefined}
           />
           <Input
-            label="Passwort"
+            label={t('authPassword')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="new-password"
-            placeholder="Mindestens 8 Zeichen"
-            error={touched ? errors.password : undefined}
+            placeholder={t('authPasswordPlaceholder')}
+            error={touched && errors.password ? t(errors.password) : undefined}
           />
 
           {serverError ? (
             <Text style={[typography.caption, { color: colors.danger }]}>{serverError}</Text>
           ) : null}
 
-          <Button label="Registrieren" onPress={handleRegister} loading={isSubmitting} />
+          <Button label={t('authRegister')} onPress={handleRegister} loading={isSubmitting} />
           <Button
-            label="Ich habe schon ein Konto"
+            label={t('authHaveAccount')}
             variant="ghost"
             onPress={() => {
               clearError();

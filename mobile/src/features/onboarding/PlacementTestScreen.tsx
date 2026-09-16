@@ -4,7 +4,6 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  CEFR_LABELS,
   CEFR_LEVELS,
   PLACEMENT_PASS_CORRECT,
   PLACEMENT_QUESTIONS_PER_LEVEL,
@@ -18,6 +17,7 @@ import type {
 import { Button, ErrorState, Loading } from '../../components';
 import { alert } from '../../utils/alert';
 import { placementApi, usersApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, fontFamily, levelColors, radius, shadow, spacing, typography } from '../../theme';
 import type { OnboardingStackParamList } from '../../navigation/types';
@@ -49,6 +49,7 @@ type Phase = 'intro' | 'question' | 'stageBreak' | 'evaluating' | 'result';
  */
 export default function PlacementTestScreen({ route }: Props) {
   const { languageId, languageName } = route.params;
+  const { t } = useTranslation();
   const refreshUser = useAuthStore((state) => state.refreshUser);
 
   const [phase, setPhase] = useState<Phase>('intro');
@@ -95,7 +96,7 @@ export default function PlacementTestScreen({ route }: Props) {
     // den Abschluss erneut aus, ohne dass Antworten verloren gehen.
     onError: () => {
       setPhase('question');
-      alert('Auswertung fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.');
+      alert(t('placementEvaluationFailedTitle'), t('placementEvaluationFailedBody'));
     },
   });
 
@@ -114,7 +115,7 @@ export default function PlacementTestScreen({ route }: Props) {
       }
     },
     onError: () =>
-      alert('Auswertung fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
+      alert(t('placementEvaluationFailedTitle'), t('placementEvaluationFailedBody')),
   });
 
   // Der Test ist der letzte Schritt des Onboardings – mit dem Ergebnisbild ist es durch.
@@ -123,10 +124,10 @@ export default function PlacementTestScreen({ route }: Props) {
     onSuccess: () => refreshUser(),
   });
 
-  if (isLoading) return <Loading label="Test wird vorbereitet …" />;
+  if (isLoading) return <Loading label={t('placementPreparing')} />;
   if (isError || !questions?.length || stages.length === 0) {
     return (
-      <ErrorState message={`Für ${languageName} ist noch kein Test verfügbar.`} onRetry={refetch} />
+      <ErrorState message={t('placementNoTest', { language: languageName })} onRetry={refetch} />
     );
   }
 
@@ -185,7 +186,7 @@ export default function PlacementTestScreen({ route }: Props) {
   }
 
   // Auswertung läuft: kein halber Fragebogen im Hintergrund.
-  if (phase === 'evaluating' || submit.isPending) return <Loading label="Wird ausgewertet …" />;
+  if (phase === 'evaluating' || submit.isPending) return <Loading label={t('placementEvaluating')} />;
 
   // ----------------------------------------------------------------- Frage
   return (
@@ -194,10 +195,13 @@ export default function PlacementTestScreen({ route }: Props) {
         <LevelLadder stages={stages} currentLevel={current.level} />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Text style={microLabel}>Stufe {current.level}</Text>
+          <Text style={microLabel}>{t('placementStage', { level: current.level })}</Text>
           <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
           <Text style={microLabel}>
-            Frage {questionIndex + 1} von {current.questions.length}
+            {t('placementQuestionOf', {
+              current: questionIndex + 1,
+              total: current.questions.length,
+            })}
           </Text>
         </View>
 
@@ -260,7 +264,7 @@ export default function PlacementTestScreen({ route }: Props) {
       <SafeAreaView edges={['bottom']} style={footer}>
         {questionIndex > 0 ? (
           <Button
-            label="Zurück"
+            label={t('commonBack')}
             variant="secondary"
             onPress={() => setQuestionIndex((value) => value - 1)}
             style={{ flex: 1 }}
@@ -268,7 +272,11 @@ export default function PlacementTestScreen({ route }: Props) {
           />
         ) : null}
         <Button
-          label={isLastOfStage ? `Stufe ${current.level} auswerten` : 'Weiter'}
+          label={
+            isLastOfStage
+              ? t('placementEvaluateStage', { level: current.level })
+              : t('commonNext')
+          }
           onPress={next}
           disabled={selected === undefined}
           loading={stage.isPending}
@@ -297,18 +305,20 @@ function Intro({
   stages: Array<{ level: CefrLevel }>;
   onStart: () => void;
 }) {
+  const { t } = useTranslation();
+
   const rules = [
     {
-      title: `${PLACEMENT_QUESTIONS_PER_LEVEL} Fragen pro Stufe`,
-      text: 'Wir fangen ganz unten an, bei A1.',
+      title: t('placementRule1Title', { count: PLACEMENT_QUESTIONS_PER_LEVEL }),
+      text: t('placementRule1Text'),
     },
     {
-      title: `${PLACEMENT_PASS_CORRECT} richtig – und du steigst auf`,
-      text: 'Reicht es, kommt sofort die nächste Stufe.',
+      title: t('placementRule2Title', { count: PLACEMENT_PASS_CORRECT }),
+      text: t('placementRule2Text'),
     },
     {
-      title: 'Wo es hakt, fängst du an',
-      text: 'Die erste Stufe, die nicht reicht, ist dein Niveau.',
+      title: t('placementRule3Title'),
+      text: t('placementRule3Text'),
     },
   ];
 
@@ -316,11 +326,12 @@ function Intro({
     <SafeAreaView style={screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
         <View style={{ gap: spacing.sm, paddingTop: spacing.md }}>
-          <Text style={microLabel}>Einstufung</Text>
-          <Text style={typography.display}>Wo stehst du in {languageName}?</Text>
+          <Text style={microLabel}>{t('placementEyebrow')}</Text>
+          <Text style={typography.display}>
+            {t('placementIntroTitle', { language: languageName })}
+          </Text>
           <Text style={[typography.body, { color: colors.textMuted }]}>
-            Ein paar Fragen, aufsteigend nach Schwierigkeit. Danach stellen wir Vokabeln, Texte und
-            Podcasts auf dein Niveau ein – ändern kannst du es jederzeit im Profil.
+            {t('placementIntroBody')}
           </Text>
         </View>
 
@@ -342,7 +353,7 @@ function Intro({
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={footer}>
-        <Button label="Test starten" onPress={onStart} />
+        <Button label={t('placementStartTest')} onPress={onStart} />
       </SafeAreaView>
     </SafeAreaView>
   );
@@ -364,6 +375,7 @@ function StageBreak({
   stages: Array<{ level: CefrLevel }>;
   onContinue: () => void;
 }) {
+  const { t, tLevelShort, tLevelDescription } = useTranslation();
   const next = stageResult.nextLevel!;
 
   return (
@@ -375,28 +387,30 @@ function StageBreak({
           <View style={[checkCircle, { backgroundColor: levelColors[stageResult.level] }]}>
             <Text style={{ fontSize: 30, color: colors.textInverse }}>✓</Text>
           </View>
-          <Text style={typography.display}>{stageResult.level} geschafft</Text>
+          <Text style={typography.display}>
+            {t('placementStagePassed', { level: stageResult.level })}
+          </Text>
           <Text style={[typography.body, { color: colors.textMuted }]}>
-            {stageResult.correct} von {stageResult.total} richtig
+            {t('placementCorrectOf', { correct: stageResult.correct, total: stageResult.total })}
           </Text>
         </View>
 
         <View style={nextBox}>
-          <Text style={microLabel}>Weiter geht es mit</Text>
+          <Text style={microLabel}>{t('placementContinueWith')}</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={[levelPill, { backgroundColor: levelColors[next] }]}>
               <Text style={levelPillText}>{next}</Text>
             </View>
-            <Text style={[typography.bodyStrong, { flex: 1 }]}>{CEFR_LABELS[next].short}</Text>
+            <Text style={[typography.bodyStrong, { flex: 1 }]}>{tLevelShort(next)}</Text>
           </View>
           <Text style={[typography.caption, { color: colors.textMuted }]}>
-            {CEFR_LABELS[next].description}
+            {tLevelDescription(next)}
           </Text>
         </View>
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={footer}>
-        <Button label={`Weiter zu ${next}`} onPress={onContinue} />
+        <Button label={t('placementContinueTo', { level: next })} onPress={onContinue} />
       </SafeAreaView>
     </SafeAreaView>
   );
@@ -418,23 +432,25 @@ function ResultView({
   onFinish: () => void;
   isFinishing: boolean;
 }) {
+  const { t, tLevelShort, tLevelDescription } = useTranslation();
+
   return (
     <SafeAreaView style={screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
         <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.lg }}>
-          <Text style={microLabel}>Dein Niveau</Text>
+          <Text style={microLabel}>{t('placementYourLevel')}</Text>
           <View style={[resultBadge, { backgroundColor: levelColors[result.resultLevel] }]}>
             <Text style={resultBadgeText}>{result.resultLevel}</Text>
           </View>
-          <Text style={typography.title}>{CEFR_LABELS[result.resultLevel].short}</Text>
+          <Text style={typography.title}>{tLevelShort(result.resultLevel)}</Text>
           <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
-            {CEFR_LABELS[result.resultLevel].description}
+            {tLevelDescription(result.resultLevel)}
           </Text>
         </View>
 
         <View style={{ gap: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text style={microLabel}>Dein Weg durch den Test</Text>
+            <Text style={microLabel}>{t('placementYourPath')}</Text>
             <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
             <Text style={microLabel}>
               {result.correct}/{result.total}
@@ -480,7 +496,7 @@ function ResultView({
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={footer}>
-        <Button label="Los geht's" onPress={onFinish} loading={isFinishing} />
+        <Button label={t('placementLetsGo')} onPress={onFinish} loading={isFinishing} />
       </SafeAreaView>
     </SafeAreaView>
   );

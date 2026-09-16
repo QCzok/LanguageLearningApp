@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import type { AuthResponse, LearningProfileDto, UserDto } from '@lingua/shared';
-import { setUnauthorizedHandler } from '../api/client';
+import { setApiLocale, setUnauthorizedHandler } from '../api/client';
 import { authApi, usersApi } from '../api/endpoints';
 import { tokenStorage } from '../api/token-storage';
+import { deviceLocale, resolveLocale, translate } from '../i18n/translations';
 
 interface AuthState {
   user: UserDto | null;
@@ -34,6 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       const user = await usersApi.me();
+      applyLocale(user);
       set({ user, isBootstrapping: false });
     } catch {
       await tokenStorage.clear();
@@ -46,6 +48,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const response = await authApi.login({ email, password });
       await applyAuth(response);
+      applyLocale(response.user);
       set({ user: response.user, isSubmitting: false });
     } catch (error) {
       set({ isSubmitting: false, error: toMessage(error) });
@@ -56,8 +59,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async register(email, password, displayName) {
     set({ isSubmitting: true, error: null });
     try {
-      const response = await authApi.register({ email, password, displayName });
+      // Die Gerätesprache wird gleich als Muttersprache hinterlegt: Ohne sie
+      // legt das Backend jedes Konto mit `de` an, und ein englischsprachiger
+      // Lernender fände die App nach der Registrierung auf Deutsch vor.
+      // Änderbar bleibt sie jederzeit im Profil.
+      const response = await authApi.register({
+        email,
+        password,
+        displayName,
+        nativeLanguage: deviceLocale(),
+      });
       await applyAuth(response);
+      applyLocale(response.user);
       set({ user: response.user, isSubmitting: false });
     } catch (error) {
       set({ isSubmitting: false, error: toMessage(error) });
@@ -76,7 +89,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async refreshUser() {
     if (!get().user) return;
     const user = await usersApi.me().catch(() => null);
-    if (user) set({ user });
+    if (user) {
+      applyLocale(user);
+      set({ user });
+    }
   },
 
   clearError: () => set({ error: null }),
@@ -86,8 +102,19 @@ async function applyAuth(response: AuthResponse): Promise<void> {
   await tokenStorage.save(response);
 }
 
+/**
+ * Die Menüsprache folgt der Muttersprache des Profils – auch für die Teile,
+ * die außerhalb von React liegen: die Meldungen der API-Schicht und den
+ * `Accept-Language`-Kopf, mit dem das Backend seine Fehlertexte übersetzt.
+ */
+function applyLocale(user: UserDto): void {
+  setApiLocale(resolveLocale(user.nativeLanguage));
+}
+
 function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Etwas ist schiefgelaufen.';
+  return error instanceof Error
+    ? error.message
+    : translate(resolveLocale(useAuthStore.getState().user?.nativeLanguage), 'commonSomethingWentWrong');
 }
 
 /** Läuft die Sitzung serverseitig ab, fällt die App zurück auf den Login. */

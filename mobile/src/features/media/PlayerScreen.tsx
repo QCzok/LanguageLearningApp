@@ -18,6 +18,7 @@ import {
 } from '../../components';
 import { mediaApi } from '../../api/endpoints';
 import { resolveMediaUrl } from '../../api/client';
+import { useTranslation } from '../../i18n';
 import { colors, radius, spacing, typography } from '../../theme';
 import { formatDuration } from './MediaListScreen';
 import type { MediaStackParamList } from '../../navigation/types';
@@ -31,6 +32,7 @@ const PROGRESS_SYNC_MS = 10_000;
 
 export default function PlayerScreen({ route }: Props) {
   const { mediaId } = route.params;
+  const { t, tLanguage } = useTranslation();
 
   const player = useAudioPlayer(undefined, { updateInterval: 500 });
   const status = useAudioPlayerStatus(player);
@@ -113,7 +115,7 @@ export default function PlayerScreen({ route }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Die Folge konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('playerError')} onRetry={refetch} />;
   }
 
   const duration = status.duration || data.durationSec;
@@ -129,7 +131,7 @@ export default function PlayerScreen({ route }: Props) {
           <Title>{data.title}</Title>
           <Row gap={spacing.sm}>
             <LevelBadge level={data.level} small />
-            <Caption>{data.language.name}</Caption>
+            <Caption>{tLanguage(data.language.code, data.language.name)}</Caption>
           </Row>
         </View>
 
@@ -144,13 +146,13 @@ export default function PlayerScreen({ route }: Props) {
 
         {status.error ? (
           <Card style={{ backgroundColor: colors.warningSoft, borderColor: colors.warning }}>
-            <Caption>Die Audiodatei konnte nicht geladen werden.</Caption>
+            <Caption>{t('playerAudioError')}</Caption>
           </Card>
         ) : null}
 
         <Row gap={spacing.lg} style={{ justifyContent: 'center' }}>
           <Pressable
-            accessibilityLabel={`${SKIP_SECONDS} Sekunden zurück`}
+            accessibilityLabel={t('playerSkipBack', { seconds: SKIP_SECONDS })}
             onPress={() => skip(-SKIP_SECONDS)}
             style={secondaryControlStyle}
           >
@@ -159,7 +161,7 @@ export default function PlayerScreen({ route }: Props) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={status.playing ? 'Pause' : 'Abspielen'}
+            accessibilityLabel={status.playing ? t('playerPause') : t('playerPlay')}
             onPress={togglePlay}
             disabled={!status.isLoaded}
             style={[playButtonStyle, !status.isLoaded && { opacity: 0.5 }]}
@@ -168,7 +170,7 @@ export default function PlayerScreen({ route }: Props) {
           </Pressable>
 
           <Pressable
-            accessibilityLabel={`${SKIP_SECONDS} Sekunden vor`}
+            accessibilityLabel={t('playerSkipForward', { seconds: SKIP_SECONDS })}
             onPress={() => skip(SKIP_SECONDS)}
             style={secondaryControlStyle}
           >
@@ -196,21 +198,21 @@ export default function PlayerScreen({ route }: Props) {
         </Row>
 
         <Card>
-          <Heading>Beschreibung</Heading>
+          <Heading>{t('playerDescription')}</Heading>
           <Body>{data.description}</Body>
         </Card>
 
         {data.transcript ? (
           <Card onPress={() => setShowTranscript((value) => !value)}>
             <Row>
-              <Heading>Transkript</Heading>
+              <Heading>{t('playerTranscript')}</Heading>
               <View style={{ flex: 1 }} />
-              <Caption>{showTranscript ? 'Ausblenden' : 'Anzeigen'}</Caption>
+              <Caption>{showTranscript ? t('playerHide') : t('playerShow')}</Caption>
             </Row>
             {showTranscript ? (
               <Text style={[typography.body, { lineHeight: 26 }]}>{data.transcript}</Text>
             ) : (
-              <Caption>Mitlesen hilft beim Hörverstehen.</Caption>
+              <Caption>{t('playerTranscriptHint')}</Caption>
             )}
           </Card>
         ) : null}

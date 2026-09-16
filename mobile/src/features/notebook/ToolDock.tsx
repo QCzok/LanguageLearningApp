@@ -8,6 +8,8 @@ import {
   PEN_WIDTHS,
 } from '@lingua/shared';
 import type { ToolKind } from '@lingua/shared';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { book, bookLabel, bookSans, radius, shadow } from '../../theme';
 import {
   EraserIcon,
@@ -56,12 +58,12 @@ export const DEFAULT_TOOL: ToolState = {
 
 type IconComponent = (props: { color: string; size?: number }) => React.JSX.Element;
 
-const TOOLS: Record<ToolKind, { Icon: IconComponent; label: string }> = {
-  PEN: { Icon: PencilIcon, label: 'Stift' },
-  HIGHLIGHTER: { Icon: HighlighterIcon, label: 'Marker' },
-  TEXT: { Icon: TextIcon, label: 'Text' },
-  ERASER: { Icon: EraserIcon, label: 'Radierer' },
-  SHAPE: { Icon: PencilIcon, label: 'Form' },
+const TOOLS: Record<ToolKind, { Icon: IconComponent; label: TranslationKey }> = {
+  PEN: { Icon: PencilIcon, label: 'toolPen' },
+  HIGHLIGHTER: { Icon: HighlighterIcon, label: 'toolHighlighter' },
+  TEXT: { Icon: TextIcon, label: 'toolText' },
+  ERASER: { Icon: EraserIcon, label: 'toolEraser' },
+  SHAPE: { Icon: PencilIcon, label: 'toolShape' },
 };
 
 /** Ausgangszustand je Werkzeug, bevor der Nutzer selbst etwas eingestellt hat. */
@@ -83,7 +85,7 @@ export function ToolDock({
   canUndo,
   onClear,
   canClear,
-  clearLabel = 'Notizen löschen',
+  clearLabel,
 }: {
   tool: ToolState;
   onChange: (tool: ToolState) => void;
@@ -93,9 +95,12 @@ export function ToolDock({
   canUndo: boolean;
   onClear: () => void;
   canClear: boolean;
+  /** Ohne Angabe: „Notizen löschen“ in der Menüsprache. */
   clearLabel?: string;
 }) {
+  const { t } = useTranslation();
   const isDrawing = tool.mode === 'DRAW';
+  const clearAccessibilityLabel = clearLabel ?? t('pageClearNotes');
 
   /*
     Was an einem Werkzeug eingestellt war, bleibt daran hängen: Wer mit dem
@@ -130,7 +135,7 @@ export function ToolDock({
                 <Pressable
                   key={color}
                   accessibilityRole="button"
-                  accessibilityLabel={'Farbe ' + color}
+                  accessibilityLabel={t('toolColorA11y', { color })}
                   accessibilityState={{ selected: tool.color === color }}
                   onPress={() => onChange({ ...tool, color })}
                   style={[swatch, { backgroundColor: color }, tool.color === color && swatchActive]}
@@ -149,7 +154,7 @@ export function ToolDock({
                 <Pressable
                   key={size}
                   accessibilityRole="button"
-                  accessibilityLabel={'Schriftgröße ' + size}
+                  accessibilityLabel={t('toolFontSizeA11y', { size })}
                   accessibilityState={{ selected: tool.fontSize === size }}
                   onPress={() => onChange({ ...tool, fontSize: size })}
                   style={[chip, tool.fontSize === size && chipActive]}
@@ -166,7 +171,7 @@ export function ToolDock({
                 <Pressable
                   key={width}
                   accessibilityRole="button"
-                  accessibilityLabel={'Stärke ' + width}
+                  accessibilityLabel={t('toolWidthA11y', { width })}
                   accessibilityState={{ selected: tool.width === width }}
                   onPress={() => onChange({ ...tool, width })}
                   style={[chip, tool.width === width && chipActive]}
@@ -189,7 +194,7 @@ export function ToolDock({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Rückgängig"
+            accessibilityLabel={t('toolUndo')}
             disabled={!canUndo}
             onPress={onUndo}
             style={[stripButton, !canUndo && { opacity: 0.3 }]}
@@ -198,7 +203,7 @@ export function ToolDock({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={clearLabel}
+            accessibilityLabel={clearAccessibilityLabel}
             disabled={!canClear}
             onPress={onClear}
             style={[stripButton, !canClear && { opacity: 0.3 }]}
@@ -210,13 +215,14 @@ export function ToolDock({
 
       <View style={row}>
         {tools.map((kind) => {
-          const { Icon, label } = TOOLS[kind];
+          const { Icon, label: labelKey } = TOOLS[kind];
+          const label = t(labelKey);
           const active = isDrawing && tool.kind === kind;
           return (
             <Pressable
               key={kind}
               accessibilityRole="button"
-              accessibilityLabel={active ? `${label} weglegen` : label}
+              accessibilityLabel={active ? t('toolPutAway', { tool: label }) : label}
               accessibilityState={{ selected: active }}
               onPress={() => toggleTool(kind)}
               style={({ pressed }) => [

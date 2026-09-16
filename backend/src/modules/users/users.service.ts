@@ -5,6 +5,8 @@ import { startOfUtcDay, differenceInUtcDays } from '../../common/utils/date.util
 import type { LearningProfileDto, UserDto } from '@lingua/shared';
 import { UpdateProfileDto, UpsertLearningProfileDto } from './dto/users.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** Für Prisma-Includes wiederverwendet, damit Mapper und Query nicht auseinanderlaufen. */
 const userWithProfiles = {
   profiles: {
@@ -24,7 +26,7 @@ export class UsersService {
       where: { id: userId },
       include: userWithProfiles,
     });
-    if (!user) throw new NotFoundException('Nutzer nicht gefunden');
+    if (!user) throw new NotFoundException(ERR['notfound.user']);
     return this.toUserDto(user);
   }
 
@@ -52,7 +54,7 @@ export class UsersService {
   ): Promise<LearningProfileDto> {
     const language = await this.prisma.language.findUnique({ where: { id: dto.languageId } });
     if (!language || !language.isActive) {
-      throw new BadRequestException('Diese Sprache wird nicht angeboten');
+      throw new BadRequestException(ERR['content.language_unavailable']);
     }
 
     const makeActive = dto.isActive ?? true;
@@ -92,7 +94,7 @@ export class UsersService {
     const existing = await this.prisma.learningProfile.findFirst({
       where: { id: profileId, userId },
     });
-    if (!existing) throw new NotFoundException('Lernprofil nicht gefunden');
+    if (!existing) throw new NotFoundException(ERR['notfound.learning_profile']);
 
     const profile = await this.prisma.$transaction(async (tx) => {
       await tx.learningProfile.updateMany({
@@ -127,9 +129,7 @@ export class UsersService {
       include: { language: true },
     });
     if (!profile) {
-      throw new BadRequestException(
-        'Kein aktives Lernprofil – bitte zuerst eine Lernsprache auswählen',
-      );
+      throw new BadRequestException(ERR['profile.none_active']);
     }
     return profile;
   }

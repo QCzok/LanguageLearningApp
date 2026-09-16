@@ -56,6 +56,8 @@ import {
   SendMessageDto,
 } from './dto/ai.dto';
 
+import { ERR, t, type MessageLanguage } from '../../common/i18n/messages';
+
 /** So viele frühere Nachrichten gehen als Kontext mit in den Chat. */
 const CHAT_HISTORY_LIMIT = 20;
 
@@ -123,8 +125,8 @@ export class AiService {
           error: 'AiQuotaExceeded',
           message:
             quota.plan === 'PREMIUM'
-              ? 'Das monatliche KI-Kontingent ist aufgebraucht.'
-              : 'Dein kostenloses KI-Kontingent ist aufgebraucht. Mit Premium geht es weiter.',
+              ? ERR['ai.quota_premium']
+              : ERR['ai.quota_free'],
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
@@ -162,15 +164,13 @@ export class AiService {
       where: { id: pageId },
       include: { notebook: { include: { language: true } } },
     });
-    if (!page) throw new NotFoundException('Seite nicht gefunden');
+    if (!page) throw new NotFoundException(ERR['notfound.page']);
     if (page.notebook.userId !== userId)
-      throw new ForbiddenException('Kein Zugriff auf diese Seite');
+      throw new ForbiddenException(ERR['forbidden.page']);
 
     const text = extractPlainText(page.content as unknown as NotebookPageContent);
     if (text.length < MIN_TEXT_LENGTH_FOR_ANALYSIS) {
-      throw new BadRequestException(
-        'Auf dieser Seite steht noch zu wenig Text. Schreibe mit dem Textwerkzeug ein paar Sätze.',
-      );
+      throw new BadRequestException(ERR['ai.text_too_short']);
     }
 
     const [user, profile] = await Promise.all([
@@ -245,7 +245,11 @@ export class AiService {
     }));
   }
 
-  async createConversation(userId: string, dto: CreateConversationDto): Promise<AiConversationDto> {
+  async createConversation(
+    userId: string,
+    dto: CreateConversationDto,
+    language: MessageLanguage,
+  ): Promise<AiConversationDto> {
     const profile = await this.users.getActiveProfileOrThrow(userId);
 
     const conversation = await this.prisma.aiConversation.create({
@@ -254,7 +258,9 @@ export class AiService {
         languageId: profile.languageId,
         mode: dto.mode ?? AiMode.CHAT,
         level: profile.level,
-        title: dto.title ?? dto.topic ?? 'Neues Gespräch',
+        // Der Titel wird gespeichert und später in der Liste angezeigt – er
+        // muss deshalb in der Sprache stehen, in der die App gerade läuft.
+        title: dto.title ?? dto.topic ?? t(language, 'ai.new_conversation'),
         topic: dto.topic,
       },
       include: { language: true, _count: { select: { messages: true } } },
@@ -384,7 +390,7 @@ export class AiService {
    */
   async transcribeAudio(userId: string, file?: Express.Multer.File): Promise<{ text: string }> {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Keine Audiodatei erhalten.');
+      throw new BadRequestException(ERR['ai.no_audio']);
     }
     await this.assertQuota(userId);
 
@@ -705,9 +711,9 @@ export class AiService {
       where: { id: conversationId },
       include: { language: true },
     });
-    if (!conversation) throw new NotFoundException('Gespräch nicht gefunden');
+    if (!conversation) throw new NotFoundException(ERR['notfound.conversation']);
     if (conversation.userId !== userId)
-      throw new ForbiddenException('Kein Zugriff auf dieses Gespräch');
+      throw new ForbiddenException(ERR['forbidden.conversation']);
     return conversation;
   }
 

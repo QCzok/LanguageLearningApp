@@ -14,8 +14,10 @@ import { book, bookFont, bookLabel, bookSans } from '../../../theme';
 import { AudioMark } from '../BookIcons';
 import { BoxLabel, SectionHeading } from '../BookPage';
 import { getSceneComponent } from './SceneIllustrations';
+import { useTranslation } from '../../../i18n';
+import type { TranslationKey } from '../../../i18n';
 import { useAuthStore } from '../../../store/auth.store';
-import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
+import { asTranslatableLanguage } from '../../../utils/translation';
 
 /**
  * Die Darstellungsblöcke einer Seite, gesetzt wie eine gedruckte Lehrwerksseite:
@@ -46,9 +48,10 @@ export function Heading({ block, accent }: BlockProps<HeadingBlock>) {
 export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: CefrLevel }) {
   const [open, setOpen] = useState(false);
 
+  const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
-  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const languageLabel = language ? tLanguage(language) : '';
   const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
 
   return (
@@ -59,7 +62,9 @@ export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: Ce
           {open ? <Text style={translationText}>{translation}</Text> : null}
           <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
             <Text style={translationToggle}>
-              {open ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+              {open
+                ? t('blockHideTranslation')
+                : t('blockShowInLanguage', { language: languageLabel })}
             </Text>
           </Pressable>
         </>
@@ -81,14 +86,15 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
   const style = INFO_STYLES[block.variant];
   const [open, setOpen] = useState(false);
 
+  const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
-  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const languageLabel = language ? tLanguage(language) : '';
   const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
 
   return (
     <View style={[infoBox, { backgroundColor: style.background, borderLeftColor: style.accent }]}>
-      <BoxLabel text={style.label} color={style.accent} />
+      <BoxLabel text={t(style.label)} color={style.accent} />
       <Text style={infoTitle}>{block.title}</Text>
       <Text style={bodyText}>{block.text}</Text>
       {block.table ? (
@@ -104,7 +110,9 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
           ) : null}
           <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
             <Text style={translationToggle}>
-              {open ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+              {open
+                ? t('blockHideTranslation')
+                : t('blockShowInLanguage', { language: languageLabel })}
             </Text>
           </Pressable>
         </>
@@ -118,11 +126,14 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
  * druckt Kästen in einem zweiten, blasseren Ton derselben Farbe – nicht in
  * Pastellblau, Pastellgelb und Pastellgrün nebeneinander.
  */
-const INFO_STYLES: Record<InfoBlock['variant'], { label: string; background: string; accent: string }> = {
-  GRAMMAR: { label: 'Grammatik', background: '#F1F3F8', accent: book.printRed },
-  TIP: { label: 'Tipp', background: book.tint, accent: book.attention },
-  CULTURE: { label: 'Landeskunde', background: '#EFF3F1', accent: book.printSlate },
-  IMPORTANT: { label: 'Wichtig', background: '#F8F0EE', accent: book.wrong },
+const INFO_STYLES: Record<
+  InfoBlock['variant'],
+  { label: TranslationKey; background: string; accent: string }
+> = {
+  GRAMMAR: { label: 'blockGrammar', background: '#F1F3F8', accent: book.printRed },
+  TIP: { label: 'blockTip', background: book.tint, accent: book.attention },
+  CULTURE: { label: 'blockCulture', background: '#EFF3F1', accent: book.printSlate },
+  IMPORTANT: { label: 'blockImportant', background: '#F8F0EE', accent: book.wrong },
 };
 
 /**
@@ -186,12 +197,13 @@ function PrintTable({
  * Name keine Breite und liest sich trotzdem wie ein gedrucktes Skript.
  */
 export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
+  const { t } = useTranslation();
   const [showTranslations, setShowTranslations] = useState(false);
   const hasTranslations = block.lines.some((line) => line.translation);
 
   return (
     <View style={dialogueBox}>
-      <BoxLabel text={block.title ?? 'Dialog'} color={accent} />
+      <BoxLabel text={block.title ?? t('blockDialogue')} color={accent} />
 
       <View style={{ gap: 14, marginTop: 14 }}>
         {block.lines.map((line, index) => (
@@ -208,7 +220,7 @@ export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
       {hasTranslations ? (
         <Pressable onPress={() => setShowTranslations((value) => !value)} hitSlop={8}>
           <Text style={[translationToggle, { marginTop: 12 }]}>
-            {showTranslations ? 'Übersetzung ausblenden' : 'Übersetzung anzeigen'}
+            {showTranslations ? t('blockHideTranslation') : t('blockShowTranslation')}
           </Text>
         </Pressable>
       ) : null}
@@ -217,9 +229,11 @@ export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
 }
 
 export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
+  const { t } = useTranslation();
+
   return (
     <View style={vocabBox}>
-      <BoxLabel text={block.title ?? 'Wortschatz'} color={accent} />
+      <BoxLabel text={block.title ?? t('blockVocabulary')} color={accent} />
 
       <View style={{ marginTop: 12 }}>
         {block.items.map((item, index) => (
@@ -240,7 +254,11 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
                 </Text>
               ) : null}
               <Text style={termText}>{item.term}</Text>
-              {item.plural ? <Text style={metaText}>Pl. {item.plural}</Text> : null}
+              {item.plural ? (
+                <Text style={metaText}>
+                  {t('blockPluralShort')} {item.plural}
+                </Text>
+              ) : null}
             </View>
             <Text style={metaText}>{item.translation}</Text>
             {item.example ? <Text style={exampleText}>{item.example}</Text> : null}
@@ -262,20 +280,24 @@ const ARTICLE_COLORS: Record<'der' | 'die' | 'das', string> = {
 };
 
 export function AudioPlaceholder({ block, accent }: BlockProps<AudioBlock>) {
+  const { t } = useTranslation();
+
   return (
     <View style={audioBox}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         {/* Gedrucktes Tonzeichen statt Lautsprecher-Emoji. */}
         <AudioMark color={accent} size={24} />
         <View style={{ flex: 1, gap: 1 }}>
-          <Text style={[bookLabel, { color: accent, fontSize: 10, letterSpacing: 1.2 }]}>Hörtext</Text>
+          <Text style={[bookLabel, { color: accent, fontSize: 10, letterSpacing: 1.2 }]}>
+            {t('blockAudio')}
+          </Text>
           <Text style={infoTitle}>{block.title}</Text>
         </View>
       </View>
       {block.transcript ? (
         <Text style={bodyText}>{block.transcript}</Text>
       ) : (
-        <Text style={metaText}>Die Aufnahme zu dieser Übung folgt.</Text>
+        <Text style={metaText}>{t('blockAudioPending')}</Text>
       )}
     </View>
   );

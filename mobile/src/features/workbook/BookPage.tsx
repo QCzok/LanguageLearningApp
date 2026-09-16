@@ -1,21 +1,23 @@
 import React, { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { BOOK_LABELS } from '@lingua/shared';
 import type { WorkbookBook } from '@lingua/shared';
+import { useTranslation } from '../../i18n';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { CheckMark, ChevronLeftIcon, ChevronRightIcon } from './BookIcons';
 
 /**
- * Akzentfarbe und Name eines Buchs – alles, was eine Seite von ihrem Band
- * wissen muss.
+ * Die Farben eines Buchs – alles, was eine Seite von ihrem Band wissen muss.
  *
  * Vorher hieß das `SECTION_THEME` und trug den Buchteil: rot im Kursbuch,
  * kohlegrau im Arbeitsbuch. Die Farbe sprang damit mitten im Kapitel um,
  * sobald man von der Erklärung zur Übung blätterte. Jetzt stehen beide auf
  * derselben Seite, und die Farbe gehört dem Band (siehe `bookColors`).
+ *
+ * Der Name des Buchs steht bewusst nicht mehr hier: Er hängt an der
+ * Muttersprache des Lernenden und kommt deshalb aus `tBookLabel`.
  */
 export function bookTheme(id: WorkbookBook) {
-  return { ...bookColors[id], label: BOOK_LABELS[id].label };
+  return bookColors[id];
 }
 
 /**
@@ -77,6 +79,7 @@ export function BookPage({
   nav?: PageFooterNav;
   onLayoutHeight?: (height: number) => void;
 }) {
+  const { t, tBookLabel } = useTranslation();
   const theme = bookTheme(bookId);
 
   return (
@@ -95,7 +98,7 @@ export function BookPage({
         */}
         <View style={runningHead}>
           <Text style={[runningHeadText, { color: theme.accent }]} numberOfLines={1}>
-            {theme.label} · Kapitel {chapterOrder}
+            {tBookLabel(bookId)} · {t('pageChapter', { order: chapterOrder })}
           </Text>
           <Text style={runningHeadMeta}>{level}</Text>
         </View>
@@ -128,7 +131,7 @@ export function BookPage({
           <View style={footerNavRow}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Vorherige Seite"
+              accessibilityLabel={t('pagePrevious')}
               onPress={nav.onPrevious}
               disabled={!nav.hasPrevious}
               style={[footerNavButton, !nav.hasPrevious && { opacity: 0.25 }]}
@@ -139,13 +142,13 @@ export function BookPage({
             <View style={{ alignItems: 'center' }}>
               <Text style={pageNumberStyle}>{pageNumber}</Text>
               <Text style={footerCounter}>
-                Seite {nav.index + 1} von {nav.total}
+                {t('pageOfTotal', { current: nav.index + 1, total: nav.total })}
               </Text>
             </View>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Nächste Seite"
+              accessibilityLabel={t('pageNext')}
               onPress={nav.onNext}
               disabled={!nav.hasNext}
               style={[footerNavButton, !nav.hasNext && { opacity: 0.25 }]}

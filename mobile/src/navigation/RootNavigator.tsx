@@ -3,7 +3,6 @@ import { Text } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { BOOK_LABELS } from '@lingua/shared';
 import { Loading } from '../components';
 import { colors } from '../theme';
 import { useAuthStore } from '../store/auth.store';
@@ -124,7 +123,7 @@ function VocabularyNavigator() {
 
 const NotebookStack = createNativeStackNavigator<NotebookStackParamList>();
 function NotebookNavigator() {
-  const { t } = useTranslation();
+  const { t, tBookLabel } = useTranslation();
   return (
     <NotebookStack.Navigator screenOptions={defaultStackOptions}>
       <NotebookStack.Screen
@@ -135,7 +134,7 @@ function NotebookNavigator() {
       <NotebookStack.Screen
         name="BookContents"
         component={BookContentsScreen}
-        options={({ route }) => ({ title: BOOK_LABELS[route.params.book].label })}
+        options={({ route }) => ({ title: tBookLabel(route.params.book) })}
       />
       <NotebookStack.Screen
         name="Unit"
@@ -265,10 +264,11 @@ function MainNavigator() {
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const isBootstrapping = useAuthStore((state) => state.isBootstrapping);
 
-  if (isBootstrapping) return <Loading label="Lingua wird geladen …" />;
+  if (isBootstrapping) return <Loading label={t('commonAppLoading')} />;
 
   // Der Navigationsbaum leitet sich vollständig aus dem Auth-Zustand ab –
   // kein imperatives navigate() nach Login oder Onboarding nötig.

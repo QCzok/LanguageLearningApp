@@ -15,6 +15,8 @@ import { UsersService } from '../users/users.service';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { ListLibraryQueryDto, SubmitExercisesDto, UpdateReadingProgressDto } from './dto/library.dto';
 
+import { ERR } from '../../common/i18n/messages';
+
 /** XP-Basis pro abgeschlossener Übungseinheit, skaliert mit der Trefferquote. */
 const XP_PER_EXERCISE_SET = 20;
 
@@ -93,10 +95,10 @@ export class LibraryService {
       where: { id: contentId },
       include: { ...contentInclude, exercises: { orderBy: { order: 'asc' } } },
     });
-    if (!content) throw new NotFoundException('Inhalt nicht gefunden');
+    if (!content) throw new NotFoundException(ERR['notfound.content']);
 
     if (content.isPremium && !this.hasPremium(user)) {
-      throw new ForbiddenException('Dieser Inhalt ist Teil von Lingua Premium');
+      throw new ForbiddenException(ERR['premium.content']);
     }
 
     const [progress, bestAttempt] = await Promise.all([
@@ -164,7 +166,7 @@ export class LibraryService {
       where: { contentId },
       orderBy: { order: 'asc' },
     });
-    if (exercises.length === 0) throw new NotFoundException('Zu diesem Inhalt gibt es keine Übungen');
+    if (exercises.length === 0) throw new NotFoundException(ERR['content.no_exercises']);
 
     const answerById = new Map(dto.answers.map((answer) => [answer.exerciseId, answer]));
 

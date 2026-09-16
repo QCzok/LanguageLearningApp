@@ -10,6 +10,8 @@ import * as z from 'zod/v4';
 import { aiConfig } from '../../config/configuration';
 import type { AiClient, TokenUsage } from './ai-client.interface';
 
+import { ERR } from '../../common/i18n/messages';
+
 /**
  * KI-Anbindung über die `claude`-CLI statt über einen API-Key.
  *
@@ -90,7 +92,7 @@ export class ClaudeCliClient implements AiClient {
     const parsed = params.schema.safeParse(result.structuredOutput);
     if (!parsed.success) {
       this.logger.error(`Unerwartetes Antwortformat: ${parsed.error.message}`);
-      throw new ServiceUnavailableException('Die KI-Antwort hatte ein unerwartetes Format');
+      throw new ServiceUnavailableException(ERR['ai.bad_format']);
     }
 
     return { parsed: parsed.data, usage: result.usage };
@@ -204,7 +206,7 @@ export class ClaudeCliClient implements AiClient {
     }
 
     throw new ServiceUnavailableException(
-      'Die claude-CLI wurde nicht gefunden. CLAUDE_CLI_PATH in .env setzen oder "npm install -g @anthropic-ai/claude-code" ausführen.',
+      ERR['ai.cli_missing'],
     );
   }
 
@@ -241,7 +243,7 @@ export class ClaudeCliClient implements AiClient {
         if (settled) return;
         settled = true;
         child.kill();
-        reject(new ServiceUnavailableException('Die KI-Antwort hat zu lange gedauert'));
+        reject(new ServiceUnavailableException(ERR['ai.timeout']));
       }, TIMEOUT_MS);
 
       child.stdout!.on('data', (chunk) => {
@@ -255,7 +257,7 @@ export class ClaudeCliClient implements AiClient {
         settled = true;
         clearTimeout(timer);
         this.logger.error(`claude-CLI konnte nicht gestartet werden: ${error.message}`);
-        reject(new ServiceUnavailableException('Die KI-Funktionen sind derzeit nicht verfügbar'));
+        reject(new ServiceUnavailableException(ERR['ai.unavailable']));
       });
       child.on('close', () => {
         if (settled) return;
@@ -267,7 +269,7 @@ export class ClaudeCliClient implements AiClient {
           this.logger.error(
             `claude-CLI Fehler: ${stderr.trim() || parsed?.result || 'unbekannte Antwort'}`,
           );
-          reject(new ServiceUnavailableException('Die KI-Antwort konnte nicht erzeugt werden'));
+          reject(new ServiceUnavailableException(ERR['ai.failed']));
           return;
         }
 
@@ -330,7 +332,7 @@ export class ClaudeCliClient implements AiClient {
     }
 
     if (errored) {
-      throw new ServiceUnavailableException('Die KI-Antwort konnte nicht erzeugt werden');
+      throw new ServiceUnavailableException(ERR['ai.failed']);
     }
     yield { type: 'done', text: text.trim(), usage };
   }

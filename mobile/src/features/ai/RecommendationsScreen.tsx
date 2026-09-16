@@ -18,21 +18,24 @@ import {
   Title,
 } from '../../components';
 import { aiApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { colors, spacing } from '../../theme';
 import type { MainTabParamList } from '../../navigation/types';
 
 type Action = RecommendationDto['actions'][number];
 
-const ACTION_META: Record<Action['type'], { icon: string; label: string }> = {
-  VOCAB_DECK: { icon: '🗂️', label: 'Vokabeln' },
-  LIBRARY: { icon: '📚', label: 'Lesen' },
-  MEDIA: { icon: '🎧', label: 'Hören' },
-  NOTEBOOK: { icon: '📓', label: 'Schreiben' },
-  AI_CHAT: { icon: '💬', label: 'Sprechen' },
+const ACTION_META: Record<Action['type'], { icon: string; label: TranslationKey }> = {
+  VOCAB_DECK: { icon: '🗂️', label: 'recommendationsVocab' },
+  LIBRARY: { icon: '📚', label: 'recommendationsLibrary' },
+  MEDIA: { icon: '🎧', label: 'recommendationsMedia' },
+  NOTEBOOK: { icon: '📓', label: 'recommendationsNotebook' },
+  AI_CHAT: { icon: '💬', label: 'recommendationsChat' },
 };
 
 export default function RecommendationsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const { t } = useTranslation();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['ai-recommendations'],
@@ -42,7 +45,7 @@ export default function RecommendationsScreen() {
     retry: false,
   });
 
-  if (isLoading) return <Loading label="Dein Lernstand wird ausgewertet …" />;
+  if (isLoading) return <Loading label={t('recommendationsLoading')} />;
   if (isError) {
     return <ErrorState message={(error as Error).message} onRetry={refetch} />;
   }
@@ -87,14 +90,14 @@ export default function RecommendationsScreen() {
       <Card style={{ backgroundColor: colors.premiumSoft, borderColor: colors.premium }}>
         <Row gap={spacing.sm}>
           <Text style={{ fontSize: 26 }}>🎯</Text>
-          <Title>Für dich</Title>
+          <Title>{t('recommendationsForYou')}</Title>
         </Row>
         <Body>{data.summary}</Body>
       </Card>
 
       {data.focusAreas.length > 0 ? (
         <Card>
-          <Heading>Schwerpunkte</Heading>
+          <Heading>{t('recommendationsFocus')}</Heading>
           <Row gap={spacing.sm} style={{ flexWrap: 'wrap' }}>
             {data.focusAreas.map((area) => (
               <Tag key={area} label={area} color={colors.primarySoft} />
@@ -103,7 +106,7 @@ export default function RecommendationsScreen() {
         </Card>
       ) : null}
 
-      <Heading>Nächste Schritte</Heading>
+      <Heading>{t('recommendationsNextSteps')}</Heading>
 
       {data.actions.map((action, index) => {
         const meta = ACTION_META[action.type];
@@ -112,17 +115,17 @@ export default function RecommendationsScreen() {
             <Row gap={spacing.md}>
               <Text style={{ fontSize: 26 }}>{meta.icon}</Text>
               <View style={{ flex: 1 }}>
-                <Caption>{meta.label}</Caption>
+                <Caption>{t(meta.label)}</Caption>
                 <Heading>{action.title}</Heading>
                 <Caption>{action.reason}</Caption>
               </View>
             </Row>
-            <Button label="Öffnen" variant="secondary" onPress={() => openAction(action)} />
+            <Button label={t('commonOpen')} variant="secondary" onPress={() => openAction(action)} />
           </Card>
         );
       })}
 
-      <Button label="Neu berechnen" variant="ghost" onPress={() => refetch()} />
+      <Button label={t('recommendationsRecalculate')} variant="ghost" onPress={() => refetch()} />
     </Screen>
   );
 }

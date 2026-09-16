@@ -20,6 +20,8 @@ import {
   Title,
 } from '../../components';
 import { aiApi, vocabularyApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { useActiveProfile, useIsPremium } from '../../store/auth.store';
 import { alert } from '../../utils/alert';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
@@ -43,6 +45,7 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
  * wird nicht angezeigt statt flach dargestellt.
  */
 export default function DeckListScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const profile = useActiveProfile();
   const isPremium = useIsPremium();
   const queryClient = useQueryClient();
@@ -69,10 +72,7 @@ export default function DeckListScreen({ navigation }: Props) {
 
   function openGenerator() {
     if (!isPremium) {
-      alert(
-        'Lingua Premium',
-        'KI-generierte Vokabelstapel zu einem Thema deiner Wahl sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
-      );
+      alert(t('vocabPremiumTitle'), t('vocabPremiumBody'));
       return;
     }
     setShowGenerate(true);
@@ -98,15 +98,15 @@ export default function DeckListScreen({ navigation }: Props) {
 
   if (decks.isLoading) return <Loading />;
   if (decks.isError || !decks.data) {
-    return <ErrorState message="Decks konnten nicht geladen werden." onRetry={decks.refetch} />;
+    return <ErrorState message={t('vocabDecksError')} onRetry={decks.refetch} />;
   }
 
   if (decks.data.length === 0) {
     return (
       <EmptyState
         emoji="🗂️"
-        title="Noch keine Vokabeln"
-        description="Für dein Niveau sind noch keine Vokabelsammlungen hinterlegt."
+        title={t('vocabEmptyTitle')}
+        description={t('vocabEmptyDescription')}
       />
     );
   }
@@ -145,14 +145,16 @@ export default function DeckListScreen({ navigation }: Props) {
   }
 
   function stackLabelFor(queueType: 'NEW' | 'DUE' | 'MASTERED'): string {
-    return queueType === 'NEW' ? 'Neue Vokabeln' : queueType === 'DUE' ? 'Wiederholen' : 'Gelernt';
+    return t(
+      queueType === 'NEW' ? 'vocabStackNew' : queueType === 'DUE' ? 'vocabStackRepeat' : 'vocabStackLearned',
+    );
   }
 
   function startSession(level: CefrLevel, queueType: 'NEW' | 'DUE' | 'MASTERED') {
     navigation.navigate('Review', {
       level,
       queueType,
-      title: `${levelHeadline(level)} · ${stackLabelFor(queueType)}`,
+      title: `${t(LEVEL_HEADLINE_KEYS[level])} · ${stackLabelFor(queueType)}`,
     });
   }
 
@@ -172,11 +174,11 @@ export default function DeckListScreen({ navigation }: Props) {
       >
         <Row>
           <View style={{ flex: 1 }}>
-            <Title>Vokabeltrainer</Title>
-            <Caption>Neue Wörter lernen und Gelerntes wiederholen.</Caption>
+            <Title>{t('vocabTitle')}</Title>
+            <Caption>{t('vocabSubtitle')}</Caption>
           </View>
           <Button
-            label="Statistik"
+            label={t('vocabStatsButton')}
             variant="ghost"
             fullWidth={false}
             onPress={() => navigation.navigate('VocabStats')}
@@ -187,16 +189,12 @@ export default function DeckListScreen({ navigation }: Props) {
           <Row gap={spacing.sm}>
             <Text style={{ fontSize: 26 }}>✨</Text>
             <View style={{ flex: 1 }}>
-              <Heading>KI-Vokabelstapel</Heading>
-              <Caption>
-                {isPremium
-                  ? 'Erstelle einen eigenen Stapel mit 30 Vokabeln zu einem Thema deiner Wahl.'
-                  : 'Mit Premium erstellt die KI einen eigenen Stapel mit 30 Vokabeln zu jedem Thema.'}
-              </Caption>
+              <Heading>{t('vocabAiDeckTitle')}</Heading>
+              <Caption>{isPremium ? t('vocabAiDeckPremium') : t('vocabAiDeckFree')}</Caption>
             </View>
           </Row>
           <Button
-            label={isPremium ? 'Thema wählen' : 'Premium ansehen'}
+            label={isPremium ? t('vocabChooseTopic') : t('vocabViewPremium')}
             variant="premium"
             fullWidth={false}
             onPress={openGenerator}
@@ -230,28 +228,26 @@ export default function DeckListScreen({ navigation }: Props) {
       <Modal visible={showGenerate} transparent animationType="slide" onRequestClose={closeGenerator}>
         <View style={sheetBackdrop}>
           <SafeAreaView edges={['bottom']} style={sheetStyle}>
-            <Title>KI-Vokabelstapel</Title>
-            <Caption>
-              Wähle ein Thema – die KI erstellt dazu 30 Vokabeln passend zu deinem Niveau.
-            </Caption>
+            <Title>{t('vocabAiDeckTitle')}</Title>
+            <Caption>{t('vocabAiSheetSubtitle')}</Caption>
 
             <Input
-              label="Thema"
+              label={t('vocabTopicLabel')}
               value={topic}
               onChangeText={setTopic}
-              placeholder="z. B. Kochen, Reisen, Büroalltag …"
+              placeholder={t('vocabTopicPlaceholder')}
               error={generateDeck.isError ? (generateDeck.error as Error).message : undefined}
             />
 
             <Button
-              label="Generieren"
+              label={t('vocabGenerate')}
               variant="premium"
               loading={generateDeck.isPending}
               disabled={topic.trim().length < 2}
               onPress={() => generateDeck.mutate(topic.trim())}
             />
             <Button
-              label="Abbrechen"
+              label={t('commonCancel')}
               variant="ghost"
               onPress={closeGenerator}
               disabled={generateDeck.isPending}
@@ -280,6 +276,7 @@ function LevelSection({
   onToggle: () => void;
   onStart: (queueType: 'NEW' | 'DUE' | 'MASTERED') => void;
 }) {
+  const { t } = useTranslation();
   const totalItems = decks.reduce((sum, deck) => sum + deck.itemCount, 0);
   const learnedCount = decks.reduce((sum, deck) => sum + (deck.progress?.learned ?? 0), 0);
 
@@ -288,11 +285,14 @@ function LevelSection({
       icon={<LevelBadge level={level} />}
       title={
         <Row gap={spacing.xs}>
-          <Heading>{levelHeadline(level)}</Heading>
+          <Heading>{t(LEVEL_HEADLINE_KEYS[level])}</Heading>
           {isCurrent ? <CurrentPill /> : null}
         </Row>
       }
-      subtitle={`${totalItems} Vokabeln${learnedCount > 0 ? ` · ${learnedCount} gelernt` : ''}`}
+      subtitle={
+        t('vocabWordCount', { count: totalItems }) +
+        (learnedCount > 0 ? ` · ${t('vocabLearnedCount', { count: learnedCount })}` : '')
+      }
       isOpen={isOpen}
       onToggle={onToggle}
       newCount={decks.reduce((sum, deck) => sum + (deck.progress?.new ?? deck.itemCount), 0)}
@@ -302,7 +302,7 @@ function LevelSection({
       dueCount={decks.reduce((sum, deck) => sum + (deck.progress?.needsRepeat ?? 0), 0)}
       learnedCount={learnedCount}
       onStart={onStart}
-      emptyMessage="Für dieses Niveau ist gerade nichts zu tun – alles gelernt 🎉"
+      emptyMessage={t('vocabNothingToDoLevel')}
     />
   );
 }
@@ -327,6 +327,7 @@ function TopicSection({
   onToggle: () => void;
   onStart: (queueType: 'NEW' | 'DUE' | 'MASTERED') => void;
 }) {
+  const { t } = useTranslation();
   const progress = deck.progress;
 
   return (
@@ -338,14 +339,19 @@ function TopicSection({
           <LevelBadge level={deck.level} small />
         </Row>
       }
-      subtitle={`${deck.itemCount} Vokabeln${progress && progress.learned > 0 ? ` · ${progress.learned} gelernt` : ''}`}
+      subtitle={
+        t('vocabWordCount', { count: deck.itemCount }) +
+        (progress && progress.learned > 0
+          ? ` · ${t('vocabLearnedCount', { count: progress.learned })}`
+          : '')
+      }
       isOpen={isOpen}
       onToggle={onToggle}
       newCount={progress?.new ?? deck.itemCount}
       dueCount={progress?.needsRepeat ?? 0}
       learnedCount={progress?.learned ?? 0}
       onStart={onStart}
-      emptyMessage="Für dieses Thema ist gerade nichts zu tun – alles gelernt 🎉"
+      emptyMessage={t('vocabNothingToDoTopic')}
       containerStyle={nestedSectionContainer}
     />
   );
@@ -372,6 +378,8 @@ function OwnDecksGroup({
   onToggleTopic: (deckId: string) => void;
   onStart: (deck: VocabDeckDto, queueType: 'NEW' | 'DUE' | 'MASTERED') => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View style={sectionContainer}>
       <Pressable
@@ -382,8 +390,10 @@ function OwnDecksGroup({
       >
         <Text style={{ fontSize: 26 }}>✨</Text>
         <View style={{ flex: 1, gap: 2 }}>
-          <Heading>KI-Vokabelstapel</Heading>
-          <Caption>{decks.length === 1 ? '1 Thema' : `${decks.length} Themen`}</Caption>
+          <Heading>{t('vocabAiDeckTitle')}</Heading>
+          <Caption>
+            {decks.length === 1 ? t('vocabOneTopic') : t('vocabTopicsCount', { count: decks.length })}
+          </Caption>
         </View>
         <View style={{ transform: [{ rotate: isOpen ? '180deg' : '0deg' }] }}>
           <ChevronDownIcon color={colors.textMuted} size={18} />
@@ -435,6 +445,8 @@ function StackAccordion({
   emptyMessage: string;
   containerStyle?: object;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View style={[sectionContainer, containerStyle]}>
       <Pressable
@@ -461,8 +473,8 @@ function StackAccordion({
               {newCount > 0 ? (
                 <DeckStack
                   count={newCount}
-                  label="Neue Vokabeln"
-                  hint="noch nie geübt"
+                  label={t('vocabStackNew')}
+                  hint={t('vocabHintNew')}
                   accent={colors.primary}
                   onPress={() => onStart('NEW')}
                 />
@@ -470,8 +482,8 @@ function StackAccordion({
               {dueCount > 0 ? (
                 <DeckStack
                   count={dueCount}
-                  label="Wiederholen"
-                  hint="falsch beantwortet"
+                  label={t('vocabStackRepeat')}
+                  hint={t('vocabHintRepeat')}
                   accent={colors.warning}
                   onPress={() => onStart('DUE')}
                 />
@@ -479,8 +491,8 @@ function StackAccordion({
               {learnedCount > 0 ? (
                 <DeckStack
                   count={learnedCount}
-                  label="Gelernt"
-                  hint="zum Auffrischen"
+                  label={t('vocabStackLearned')}
+                  hint={t('vocabHintLearned')}
                   accent={colors.success}
                   onPress={() => onStart('MASTERED')}
                 />
@@ -496,9 +508,11 @@ function StackAccordion({
 }
 
 function CurrentPill() {
+  const { t } = useTranslation();
+
   return (
     <View style={currentPill}>
-      <Text style={currentPillText}>AKTUELL</Text>
+      <Text style={currentPillText}>{t('vocabCurrentPill')}</Text>
     </View>
   );
 }
@@ -529,6 +543,7 @@ function DeckStack({
   accent: string;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   const [isShuffling, setIsShuffling] = useState(false);
   const shuffleTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -568,37 +583,35 @@ function DeckStack({
             <View style={[stackHeadRule, { backgroundColor: isGrey ? colors.border : accent }]} />
             <Text style={[stackCount, { color: tintColor }]}>{count}</Text>
             <Text style={stackLabel}>{label}</Text>
-            <Text style={stackHint}>{isShuffling ? 'wird gemischt …' : hint}</Text>
+            <Text style={stackHint}>{isShuffling ? t('vocabShufflingHint') : hint}</Text>
           </View>
         </View>
       </Pressable>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${label} durchmischen`}
+        accessibilityLabel={t('vocabShuffleA11y', { label })}
         accessibilityState={{ disabled: isShuffling }}
         disabled={isShuffling}
         onPress={handleShuffle}
         style={({ pressed }) => [shuffleRow, pressed && !isShuffling && { opacity: 0.6 }, isShuffling && { opacity: 0.5 }]}
       >
         <ShuffleIcon color={colors.textMuted} size={14} />
-        <Text style={shuffleRowText}>{isShuffling ? 'Mischt …' : 'Mischen'}</Text>
+        <Text style={shuffleRowText}>{isShuffling ? t('vocabShuffling') : t('vocabShuffle')}</Text>
       </Pressable>
     </View>
   );
 }
 
-function levelHeadline(level: CefrLevel): string {
-  const map: Record<CefrLevel, string> = {
-    A1: 'Erste Schritte',
-    A2: 'Grundlagen',
-    B1: 'Selbstständig',
-    B2: 'Sicher im Alltag',
-    C1: 'Fortgeschritten',
-    C2: 'Nahezu muttersprachlich',
-  };
-  return map[level];
-}
+/** Die Zwischentitel der Niveaus – nicht die GER-Kurznamen, sondern der Ton des Trainers. */
+const LEVEL_HEADLINE_KEYS: Record<CefrLevel, TranslationKey> = {
+  A1: 'vocabLevelA1',
+  A2: 'vocabLevelA2',
+  B1: 'vocabLevelB1',
+  B2: 'vocabLevelB2',
+  C1: 'vocabLevelC1',
+  C2: 'vocabLevelC2',
+};
 
 // ------------------------------------------------------------------ Styles
 

@@ -12,6 +12,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorState, LevelBadge, Loading, ProgressBar } from '../../components';
 import { libraryApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import {
   colors,
   fontFamily,
@@ -44,6 +45,7 @@ const PROGRESS_STEP = 10;
  */
 export default function ReaderScreen({ route, navigation }: Props) {
   const { contentId, title } = route.params;
+  const { t } = useTranslation();
   const [progress, setProgress] = useState(0);
   const [sizeStep, setSizeStep] = useState(1);
   const [translationsOpen, setTranslationsOpen] = useState(false);
@@ -94,7 +96,7 @@ export default function ReaderScreen({ route, navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Der Text konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('readerError')} onRetry={refetch} />;
   }
 
   const fontSize = reading.textSizes[sizeStep];
@@ -118,13 +120,16 @@ export default function ReaderScreen({ route, navigation }: Props) {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <LevelBadge level={data.level} small />
               <Text style={kicker}>
-                {data.type === 'STORY' ? 'Geschichte' : 'Artikel'} · {data.estimatedMinutes} Min ·{' '}
-                {data.wordCount} Wörter
+                {data.type === 'STORY' ? t('libraryTypeStory') : t('libraryTypeArticle')} ·{' '}
+                {data.estimatedMinutes} {t('commonMinutesShort')} ·{' '}
+                {t('readerWords', { count: data.wordCount })}
               </Text>
             </View>
 
             <Text style={heroTitle}>{data.title}</Text>
-            {data.author ? <Text style={heroAuthor}>von {data.author}</Text> : null}
+            {data.author ? (
+              <Text style={heroAuthor}>{t('readerBy', { author: data.author })}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -169,17 +174,18 @@ export default function ReaderScreen({ route, navigation }: Props) {
 
           {data.exerciseCount > 0 ? (
             <View style={exerciseBox}>
-              <Text style={[readingLabel, { color: colors.primary }]}>Zum Text</Text>
-              <Text style={exerciseTitle}>Hast du alles verstanden?</Text>
+              <Text style={[readingLabel, { color: colors.primary }]}>{t('readerToTheText')}</Text>
+              <Text style={exerciseTitle}>{t('readerUnderstood')}</Text>
               <Text style={exerciseHint}>
-                {data.exerciseCount} {data.exerciseCount === 1 ? 'Aufgabe' : 'Aufgaben'} zu diesem
-                Text
+                {data.exerciseCount === 1
+                  ? t('readerExerciseCountOne')
+                  : t('readerExerciseCount', { count: data.exerciseCount })}
                 {data.userProgress?.bestScore != null
-                  ? ` · bestes Ergebnis ${data.userProgress.bestScore} %`
+                  ? ` · ${t('readerBestResult', { percent: data.userProgress.bestScore })}`
                   : ''}
               </Text>
               <Button
-                label="Übungen starten"
+                label={t('readerStartExercises')}
                 onPress={() => navigation.navigate('Exercises', { contentId, title })}
               />
             </View>
@@ -219,6 +225,7 @@ function ReaderToolbar({
   remaining: number;
   finished: boolean;
 }) {
+  const { t } = useTranslation();
   const canShrink = sizeStep > 0;
   const canGrow = sizeStep < reading.textSizes.length - 1;
 
@@ -230,18 +237,18 @@ function ReaderToolbar({
           small
           disabled={!canShrink}
           onPress={() => onSizeStep(sizeStep - 1)}
-          accessibilityLabel="Schrift verkleinern"
+          accessibilityLabel={t('readerShrinkFont')}
         />
         <StepButton
           label="A"
           disabled={!canGrow}
           onPress={() => onSizeStep(sizeStep + 1)}
-          accessibilityLabel="Schrift vergrößern"
+          accessibilityLabel={t('readerGrowFont')}
         />
       </View>
 
       <Text style={[readingLabel, { color: reading.inkFaint, flex: 1, textAlign: 'center' }]}>
-        {finished ? 'Gelesen' : `Noch ca. ${remaining} Min`}
+        {finished ? t('readerFinished') : t('libraryRemainingMinutes', { count: remaining })}
       </Text>
 
       <Pressable
@@ -253,7 +260,7 @@ function ReaderToolbar({
         <Text
           style={[readingLabel, { color: translationsOpen ? colors.textInverse : reading.inkSoft }]}
         >
-          Übersetzung
+          {t('readerTranslation')}
         </Text>
       </Pressable>
     </View>

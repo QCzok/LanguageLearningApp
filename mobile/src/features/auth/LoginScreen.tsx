@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Button, Caption, Input, Screen, Title } from '../../components';
+import { useTranslation } from '../../i18n';
 import { colors, spacing, typography } from '../../theme';
 import { useAuthStore } from '../../store/auth.store';
 import type { AuthStackParamList } from '../../navigation/types';
@@ -9,6 +10,7 @@ import type { AuthStackParamList } from '../../navigation/types';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -33,13 +35,13 @@ export default function LoginScreen({ navigation }: Props) {
       <Screen scroll>
         <View style={{ alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.xl }}>
           <Text style={{ fontSize: 56 }}>🗣️</Text>
-          <Title>Willkommen bei Lingua</Title>
-          <Body muted>Melde dich an und lerne dort weiter, wo du aufgehört hast.</Body>
+          <Title>{t('authLoginTitle')}</Title>
+          <Body muted>{t('authLoginSubtitle')}</Body>
         </View>
 
         <View style={{ gap: spacing.md }}>
           <Input
-            label="E-Mail"
+            label={t('authEmail')}
             value={email}
             onChangeText={(value) => {
               setEmail(value);
@@ -48,11 +50,11 @@ export default function LoginScreen({ navigation }: Props) {
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
-            placeholder="du@beispiel.de"
+            placeholder={t('authEmailPlaceholder')}
             textContentType="emailAddress"
           />
           <Input
-            label="Passwort"
+            label={t('authPassword')}
             value={password}
             onChangeText={(value) => {
               setPassword(value);
@@ -70,9 +72,14 @@ export default function LoginScreen({ navigation }: Props) {
             <Text style={[typography.caption, { color: colors.danger }]}>{error}</Text>
           ) : null}
 
-          <Button label="Anmelden" onPress={handleLogin} loading={isSubmitting} disabled={!canSubmit} />
           <Button
-            label="Noch kein Konto? Registrieren"
+            label={t('authSignIn')}
+            onPress={handleLogin}
+            loading={isSubmitting}
+            disabled={!canSubmit}
+          />
+          <Button
+            label={t('authNoAccount')}
             variant="ghost"
             onPress={() => {
               clearError();
@@ -82,7 +89,7 @@ export default function LoginScreen({ navigation }: Props) {
         </View>
 
         <View style={{ alignItems: 'center', gap: spacing.xs, marginTop: spacing.lg }}>
-          <Caption>Testzugang</Caption>
+          <Caption>{t('authTestAccess')}</Caption>
           <Caption>demo@lingua.app · Passwort123</Caption>
         </View>
       </Screen>

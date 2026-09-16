@@ -4,10 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BOOK_LABELS, bookForLevel } from '@lingua/shared';
+import { bookForLevel } from '@lingua/shared';
 import type { BookSummaryDto } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { BookMark, ChevronRightIcon } from './BookIcons';
@@ -30,6 +31,7 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'Bookshelf'>;
  * weitergeht, weiß das Buch selbst (siehe `resume` in `BookSummaryDto`).
  */
 export default function BookshelfScreen({ navigation }: Props) {
+  const { t, tLanguage } = useTranslation();
   const profile = useActiveProfile();
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
@@ -47,7 +49,7 @@ export default function BookshelfScreen({ navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Das Lehrwerk konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('bookshelfError')} onRetry={refetch} />;
   }
 
   // Das Buch, in dem das eigene Niveau liegt, wird als solches ausgewiesen –
@@ -62,12 +64,15 @@ export default function BookshelfScreen({ navigation }: Props) {
       >
         <View style={sheet}>
           <View style={{ paddingHorizontal: book.margin, paddingTop: 22 }}>
-            <Text style={eyebrow}>Lehrwerk</Text>
-            <Text style={sheetTitle}>{profile?.language.name ?? 'Ihre Sprache'}</Text>
-            <Text style={sheetSubtitle}>
-              Drei Kursbücher und ein Grammatikbuch. Auf jeder Seite folgt die Übung direkt auf die
-              Erklärung.
+            <Text style={eyebrow}>{t('bookshelfEyebrow')}</Text>
+            {/* Der Sprachname aus der API ist deutsch – angezeigt wird er in
+                der Muttersprache des Lernenden. */}
+            <Text style={sheetTitle}>
+              {profile
+                ? tLanguage(profile.language.code, profile.language.name)
+                : t('bookshelfLanguageFallback')}
             </Text>
+            <Text style={sheetSubtitle}>{t('bookshelfSubtitle')}</Text>
             <View style={titleRule} />
           </View>
 
@@ -92,8 +97,8 @@ export default function BookshelfScreen({ navigation }: Props) {
           >
             <BookMark color={book.inkSoft} size={22} />
             <View style={{ flex: 1 }}>
-              <Text style={ownNotebooksTitle}>Eigene Notizhefte</Text>
-              <Text style={ownNotebooksHint}>Freie Seiten zum Schreiben und Zeichnen.</Text>
+              <Text style={ownNotebooksTitle}>{t('bookshelfOwnNotebooks')}</Text>
+              <Text style={ownNotebooksHint}>{t('bookshelfOwnNotebooksHint')}</Text>
             </View>
             <ChevronRightIcon color={book.inkFaint} size={16} />
           </Pressable>
@@ -117,14 +122,15 @@ function BookRow({
   isSuggested: boolean;
   onPress: () => void;
 }) {
-  const label = BOOK_LABELS[summary.book];
+  const { t, tBookLabel, tBookSubtitle, tBookDescription } = useTranslation();
+  const label = tBookLabel(summary.book);
   const accent = bookColors[summary.book].accent;
   const isEmpty = summary.publishedChapterCount === 0;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label.label}
+      accessibilityLabel={label}
       onPress={onPress}
       style={({ pressed }) => [bookRow, pressed && { backgroundColor: book.tint }]}
     >
@@ -133,21 +139,26 @@ function BookRow({
       </View>
 
       <View style={{ flex: 1, gap: 3 }}>
-        <Text style={[bookTitle, { color: accent }]}>{label.label}</Text>
-        <Text style={bookSubtitle}>{label.subtitle}</Text>
+        <Text style={[bookTitle, { color: accent }]}>{label}</Text>
+        <Text style={bookSubtitle}>{tBookSubtitle(summary.book)}</Text>
         <Text style={bookDescription} numberOfLines={3}>
-          {label.description}
+          {tBookDescription(summary.book)}
         </Text>
 
         <Text style={bookMeta}>
-          {summary.chapterCount} Kapitel
-          {isEmpty ? ' · in Vorbereitung' : ` · ${summary.completedUnits}/${summary.totalUnits} Seiten`}
-          {isSuggested ? ' · passt zu Ihrem Niveau' : ''}
+          {t('bookshelfChapterCount', { count: summary.chapterCount })}
+          {isEmpty
+            ? ` · ${t('bookshelfInPreparation')}`
+            : ` · ${t('bookshelfPagesProgress', {
+                done: summary.completedUnits,
+                total: summary.totalUnits,
+              })}`}
+          {isSuggested ? ` · ${t('bookshelfSuggested')}` : ''}
         </Text>
 
         {summary.resume ? (
           <Text style={[resumeLine, { color: accent }]} numberOfLines={1}>
-            {summary.resume.isStart ? 'Beginnen mit ' : 'Weiter auf '}
+            {summary.resume.isStart ? t('bookshelfResumeStart') : t('bookshelfResumeContinue')}{' '}
             {summary.resume.chapterOrder}.{' '}
             {summary.resume.unitTitle}
           </Text>

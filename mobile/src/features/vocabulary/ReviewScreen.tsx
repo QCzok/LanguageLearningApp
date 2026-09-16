@@ -13,9 +13,10 @@ import {
   Loading,
   Row,
   Screen,
-  Title,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
+import type { TranslationKey } from '../../i18n';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
 import { Flashcard } from './Flashcard';
 import type { VocabularyStackParamList } from '../../navigation/types';
@@ -52,6 +53,7 @@ function shuffled<T>(items: T[]): T[] {
  */
 export default function ReviewScreen({ route, navigation }: Props) {
   const { deckId, level, queueType } = route.params;
+  const { t, tVocabMode } = useTranslation();
   const queryClient = useQueryClient();
 
   const [revealed, setRevealed] = useState(false);
@@ -152,17 +154,17 @@ export default function ReviewScreen({ route, navigation }: Props) {
     advance(value >= 3);
   }
 
-  if (isLoading) return <Loading label="Karten werden geladen …" />;
-  if (isError) return <ErrorState message="Die Lernsitzung konnte nicht starten." onRetry={refetch} />;
+  if (isLoading) return <Loading label={t('reviewLoadingCards')} />;
+  if (isError) return <ErrorState message={t('reviewStartError')} onRetry={refetch} />;
 
   if ((data ?? []).length === 0) {
     return (
       <Screen>
         <EmptyState
           emoji="🎉"
-          title={emptyTitle(queueType)}
-          description={emptyDescription(queueType)}
-          action={{ label: 'Zurück', onPress: () => navigation.goBack() }}
+          title={t(emptyTitleKey(queueType))}
+          description={t(emptyDescriptionKey(queueType))}
+          action={{ label: t('commonBack'), onPress: () => navigation.goBack() }}
         />
       </Screen>
     );
@@ -176,10 +178,10 @@ export default function ReviewScreen({ route, navigation }: Props) {
         <View style={{ flex: 1, justifyContent: 'center', gap: spacing.lg }}>
           <Flashcard stackSize={2} style={{ marginBottom: spacing.md }}>
             <View style={{ alignItems: 'center', gap: spacing.xs, paddingVertical: spacing.md }}>
-              <Text style={cardEyebrow}>Sitzung abgeschlossen</Text>
+              <Text style={cardEyebrow}>{t('reviewSessionDone')}</Text>
               <Text style={summaryScore}>{accuracy} %</Text>
               <Text style={cardMeta}>
-                {summary.correct} von {summary.reviewed} richtig
+                {t('reviewCorrectOf', { correct: summary.correct, reviewed: summary.reviewed })}
               </Text>
             </View>
           </Flashcard>
@@ -187,26 +189,26 @@ export default function ReviewScreen({ route, navigation }: Props) {
           <Row gap={spacing.md}>
             <Card style={{ flex: 1, alignItems: 'center' }}>
               <Text style={typography.title}>{summary.reviewed}</Text>
-              <Caption>Karten</Caption>
+              <Caption>{t('reviewCards')}</Caption>
             </Card>
             <Card style={{ flex: 1, alignItems: 'center' }}>
               <Text style={typography.title}>{accuracy}%</Text>
-              <Caption>Richtig</Caption>
+              <Caption>{t('reviewCorrect')}</Caption>
             </Card>
             <Card style={{ flex: 1, alignItems: 'center' }}>
               <Text style={typography.title}>+{summary.xp}</Text>
-              <Caption>XP</Caption>
+              <Caption>{t('reviewXp')}</Caption>
             </Card>
           </Row>
 
           <Button
-            label="Weiter lernen"
+            label={t('reviewKeepLearning')}
             onPress={() => {
               setSummary({ reviewed: 0, correct: 0, xp: 0 });
               void refetch();
             }}
           />
-          <Button label="Fertig" variant="secondary" onPress={() => navigation.goBack()} />
+          <Button label={t('commonDone')} variant="secondary" onPress={() => navigation.goBack()} />
         </View>
       </Screen>
     );
@@ -220,7 +222,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
     <Screen style={{ flex: 1 }}>
       <Row>
         <View style={{ flex: 1 }} />
-        <Caption>{modeLabel(card.mode)}</Caption>
+        <Caption>{tVocabMode(card.mode)}</Caption>
       </Row>
 
       {card.mode === 'FLASHCARD' ? (
@@ -295,13 +297,15 @@ function FlashcardMode({
   onReveal: () => void;
   onGrade: (grade: number, mode: VocabMode) => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View style={{ flex: 1, gap: spacing.lg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.md }} showsVerticalScrollIndicator={false}>
         <Pressable onPress={onReveal} accessibilityRole="button">
           <Flashcard stackSize={remaining} variant={revealed ? 'back' : 'front'}>
             <View style={{ minHeight: 210, justifyContent: 'center' }}>
-              <CardFace card={card} hint={revealed ? undefined : 'Was bedeutet das?'} />
+              <CardFace card={card} hint={revealed ? undefined : t('reviewWhatDoesItMean')} />
 
               {revealed ? (
                 <View style={{ alignItems: 'center', gap: spacing.sm, marginTop: spacing.lg }}>
@@ -318,7 +322,7 @@ function FlashcardMode({
                 </View>
               ) : (
                 <Text style={[cardMeta, { textAlign: 'center', marginTop: spacing.lg }]}>
-                  Zum Umdrehen tippen
+                  {t('reviewTapToFlip')}
                 </Text>
               )}
             </View>
@@ -334,12 +338,14 @@ function FlashcardMode({
               onPress={() => onGrade(button.grade, 'FLASHCARD')}
               style={[gradeButtonStyle, { backgroundColor: button.color }]}
             >
-              <Text style={[typography.label, { color: colors.textInverse }]}>{button.label}</Text>
+              <Text style={[typography.label, { color: colors.textInverse }]}>
+                {t(GRADE_LABEL_KEYS[button.grade] ?? 'reviewGradeGood')}
+              </Text>
             </Pressable>
           ))}
         </Row>
       ) : (
-        <Button label="Umdrehen" onPress={onReveal} />
+        <Button label={t('reviewFlip')} onPress={onReveal} />
       )}
     </View>
   );
@@ -362,6 +368,7 @@ function ChoiceMode({
   onSelect: (index: number) => void;
   onContinue: () => void;
 }) {
+  const { t } = useTranslation();
   const answered = selected !== null;
   const isCorrect = selected === card.correctChoiceIndex;
 
@@ -377,7 +384,7 @@ function ChoiceMode({
             {card.mode === 'LISTENING' ? (
               <Text style={{ fontSize: 34, textAlign: 'center', marginBottom: spacing.xs }}>🔊</Text>
             ) : null}
-            <CardFace card={card} hint="Was bedeutet das?" />
+            <CardFace card={card} hint={t('reviewWhatDoesItMean')} />
           </View>
         </Flashcard>
 
@@ -420,7 +427,7 @@ function ChoiceMode({
 
         {answered && card.item.exampleSentence ? (
           <View style={infoBox}>
-            <Text style={infoBoxLabel}>Im Satz</Text>
+            <Text style={infoBoxLabel}>{t('reviewInSentence')}</Text>
             <Text style={infoBoxText}>{card.item.exampleSentence}</Text>
             {card.item.exampleTranslation ? (
               <Text style={infoBoxMeta}>{card.item.exampleTranslation}</Text>
@@ -432,11 +439,11 @@ function ChoiceMode({
       {answered ? (
         <View style={{ gap: spacing.sm }}>
           <Text style={[verdictText, { color: isCorrect ? colors.success : colors.danger }]}>
-            {isCorrect ? 'Richtig' : wrongLabel(queueType)}
+            {isCorrect ? t('reviewCorrect') : t(wrongLabelKey(queueType))}
           </Text>
           {/* Note ist schon abgeschickt (siehe onSelect) – „Weiter" blättert nur noch lokal um. */}
           <Button
-            label="Weiter"
+            label={t('commonNext')}
             variant={isCorrect ? 'primary' : 'danger'}
             onPress={onContinue}
           />
@@ -463,6 +470,7 @@ function TypingMode({
   onCheck: () => void;
   onGrade: (grade: number, mode: VocabMode) => void;
 }) {
+  const { t } = useTranslation();
   const isCorrect = useMemo(
     () => normalize(value) === normalize(card.item.translation),
     [value, card.item.translation],
@@ -477,14 +485,14 @@ function TypingMode({
       >
         <Flashcard stackSize={remaining}>
           <View style={{ minHeight: 150, justifyContent: 'center', gap: spacing.lg }}>
-            <CardFace card={card} hint="Wie heißt das?" />
+            <CardFace card={card} hint={t('reviewHowDoYouSay')} />
 
             {/* Die Antwort wird auf die Schreiblinie der Karte geschrieben. */}
             <TextInput
               value={value}
               onChangeText={onChange}
               editable={!revealed}
-              placeholder="Antwort eintragen"
+              placeholder={t('reviewAnswerPlaceholder')}
               placeholderTextColor={flashcard.inkSoft}
               autoCapitalize="none"
               autoCorrect={false}
@@ -511,12 +519,14 @@ function TypingMode({
               onPress={() => onGrade(button.grade, 'TYPING')}
               style={[gradeButtonStyle, { backgroundColor: button.color }]}
             >
-              <Text style={[typography.label, { color: colors.textInverse }]}>{button.label}</Text>
+              <Text style={[typography.label, { color: colors.textInverse }]}>
+                {t(GRADE_LABEL_KEYS[button.grade] ?? 'reviewGradeGood')}
+              </Text>
             </Pressable>
           ))}
         </Row>
       ) : (
-        <Button label="Prüfen" onPress={onCheck} disabled={value.trim().length === 0} />
+        <Button label={t('reviewCheck')} onPress={onCheck} disabled={value.trim().length === 0} />
       )}
     </View>
   );
@@ -533,38 +543,31 @@ function normalize(value: string): string {
     .replace(/[.,!?;:]/g, '');
 }
 
-function modeLabel(mode: VocabMode): string {
-  const labels: Record<VocabMode, string> = {
-    FLASHCARD: 'Lernkarte',
-    MULTIPLE_CHOICE: 'Auswahl',
-    TYPING: 'Eintippen',
-    LISTENING: 'Hören',
-    MATCHING: 'Zuordnen',
-  };
-  return labels[mode];
-}
+/** Die vier Noten des SM-2-Trainers, über ihren Notenwert an die Menüsprache gebunden. */
+const GRADE_LABEL_KEYS: Record<number, TranslationKey> = {
+  1: 'reviewGradeAgain',
+  3: 'reviewGradeHard',
+  4: 'reviewGradeGood',
+  5: 'reviewGradeEasy',
+};
 
 /** Was mit einer falsch beantworteten Karte passiert – abhängig vom Stapel. */
-function wrongLabel(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
-  if (queueType === 'DUE') return 'Falsch – bleibt im Wiederholen-Stapel';
-  if (queueType === 'MASTERED') return 'Falsch – wandert zurück in den Wiederholen-Stapel';
-  return 'Falsch – kommt auf den Wiederholen-Stapel';
+function wrongLabelKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+  if (queueType === 'DUE') return 'reviewWrongDue';
+  if (queueType === 'MASTERED') return 'reviewWrongMastered';
+  return 'reviewWrongNew';
 }
 
-function emptyTitle(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
-  if (queueType === 'NEW') return 'Keine neuen Vokabeln mehr';
-  if (queueType === 'MASTERED') return 'Noch nichts gemeistert';
-  return 'Nichts zu wiederholen';
+function emptyTitleKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+  if (queueType === 'NEW') return 'reviewEmptyNewTitle';
+  if (queueType === 'MASTERED') return 'reviewEmptyMasteredTitle';
+  return 'reviewEmptyDueTitle';
 }
 
-function emptyDescription(queueType?: 'NEW' | 'DUE' | 'MASTERED'): string {
-  if (queueType === 'NEW') {
-    return 'Für dieses Niveau sind gerade keine neuen Vokabeln mehr da – schau in den Wiederholen-Stapel oder später wieder vorbei.';
-  }
-  if (queueType === 'MASTERED') {
-    return 'Noch keine Vokabel ist gemeistert – bleib dran, der Gelernt-Stapel füllt sich mit der Zeit.';
-  }
-  return 'Der Wiederholen-Stapel ist leer. Schau später wieder vorbei oder lerne neue Vokabeln.';
+function emptyDescriptionKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+  if (queueType === 'NEW') return 'reviewEmptyNewBody';
+  if (queueType === 'MASTERED') return 'reviewEmptyMasteredBody';
+  return 'reviewEmptyDueBody';
 }
 
 // ------------------------------------------------------------------ Styles

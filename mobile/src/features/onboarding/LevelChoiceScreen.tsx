@@ -3,10 +3,11 @@ import { Text, View } from 'react-native';
 import { alert } from '../../utils/alert';
 import { useMutation } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { CEFR_LABELS, CEFR_LEVELS } from '@lingua/shared';
+import { CEFR_LEVELS } from '@lingua/shared';
 import type { CefrLevel } from '@lingua/shared';
 import { Body, Button, Card, Heading, LevelBadge, Row, Screen, Title } from '../../components';
 import { usersApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, spacing, typography } from '../../theme';
 import type { OnboardingStackParamList } from '../../navigation/types';
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<OnboardingStackParamList, 'LevelChoice'>;
  */
 export default function LevelChoiceScreen({ route, navigation }: Props) {
   const { languageId, languageName } = route.params;
+  const { t, tLevelShort, tLevelDescription } = useTranslation();
   const [selected, setSelected] = useState<CefrLevel | null>(null);
   const refreshUser = useAuthStore((state) => state.refreshUser);
 
@@ -30,18 +32,14 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
     // Nach dem Onboarding wechselt der RootNavigator automatisch in die Haupt-App,
     // sobald der aktualisierte Nutzer im Store liegt.
     onSuccess: () => refreshUser(),
-    onError: () =>
-      alert('Speichern fehlgeschlagen', 'Bitte prüfe deine Verbindung und versuche es erneut.'),
+    onError: () => alert(t('onboardingSaveFailedTitle'), t('onboardingSaveFailedBody')),
   });
 
   return (
     <Screen scroll>
       <View style={{ gap: spacing.sm }}>
-        <Title>Dein Niveau in {languageName}</Title>
-        <Body muted>
-          Am genauesten wird es mit dem Einstufungstest – er dauert etwa fünf Minuten. Du kannst dein
-          Niveau aber auch selbst festlegen und später jederzeit ändern.
-        </Body>
+        <Title>{t('onboardingLevelTitle', { language: languageName })}</Title>
+        <Body muted>{t('onboardingLevelSubtitle')}</Body>
       </View>
 
       <Card
@@ -51,16 +49,16 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
         <Row gap={spacing.md}>
           <Text style={{ fontSize: 30 }}>🎯</Text>
           <View style={{ flex: 1 }}>
-            <Heading>Einstufungstest starten</Heading>
+            <Heading>{t('onboardingStartTest')}</Heading>
             <Text style={[typography.caption, { color: colors.textMuted }]}>
-              24 Fragen von A1 bis C2 · ca. 5 Minuten
+              {t('onboardingTestMeta')}
             </Text>
           </View>
         </Row>
       </Card>
 
       <View style={{ gap: spacing.sm }}>
-        <Heading>Oder Niveau selbst wählen</Heading>
+        <Heading>{t('onboardingOrChooseLevel')}</Heading>
         {CEFR_LEVELS.map((level) => {
           const isSelected = selected === level;
           return (
@@ -76,9 +74,9 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
               <Row gap={spacing.md}>
                 <LevelBadge level={level} />
                 <View style={{ flex: 1 }}>
-                  <Text style={typography.bodyStrong}>{CEFR_LABELS[level].short}</Text>
+                  <Text style={typography.bodyStrong}>{tLevelShort(level)}</Text>
                   <Text style={[typography.caption, { color: colors.textMuted }]}>
-                    {CEFR_LABELS[level].description}
+                    {tLevelDescription(level)}
                   </Text>
                 </View>
                 <View style={[styles.radio, isSelected && styles.radioActive]} />
@@ -89,7 +87,9 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
       </View>
 
       <Button
-        label={selected ? `Mit ${selected} starten` : 'Niveau auswählen'}
+        label={
+          selected ? t('onboardingStartWith', { level: selected }) : t('onboardingChooseLevel')
+        }
         onPress={() => selected && mutate(selected)}
         disabled={!selected}
         loading={isPending}

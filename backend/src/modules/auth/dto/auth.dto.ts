@@ -2,23 +2,25 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
 
+import { ERR } from '../../../common/i18n/messages';
+
 export class RegisterDto {
   @ApiProperty({ example: 'lernende@example.com' })
-  @IsEmail({}, { message: 'Bitte eine gültige E-Mail-Adresse angeben' })
+  @IsEmail({}, { message: ERR['validation.email'] })
   @Transform(({ value }) => String(value).trim().toLowerCase())
   email!: string;
 
   @ApiProperty({ minLength: 8, example: 'MeinPasswort123' })
   @IsString()
-  @MinLength(8, { message: 'Das Passwort muss mindestens 8 Zeichen haben' })
+  @MinLength(8, { message: ERR['validation.password_length'] })
   @MaxLength(128)
-  @Matches(/[A-Za-z]/, { message: 'Das Passwort muss mindestens einen Buchstaben enthalten' })
-  @Matches(/\d/, { message: 'Das Passwort muss mindestens eine Ziffer enthalten' })
+  @Matches(/[A-Za-z]/, { message: ERR['validation.password_letter'] })
+  @Matches(/\d/, { message: ERR['validation.password_digit'] })
   password!: string;
 
   @ApiProperty({ example: 'Alex' })
   @IsString()
-  @Length(2, 40, { message: 'Der Name muss zwischen 2 und 40 Zeichen lang sein' })
+  @Length(2, 40, { message: ERR['validation.display_name'] })
   @Transform(({ value }) => String(value).trim())
   displayName!: string;
 

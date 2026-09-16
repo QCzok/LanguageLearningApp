@@ -1,164 +1,96 @@
 /**
- * Übersetzungen für die Menüführung (Tab-Leiste, Bildschirmtitel). Deutsch ist
- * die vollständige Quelle – die anderen Locales müssen jeden Schlüssel aus
- * `de` abdecken (siehe `assertComplete` unten). Inhaltliche Texte (Lektionen,
- * KI-Antworten, …) laufen separat über `utils/translation.ts` und sind hier
- * nicht gemeint.
+ * Die Menü- und Bedientexte der App in allen unterstützten Muttersprachen.
+ *
+ * Deutsch (`locales/de.ts`) ist die Quelle: Der Schlüsselvorrat leitet sich
+ * daraus ab, und jede andere Locale wird gegen `TranslationDictionary`
+ * getypt – ein vergessener Schlüssel fällt damit beim Kompilieren auf und
+ * nicht erst als Lücke auf dem Bildschirm.
+ *
+ * Was hier *nicht* steht: Inhalte. Lektionstexte, Vokabeln, Lesetexte und
+ * KI-Antworten kommen vom Server und stehen in der Zielsprache bzw. – wo eine
+ * Übersetzung hinterlegt ist – in der Muttersprache des Lernenden (siehe
+ * `utils/translation.ts`).
  */
+import { de } from './locales/de';
+import { en } from './locales/en';
+import { es } from './locales/es';
+import { fr } from './locales/fr';
+import { it } from './locales/it';
 
-const de = {
-  tabHome: 'Start',
-  tabVocabulary: 'Vokabeln',
-  tabNotebook: 'Heft',
-  tabLibrary: 'Lesen',
-  tabMedia: 'Hören',
-  tabAssistant: 'KI',
-  tabProfile: 'Profil',
+export type TranslationKey = keyof typeof de;
+export type TranslationDictionary = Record<TranslationKey, string>;
 
-  onboardingLanguageSelect: 'Sprache wählen',
-  onboardingLevelChoice: 'Dein Niveau',
-  onboardingPlacementTest: 'Einstufungstest',
-
-  vocabularyDeckList: 'Vokabeln',
-  vocabularyReviewFallback: 'Lernen',
-  vocabularyReviewBackTitle: 'Ende',
-  vocabularyStats: 'Statistik',
-
-  notebookBookshelf: 'Lehrwerk',
-  notebookList: 'Eigene Notizhefte',
-
-  libraryList: 'Bibliothek',
-  libraryExercises: 'Übungen',
-
-  mediaList: 'Mediathek',
-
-  aiHub: 'KI-Assistent',
-  aiRecommendations: 'Empfehlungen',
-} as const;
-
-const en: Record<keyof typeof de, string> = {
-  tabHome: 'Home',
-  tabVocabulary: 'Vocabulary',
-  tabNotebook: 'Notebook',
-  tabLibrary: 'Read',
-  tabMedia: 'Listen',
-  tabAssistant: 'AI',
-  tabProfile: 'Profile',
-
-  onboardingLanguageSelect: 'Choose a language',
-  onboardingLevelChoice: 'Your level',
-  onboardingPlacementTest: 'Placement test',
-
-  vocabularyDeckList: 'Vocabulary',
-  vocabularyReviewFallback: 'Practice',
-  vocabularyReviewBackTitle: 'Done',
-  vocabularyStats: 'Statistics',
-
-  notebookBookshelf: 'Course books',
-  notebookList: 'My notebooks',
-
-  libraryList: 'Library',
-  libraryExercises: 'Exercises',
-
-  mediaList: 'Media library',
-
-  aiHub: 'AI Assistant',
-  aiRecommendations: 'Recommendations',
-};
-
-const es: Record<keyof typeof de, string> = {
-  tabHome: 'Inicio',
-  tabVocabulary: 'Vocabulario',
-  tabNotebook: 'Cuaderno',
-  tabLibrary: 'Leer',
-  tabMedia: 'Escuchar',
-  tabAssistant: 'IA',
-  tabProfile: 'Perfil',
-
-  onboardingLanguageSelect: 'Elige un idioma',
-  onboardingLevelChoice: 'Tu nivel',
-  onboardingPlacementTest: 'Prueba de nivel',
-
-  vocabularyDeckList: 'Vocabulario',
-  vocabularyReviewFallback: 'Practicar',
-  vocabularyReviewBackTitle: 'Terminar',
-  vocabularyStats: 'Estadísticas',
-
-  notebookBookshelf: 'Libros de curso',
-  notebookList: 'Mis cuadernos',
-
-  libraryList: 'Biblioteca',
-  libraryExercises: 'Ejercicios',
-
-  mediaList: 'Mediateca',
-
-  aiHub: 'Asistente de IA',
-  aiRecommendations: 'Recomendaciones',
-};
-
-const fr: Record<keyof typeof de, string> = {
-  tabHome: 'Accueil',
-  tabVocabulary: 'Vocabulaire',
-  tabNotebook: 'Cahier',
-  tabLibrary: 'Lire',
-  tabMedia: 'Écouter',
-  tabAssistant: 'IA',
-  tabProfile: 'Profil',
-
-  onboardingLanguageSelect: 'Choisir une langue',
-  onboardingLevelChoice: 'Ton niveau',
-  onboardingPlacementTest: 'Test de niveau',
-
-  vocabularyDeckList: 'Vocabulaire',
-  vocabularyReviewFallback: 'Réviser',
-  vocabularyReviewBackTitle: 'Terminer',
-  vocabularyStats: 'Statistiques',
-
-  notebookBookshelf: 'Manuels',
-  notebookList: 'Mes cahiers',
-
-  libraryList: 'Bibliothèque',
-  libraryExercises: 'Exercices',
-
-  mediaList: 'Médiathèque',
-
-  aiHub: 'Assistant IA',
-  aiRecommendations: 'Recommandations',
-};
-
-const it: Record<keyof typeof de, string> = {
-  tabHome: 'Home',
-  tabVocabulary: 'Vocabolario',
-  tabNotebook: 'Quaderno',
-  tabLibrary: 'Leggi',
-  tabMedia: 'Ascolta',
-  tabAssistant: 'IA',
-  tabProfile: 'Profilo',
-
-  onboardingLanguageSelect: 'Scegli una lingua',
-  onboardingLevelChoice: 'Il tuo livello',
-  onboardingPlacementTest: 'Test di livello',
-
-  vocabularyDeckList: 'Vocabolario',
-  vocabularyReviewFallback: 'Esercitati',
-  vocabularyReviewBackTitle: 'Fine',
-  vocabularyStats: 'Statistiche',
-
-  notebookBookshelf: 'Manuali',
-  notebookList: 'I miei quaderni',
-
-  libraryList: 'Biblioteca',
-  libraryExercises: 'Esercizi',
-
-  mediaList: 'Mediateca',
-
-  aiHub: 'Assistente IA',
-  aiRecommendations: 'Consigli',
-};
-
-export const translations = { de, en, es, fr, it };
+export const translations = { de, en, es, fr, it } satisfies Record<string, TranslationDictionary>;
 
 export type SupportedLocale = keyof typeof translations;
-export type TranslationKey = keyof typeof de;
 
 export const SUPPORTED_LOCALES = Object.keys(translations) as SupportedLocale[];
+
+/**
+ * Die Sprache des Geräts, auf eine unterstützte Locale heruntergebrochen.
+ *
+ * `Intl` liegt in Hermes wie im Browser vor; schlägt die Abfrage trotzdem
+ * fehl (alte Engine ohne Intl, abgeschaltete Systemschnittstelle), bleibt es
+ * bei Englisch. Absichtlich kein `expo-localization`: Für einen zweistelligen
+ * Sprachcode lohnt keine zusätzliche Abhängigkeit.
+ *
+ * Steht hier und nicht in `useTranslation`, weil der Auth-Store die Funktion
+ * bei der Registrierung braucht – ein Import von dort auf den Hook und
+ * zurück wäre ein Zyklus.
+ */
+export function deviceLocale(): SupportedLocale {
+  try {
+    const tag =
+      typeof navigator !== 'undefined' && navigator.language
+        ? navigator.language
+        : Intl.DateTimeFormat().resolvedOptions().locale;
+    const base = tag.split(/[-_]/)[0]?.toLowerCase() ?? '';
+    if ((SUPPORTED_LOCALES as string[]).includes(base)) return base as SupportedLocale;
+  } catch {
+    // Keine Intl-Unterstützung – dann eben die Vorgabe.
+  }
+  return 'en';
+}
+
+/**
+ * `nativeLanguage` ist ein freier ISO-Code aus dem Profil.
+ *
+ * Steht dort eine Sprache, für die es die Oberfläche gibt, gilt sie. Sonst
+ * entscheidet die Gerätesprache – wer noch kein Konto hat (Anmeldung,
+ * Registrierung), bekommt die App damit trotzdem in seiner Sprache zu sehen.
+ * Zuvor war Deutsch die feste Rückfallebene; ein englischsprachiger Lernender
+ * mit Zielsprache Spanisch landete so in einer deutschen Oberfläche.
+ */
+export function resolveLocale(nativeLanguage: string | undefined): SupportedLocale {
+  return (SUPPORTED_LOCALES as string[]).includes(nativeLanguage ?? '')
+    ? (nativeLanguage as SupportedLocale)
+    : deviceLocale();
+}
+
+/** Werte für die Platzhalter einer Zeichenkette: `{count}` → `{ count: 3 }`. */
+export type TranslationParams = Record<string, string | number>;
+
+/**
+ * Setzt die Platzhalter einer Zeichenkette. Ein Platzhalter ohne passenden
+ * Wert bleibt unverändert stehen – so ist im Zweifel im Text zu sehen, was
+ * fehlt, statt dass dort ein „undefined“ landet.
+ */
+export function interpolate(template: string, params?: TranslationParams): string {
+  if (!params) return template;
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    name in params ? String(params[name]) : match,
+  );
+}
+
+/**
+ * Übersetzt außerhalb von React-Komponenten (Store, API-Schicht). In
+ * Komponenten nimmt man `useTranslation`, damit ein Sprachwechsel im Profil
+ * sofort neu rendert.
+ */
+export function translate(
+  locale: SupportedLocale,
+  key: TranslationKey,
+  params?: TranslationParams,
+): string {
+  return interpolate(translations[locale][key] ?? translations.de[key], params);
+}

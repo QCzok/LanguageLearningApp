@@ -1,6 +1,8 @@
 import React from 'react';
 import { Platform, Text, View } from 'react-native';
 import { Button } from './index';
+import { translate, resolveLocale } from '../i18n';
+import { useAuthStore } from '../store/auth.store';
 import { colors, spacing, typography } from '../theme';
 
 interface Props {
@@ -43,16 +45,21 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.error) {
+      // Kein Hook: Die Fehlergrenze ist eine Klassenkomponente und fängt
+      // gerade einen Absturz auf – der Store wird deshalb direkt gelesen.
+      const t = (key: Parameters<typeof translate>[1]) =>
+        translate(resolveLocale(useAuthStore.getState().user?.nativeLanguage), key);
+
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.background }}>
           <Text style={{ fontSize: 36 }}>⚠️</Text>
           <Text style={[typography.heading, { color: colors.text, textAlign: 'center' }]}>
-            Diese Ansicht konnte nicht angezeigt werden.
+            {t('commonErrorBoundaryTitle')}
           </Text>
           <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
-            Ein unerwarteter Fehler ist aufgetreten. Ihre Antworten sind gespeichert.
+            {t('commonErrorBoundaryBody')}
           </Text>
-          <Button label="Neu laden" onPress={this.reset} fullWidth={false} />
+          <Button label={t('commonReload')} onPress={this.reset} fullWidth={false} />
         </View>
       );
     }

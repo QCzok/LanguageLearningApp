@@ -1,6 +1,8 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../decorators/current-user.decorator';
 
+import { ERR } from '../i18n/messages';
+
 /** Antwortet mit 402, damit die App gezielt den Upgrade-Screen öffnen kann. */
 @Injectable()
 export class PremiumGuard implements CanActivate {
@@ -15,7 +17,7 @@ export class PremiumGuard implements CanActivate {
         {
           statusCode: HttpStatus.PAYMENT_REQUIRED,
           error: 'PremiumRequired',
-          message: 'Diese Funktion ist Teil von Lingua Premium.',
+          message: ERR['premium.required'],
         },
         HttpStatus.PAYMENT_REQUIRED,
       );

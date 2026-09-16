@@ -9,6 +9,8 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 
+import { ERR, resolveLanguage, translateMessage } from '../i18n/messages';
+
 interface ErrorBody {
   statusCode: number;
   error: string;
@@ -20,6 +22,12 @@ interface ErrorBody {
 /**
  * Einheitliches Fehlerformat für die App. Prisma-Fehler werden auf sprechende
  * HTTP-Codes gemappt, damit keine DB-Interna nach außen dringen.
+ *
+ * Hier wird außerdem übersetzt: Services und Guards werfen Schlüssel aus
+ * `ERR` (siehe `common/i18n/messages.ts`), und erst an dieser Stelle – der
+ * einzigen, die die Anfrage und damit den `Accept-Language`-Kopf kennt –
+ * werden daraus Sätze in der Sprache des Lernenden. Eine Meldung, die kein
+ * Schlüssel ist (etwa von einer Fremdbibliothek), bleibt unverändert stehen.
  */
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -31,6 +39,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     const { status, error, message } = this.normalize(exception);
+    const language = resolveLanguage(request.headers['accept-language']);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(
@@ -42,7 +51,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const body: ErrorBody = {
       statusCode: status,
       error,
-      message,
+      message: Array.isArray(message)
+        ? message.map((entry) => translateMessage(entry, language))
+        : translateMessage(message, language),
       path: request.url,
       timestamp: new Date().toISOString(),
     };
@@ -73,19 +84,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
           return {
             status: HttpStatus.CONFLICT,
             error: 'Conflict',
-            message: 'Dieser Eintrag existiert bereits.',
+            message: ERR['db.duplicate'],
           };
         case 'P2025':
           return {
             status: HttpStatus.NOT_FOUND,
             error: 'NotFound',
-            message: 'Der angeforderte Eintrag wurde nicht gefunden.',
+            message: ERR['db.not_found'],
           };
         case 'P2003':
           return {
             status: HttpStatus.BAD_REQUEST,
             error: 'BadRequest',
-            message: 'Ungültige Referenz auf einen verknüpften Datensatz.',
+            message: ERR['db.bad_reference'],
           };
         default:
           break;
@@ -96,14 +107,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: HttpStatus.BAD_REQUEST,
         error: 'BadRequest',
-        message: 'Die Anfrage passt nicht zum Datenmodell.',
+        message: ERR['db.bad_shape'],
       };
     }
 
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       error: 'InternalServerError',
-      message: 'Unerwarteter Serverfehler.',
+      message: ERR['server.unexpected'],
     };
   }
 }

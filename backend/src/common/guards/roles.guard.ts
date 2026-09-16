@@ -4,6 +4,8 @@ import type { UserRole } from '@prisma/client';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import type { AuthenticatedUser } from '../decorators/current-user.decorator';
 
+import { ERR } from '../i18n/messages';
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
@@ -17,7 +19,7 @@ export class RolesGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
     if (!user || !required.includes(user.role)) {
-      throw new ForbiddenException('Für diese Aktion fehlen die Berechtigungen');
+      throw new ForbiddenException(ERR['auth.forbidden']);
     }
     return true;
   }

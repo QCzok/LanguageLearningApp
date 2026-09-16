@@ -14,8 +14,9 @@ import { book, bookFont, bookLabel, bookSans } from '../../../theme';
 import { CheckMark, CrossMark } from '../BookIcons';
 import { ExerciseNumber } from '../BookPage';
 import { bodyText } from './ContentBlocks';
+import { useTranslation } from '../../../i18n';
 import { useAuthStore } from '../../../store/auth.store';
-import { asTranslatableLanguage, LANGUAGE_LABELS } from '../../../utils/translation';
+import { asTranslatableLanguage } from '../../../utils/translation';
 
 /**
  * Die Aufgabenblöcke einer Seite, gesetzt wie gedruckte Übungen.
@@ -71,10 +72,11 @@ function Frame({
 }) {
   const status = result ? (result.correct ? 'correct' : 'partial') : undefined;
 
+  const { t, tLanguage } = useTranslation();
   const [translationOpen, setTranslationOpen] = useState(false);
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
-  const languageLabel = language ? LANGUAGE_LABELS[language] : '';
+  const languageLabel = language ? tLanguage(language) : '';
   const explanationTranslation =
     level === 'A1' && language ? result?.explanationTranslations?.[language] : undefined;
 
@@ -88,7 +90,9 @@ function Frame({
       {result ? (
         <View style={[resultBar, { borderLeftColor: result.correct ? book.correct : book.attention }]}>
           <Text style={[resultText, { color: result.correct ? book.correct : book.attention }]}>
-            {result.correct ? 'Richtig gelöst' : `${result.scorePercent} % richtig`}
+            {result.correct
+              ? t('exerciseSolvedCorrectly')
+              : t('exercisePercentCorrect', { percent: result.scorePercent })}
           </Text>
           {result.explanation ? <Text style={hintText}>{result.explanation}</Text> : null}
           {explanationTranslation ? (
@@ -98,7 +102,9 @@ function Frame({
               ) : null}
               <Pressable onPress={() => setTranslationOpen((value) => !value)} hitSlop={8}>
                 <Text style={translationToggle}>
-                  {translationOpen ? 'Übersetzung ausblenden' : `Auf ${languageLabel} anzeigen`}
+                  {translationOpen
+                    ? t('blockHideTranslation')
+                    : t('blockShowInLanguage', { language: languageLabel })}
                 </Text>
               </Pressable>
             </>
@@ -112,7 +118,7 @@ function Frame({
           style={[checkButton, { borderColor: accent }, (!canCheck || locked) && { opacity: 0.4 }]}
         >
           <Text style={[checkLabel, { color: accent }]}>
-            {isChecking ? 'Prüfe …' : 'Kontrollieren'}
+            {isChecking ? t('exerciseChecking') : t('exerciseCheck')}
           </Text>
         </Pressable>
       )}
@@ -123,6 +129,7 @@ function Frame({
 // -------------------------------------------------------------- Lückentext
 
 export function Cloze(props: BlockProps<ClozeBlock>) {
+  const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const gaps = answer?.type === 'CLOZE' ? answer.gaps : {};
   const solution = result?.solution as Record<string, string> | undefined;
@@ -137,7 +144,7 @@ export function Cloze(props: BlockProps<ClozeBlock>) {
     <Frame {...props} instruction={block.instruction} canCheck={filled}>
       {block.wordBank?.length ? (
         <View style={wordBank}>
-          <Text style={wordBankLabel}>Wortkasten</Text>
+          <Text style={wordBankLabel}>{t('exerciseWordBank')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {block.wordBank.map((word) => (
               <Text key={word} style={wordBankItem}>
@@ -197,6 +204,7 @@ export function Cloze(props: BlockProps<ClozeBlock>) {
 // ----------------------------------------------------------------- Auswahl
 
 export function Choice(props: BlockProps<ChoiceBlock>) {
+  const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const selected = answer?.type === 'CHOICE' ? answer.selected : [];
   const solution = (result?.solution as string[] | undefined) ?? [];
@@ -215,7 +223,7 @@ export function Choice(props: BlockProps<ChoiceBlock>) {
   return (
     <Frame {...props} instruction={block.instruction} canCheck={selected.length > 0}>
       {block.question ? <Text style={bodyText}>{block.question}</Text> : null}
-      {block.multiple ? <Text style={hintText}>Mehrere Antworten sind richtig.</Text> : null}
+      {block.multiple ? <Text style={hintText}>{t('exerciseMultipleCorrect')}</Text> : null}
 
       <View style={{ gap: 10 }}>
         {block.options.map((option) => {
@@ -265,6 +273,7 @@ export function Choice(props: BlockProps<ChoiceBlock>) {
 // ---------------------------------------------------------------- Zuordnung
 
 export function Matching(props: BlockProps<MatchingBlock>) {
+  const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const pairs = answer?.type === 'MATCHING' ? answer.pairs : [];
   const byLeft = new Map(pairs.map((p) => [p.leftId, p.rightId]));
@@ -283,9 +292,7 @@ export function Matching(props: BlockProps<MatchingBlock>) {
   return (
     <Frame {...props} instruction={block.instruction} canCheck={pairs.length === block.left.length}>
       <Text style={hintText}>
-        {activeLeft
-          ? 'Jetzt rechts die passende Antwort antippen.'
-          : 'Links antippen, dann rechts verbinden.'}
+        {activeLeft ? t('exerciseMatchTapRight') : t('exerciseMatchTapLeft')}
       </Text>
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -373,6 +380,7 @@ function DraggableWordTile({
   onDrop: () => void;
   onHoverChange: (hovering: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [drag, setDrag] = useState({ dx: 0, dy: 0, active: false });
 
   const disabledRef = useRef(disabled);
@@ -423,8 +431,8 @@ function DraggableWordTile({
           onHoverChangeRef.current(false);
         },
       }),
-    // Absichtlich ohne Abhängigkeiten: alles Veränderliche läuft über Refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Absichtlich ohne weitere Abhängigkeiten: alles Veränderliche läuft über
+    // Refs, und `dropZoneRef` ist selbst stabil.
     [dropZoneRef],
   );
 
@@ -432,7 +440,7 @@ function DraggableWordTile({
     <View
       {...panResponder.panHandlers}
       accessibilityRole="button"
-      accessibilityLabel={`${item.text} – antippen oder in die Zeile ziehen`}
+      accessibilityLabel={t('exerciseWordTileA11y', { word: item.text })}
       style={[
         tokenChip,
         tokenIdle,
@@ -446,6 +454,7 @@ function DraggableWordTile({
 }
 
 export function Ordering(props: BlockProps<OrderingBlock>) {
+  const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const order = answer?.type === 'ORDERING' ? answer.order : [];
   const remaining = block.items.filter((item) => !order.includes(item.id));
@@ -461,7 +470,7 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
           die gezogenen Wortkarten. */}
       <View ref={dropZoneRef} style={[sentenceLine, zoneHighlighted && sentenceLineActive]}>
         {order.length === 0 ? (
-          <Text style={hintText}>Wortkarten hierher ziehen oder antippen.</Text>
+          <Text style={hintText}>{t('exerciseOrderHint')}</Text>
         ) : (
           order.map((id, index) => {
             const correctHere = result ? solution[index] === id : undefined;
@@ -506,7 +515,9 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
       ) : null}
 
       {result && !result.correct ? (
-        <Text style={hintText}>Richtig: {solution.map(label).join(' ')}</Text>
+        <Text style={hintText}>
+          {t('exerciseOrderSolution', { solution: solution.map(label).join(' ') })}
+        </Text>
       ) : null}
     </Frame>
   );
@@ -515,6 +526,7 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
 // ------------------------------------------------------------ Schreibaufgabe
 
 export function Writing(props: BlockProps<WritingBlock>) {
+  const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const text = answer?.type === 'WRITING' ? answer.text : '';
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -534,7 +546,7 @@ export function Writing(props: BlockProps<WritingBlock>) {
           value={text}
           onChangeText={(value) => onChange({ type: 'WRITING', text: value })}
           editable={!result && !locked}
-          placeholder="Hier schreiben …"
+          placeholder={t('exerciseWritePlaceholder')}
           placeholderTextColor={book.inkFaint}
           style={writingInput}
         />
@@ -542,18 +554,20 @@ export function Writing(props: BlockProps<WritingBlock>) {
 
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Text style={hintText}>
-          {words} {words === 1 ? 'Wort' : 'Wörter'}
-          {block.minWords ? ` · mindestens ${block.minWords}` : ''}
+          {words === 1 ? t('exerciseWordCountOne') : t('exerciseWordCount', { count: words })}
+          {block.minWords ? ` · ${t('exerciseMinWords', { count: block.minWords })}` : ''}
         </Text>
         <View style={{ flex: 1 }} />
         {block.aiFeedback ? (
-          <Text style={[bookLabel, { fontSize: 10, color: book.inkFaint }]}>mit KI-Korrektur</Text>
+          <Text style={[bookLabel, { fontSize: 10, color: book.inkFaint }]}>
+            {t('exerciseWithAi')}
+          </Text>
         ) : null}
       </View>
 
       {sample ? (
         <View style={[resultBar, { borderLeftColor: book.correct }]}>
-          <Text style={[resultText, { color: book.correct }]}>Musterlösung</Text>
+          <Text style={[resultText, { color: book.correct }]}>{t('exerciseSample')}</Text>
           <Text style={bodyText}>{sample}</Text>
         </View>
       ) : null}

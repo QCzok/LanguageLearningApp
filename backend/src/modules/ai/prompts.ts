@@ -24,15 +24,31 @@ Niveaustufen (GER):
 A1 einfachste Wörter und Wendungen · A2 Alltagssituationen · B1 vertraute Themen zusammenhängend
 B2 komplexe Texte, flüssige Diskussion · C1 flexibler, wirksamer Sprachgebrauch · C2 nahezu muttersprachlich`;
 
+/**
+ * Anzeigenamen der Muttersprachen. Ohne sie stand im Prompt „Muttersprache des
+ * Lernenden: en“ – ein Sprachcode, aus dem das Modell zwar meist das Richtige
+ * ableitet, aber eben nur meist. Der ausgeschriebene Name lässt keine Wahl.
+ */
+const LANGUAGE_NAMES: Record<string, string> = {
+  de: 'Deutsch',
+  en: 'Englisch',
+  es: 'Spanisch',
+  fr: 'Französisch',
+  it: 'Italienisch',
+};
+
 /** Variabler Kontextblock – steht hinter dem Cache-Breakpoint. */
 export function learnerContext(params: {
   targetLanguage: string;
   nativeLanguage: string;
   level: CefrLevel;
 }): string {
+  const native = LANGUAGE_NAMES[params.nativeLanguage] ?? params.nativeLanguage;
   return [
     `Zielsprache: ${params.targetLanguage}`,
-    `Muttersprache des Lernenden: ${params.nativeLanguage}`,
+    `Muttersprache des Lernenden: ${native}`,
+    `Alles, was nicht Beispiel in der Zielsprache ist – Erklärungen, Begründungen, Korrekturhinweise,`,
+    `Zusammenfassungen –, schreibst du auf ${native}.`,
     `Niveau: ${params.level} (${CEFR_LABELS[params.level].short} – ${CEFR_LABELS[params.level].description})`,
   ].join('\n');
 }

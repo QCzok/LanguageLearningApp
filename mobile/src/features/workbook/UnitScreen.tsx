@@ -16,6 +16,7 @@ import type {
 } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
 import { DEFAULT_TOOL, ToolDock, ToolState } from '../notebook/ToolDock';
@@ -58,6 +59,7 @@ const DOCK_SPACE = 88;
  */
 export default function UnitScreen({ route, navigation }: Props) {
   const { unitId } = route.params;
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
 
   // Verfügbare Breite des Anzeigebereichs – im Web die von `WebLayout`
@@ -139,7 +141,7 @@ export default function UnitScreen({ route, navigation }: Props) {
     },
     onError: (error: Error) => {
       setCheckingBlock(null);
-      alert('Prüfen nicht möglich', error.message);
+      alert(t('pageCheckFailedTitle'), error.message);
     },
   });
 
@@ -275,7 +277,7 @@ export default function UnitScreen({ route, navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Die Lerneinheit konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('unitError')} onRetry={refetch} />;
   }
 
   const theme = bookTheme(data.book);
@@ -366,9 +368,9 @@ export default function UnitScreen({ route, navigation }: Props) {
               }}
               onComplete={() => complete.mutate()}
               onReset={() =>
-                alert('Zurücksetzen?', 'Alle Antworten dieser Seite werden gelöscht.', [
-                  { text: 'Abbrechen', style: 'cancel' },
-                  { text: 'Zurücksetzen', style: 'destructive', onPress: () => reset.mutate() },
+                alert(t('pageResetTitle'), t('pageResetBody'), [
+                  { text: t('commonCancel'), style: 'cancel' },
+                  { text: t('pageReset'), style: 'destructive', onPress: () => reset.mutate() },
                 ])
               }
             />
@@ -400,7 +402,11 @@ export default function UnitScreen({ route, navigation }: Props) {
         </View>
 
         <Text style={saveNote}>
-          {saveAnswers.isPending ? 'Speichert …' : isDirty ? 'Noch nicht gespeichert' : 'Gespeichert'}
+          {saveAnswers.isPending
+            ? t('commonSaving')
+            : isDirty
+              ? t('commonUnsaved')
+              : t('commonSaved')}
         </Text>
       </ScrollView>
 
@@ -408,7 +414,7 @@ export default function UnitScreen({ route, navigation }: Props) {
         tool={tool}
         onChange={setTool}
         tools={['PEN', 'HIGHLIGHTER', 'ERASER']}
-        clearLabel="Notizen löschen"
+        clearLabel={t('pageClearNotes')}
         canUndo={notesHistory.length > 0}
         canClear={Boolean(notes?.elements.length)}
         onUndo={() => {
@@ -420,10 +426,10 @@ export default function UnitScreen({ route, navigation }: Props) {
         }}
         onClear={() => {
           if (!notes) return;
-          alert('Notizen löschen?', 'Ihre Stiftnotizen auf dieser Seite werden entfernt.', [
-            { text: 'Abbrechen', style: 'cancel' },
+          alert(t('pageClearNotesTitle'), t('pageClearNotesBody'), [
+            { text: t('commonCancel'), style: 'cancel' },
             {
-              text: 'Löschen',
+              text: t('commonDelete'),
               style: 'destructive',
               onPress: () => handleNotesChange({ ...notes, elements: [] }),
             },
@@ -480,6 +486,8 @@ function PageActions({
   onComplete: () => void;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <View style={{ marginTop: 6, gap: 12 }}>
       <View style={{ height: 1, backgroundColor: book.rule }} />
@@ -491,15 +499,19 @@ function PageActions({
           style={[primaryAction, { backgroundColor: accent }, (alreadyDone || locked) && { opacity: 0.45 }]}
         >
           <Text style={primaryActionText}>
-            {alreadyDone ? 'Durchgearbeitet' : isCompleting ? 'Speichert …' : 'Seite durchgearbeitet'}
+            {alreadyDone
+              ? t('pageAlreadyWorkedThrough')
+              : isCompleting
+                ? t('commonSaving')
+                : t('pageWorkedThrough')}
           </Text>
         </Pressable>
       ) : (
         <>
           <Text style={progressNote}>
             {allChecked
-              ? 'Alle Aufgaben kontrolliert'
-              : `${answeredCount} von ${totalCount} Aufgaben bearbeitet`}
+              ? t('pageAllChecked')
+              : t('pageAnsweredOf', { answered: answeredCount, total: totalCount })}
           </Text>
 
           {/*
@@ -515,7 +527,7 @@ function PageActions({
               style={[primaryAction, { backgroundColor: accent }, locked && { opacity: 0.45 }]}
             >
               <Text style={primaryActionText}>
-                {hasNext ? 'Nächste Seite' : 'Zurück zum Inhalt'}
+                {hasNext ? t('pageNext') : t('pageBackToContents')}
               </Text>
             </Pressable>
           ) : (
@@ -529,14 +541,14 @@ function PageActions({
               ]}
             >
               <Text style={primaryActionText}>
-                {isSubmitting ? 'Wird ausgewertet …' : 'Alle Aufgaben kontrollieren'}
+                {isSubmitting ? t('pageEvaluating') : t('pageCheckAll')}
               </Text>
             </Pressable>
           )}
 
           {(alreadyDone || hasResults) && (
             <Pressable onPress={onReset} disabled={locked} style={secondaryAction}>
-              <Text style={secondaryActionText}>Seite zurücksetzen</Text>
+              <Text style={secondaryActionText}>{t('pageResetAction')}</Text>
             </Pressable>
           )}
         </>
@@ -613,6 +625,7 @@ function SummaryModal({
   onClose: () => void;
   onNext: (unit: UnitSummaryDto) => void;
 }) {
+  const { t } = useTranslation();
   if (!summary) return null;
   const good = summary.score >= 80;
 
@@ -625,41 +638,41 @@ function SummaryModal({
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={overlay}>
         <View style={summaryCard}>
-          <Text style={summaryEyebrow}>Auswertung</Text>
+          <Text style={summaryEyebrow}>{t('pageSummaryEyebrow')}</Text>
           <View style={summaryRule} />
 
           <Text style={[summaryScore, { color: good ? book.correct : book.attention }]}>
             {summary.score} %
           </Text>
           <Text style={summaryTitle}>
-            {summary.correct} von {summary.total} Aufgaben richtig
+            {t('pageSummaryCorrectOf', { correct: summary.correct, total: summary.total })}
           </Text>
 
           {summary.xp > 0 ? (
             <Text style={summaryXp}>+{summary.xp} XP</Text>
           ) : (
-            <Text style={progressNote}>Wiederholung – keine weiteren XP</Text>
+            <Text style={progressNote}>{t('pageSummaryNoXp')}</Text>
           )}
 
           <View style={summaryRule} />
           <Text style={[progressNote, { textAlign: 'center' }]}>
             {good
               ? nextUnit
-                ? 'Sehr gut. Weiter zur nächsten Seite.'
-                : 'Sehr gut. Das war die letzte Seite des Kapitels.'
-              : 'Sehen Sie sich die Korrekturen an und versuchen Sie es noch einmal.'}
+                ? t('pageSummaryGoodNext')
+                : t('pageSummaryGoodLast')
+              : t('pageSummaryTryAgain')}
           </Text>
 
           <Pressable
             onPress={() => (nextUnit ? onNext(nextUnit) : onClose())}
             style={[primaryAction, { backgroundColor: book.ink, alignSelf: 'stretch' }]}
           >
-            <Text style={primaryActionText}>{nextUnit ? 'Nächste Seite' : 'Fertig'}</Text>
+            <Text style={primaryActionText}>{nextUnit ? t('pageNext') : t('commonDone')}</Text>
           </Pressable>
 
           {nextUnit ? (
             <Pressable onPress={onClose} hitSlop={8}>
-              <Text style={secondaryActionText}>Auf dieser Seite bleiben</Text>
+              <Text style={secondaryActionText}>{t('pageSummaryStay')}</Text>
             </Pressable>
           ) : null}
         </View>

@@ -8,6 +8,7 @@ import type { NotebookAnalysisDto, NotebookPageContent } from '@lingua/shared';
 import { extractPlainText } from '@lingua/shared';
 import { Body, Button, Caption, Card, ErrorState, Heading, Loading, Row, Title } from '../../components';
 import { notebookApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { useIsPremium } from '../../store/auth.store';
 import { book, bookFont, bookLabel, bookSans, colors, spacing, typography } from '../../theme';
 import {
@@ -43,6 +44,7 @@ const DOCK_SPACE = 88;
  */
 export default function NotebookEditorScreen({ route }: Props) {
   const { notebookId } = route.params;
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const isPremium = useIsPremium();
 
@@ -82,7 +84,7 @@ export default function NotebookEditorScreen({ route }: Props) {
     onSuccess: (result) => setAnalysis(result),
     onError: (error: Error & { code?: string }) => {
       alert(
-        error.code === 'AiQuotaExceeded' ? 'Kontingent aufgebraucht' : 'Analyse nicht möglich',
+        error.code === 'AiQuotaExceeded' ? t('editorQuotaExceeded') : t('editorAnalysisFailed'),
         error.message,
       );
     },
@@ -161,10 +163,10 @@ export default function NotebookEditorScreen({ route }: Props) {
 
   function handleClear(): void {
     if (!content) return;
-    alert('Seite leeren?', 'Alle Inhalte dieser Seite werden entfernt.', [
-      { text: 'Abbrechen', style: 'cancel' },
+    alert(t('editorClearPageTitle'), t('editorClearPageBody'), [
+      { text: t('commonCancel'), style: 'cancel' },
       {
-        text: 'Leeren',
+        text: t('editorClearPageConfirm'),
         style: 'destructive',
         onPress: () => handleChange({ ...content, elements: [] }),
       },
@@ -173,10 +175,7 @@ export default function NotebookEditorScreen({ route }: Props) {
 
   function handleAnalyze(): void {
     if (!isPremium) {
-      alert(
-        'Lingua Premium',
-        'KI-Korrektur, Chat, Grammatikerklärungen und persönliche Empfehlungen sind Teil von Premium. Du kannst Premium im Profil aktivieren.',
-      );
+      alert(t('editorPremiumTitle'), t('editorPremiumBody'));
       return;
     }
     flushSave();
@@ -185,7 +184,7 @@ export default function NotebookEditorScreen({ route }: Props) {
 
   if (pages.isLoading) return <Loading />;
   if (pages.isError || !pages.data?.length || !content) {
-    return <ErrorState message="Das Heft konnte nicht geladen werden." onRetry={pages.refetch} />;
+    return <ErrorState message={t('editorError')} onRetry={pages.refetch} />;
   }
 
   const isDrawing = tool.mode === 'DRAW';
@@ -215,9 +214,7 @@ export default function NotebookEditorScreen({ route }: Props) {
 
           {isEmpty && !isDrawing ? (
             <View style={emptyHint} pointerEvents="none">
-              <Text style={emptyHintText}>
-                Unten links einen Stift in die Hand nehmen und losschreiben.
-              </Text>
+              <Text style={emptyHintText}>{t('editorEmptyHint')}</Text>
             </View>
           ) : null}
         </View>
@@ -226,7 +223,7 @@ export default function NotebookEditorScreen({ route }: Props) {
         <View style={footer}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Vorherige Seite"
+            accessibilityLabel={t('pagePrevious')}
             disabled={pageIndex === 0}
             onPress={() => {
               flushSave();
@@ -238,12 +235,12 @@ export default function NotebookEditorScreen({ route }: Props) {
           </Pressable>
 
           <Text style={footerCounter}>
-            Seite {pageIndex + 1} von {pageCount}
+            {t('pageOfTotal', { current: pageIndex + 1, total: pageCount })}
           </Text>
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Nächste Seite"
+            accessibilityLabel={t('pageNext')}
             disabled={pageIndex >= pageCount - 1}
             onPress={() => {
               flushSave();
@@ -258,7 +255,7 @@ export default function NotebookEditorScreen({ route }: Props) {
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Neue Seite anlegen"
+            accessibilityLabel={t('editorNewPageA11y')}
             disabled={addPage.isPending}
             onPress={() => {
               flushSave();
@@ -267,7 +264,7 @@ export default function NotebookEditorScreen({ route }: Props) {
             style={[footerButton, { flexDirection: 'row', gap: 6, width: 'auto', paddingHorizontal: 8 }]}
           >
             <PlusIcon color={book.inkSoft} size={16} />
-            <Text style={footerAction}>Neue Seite</Text>
+            <Text style={footerAction}>{t('editorNewPage')}</Text>
           </Pressable>
         </View>
 
@@ -279,7 +276,7 @@ export default function NotebookEditorScreen({ route }: Props) {
         */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="KI-Korrektur"
+          accessibilityLabel={t('editorAiCorrection')}
           disabled={isPremium && !canAnalyze}
           onPress={handleAnalyze}
           style={({ pressed }) => [
@@ -291,20 +288,20 @@ export default function NotebookEditorScreen({ route }: Props) {
           <SparkMark color={colors.premium} size={17} />
           <View style={{ flex: 1 }}>
             <Text style={analyzeLabel}>
-              {analyze.isPending ? 'Wird geprüft …' : 'KI-Korrektur'}
+              {analyze.isPending ? t('editorAiChecking') : t('editorAiCorrection')}
             </Text>
             <Text style={analyzeHint}>
               {isPremium
                 ? canAnalyze
-                  ? 'Geschriebenen Text prüfen und erklären lassen'
-                  : 'Erst ein paar Sätze mit dem Textwerkzeug schreiben'
-                : 'Teil von Lingua Premium'}
+                  ? t('editorAiHintReady')
+                  : t('editorAiHintTooShort')
+                : t('editorAiHintPremium')}
             </Text>
           </View>
         </Pressable>
 
         <Text style={saveNote}>
-          {savePage.isPending ? 'Speichert …' : isDirty ? 'Noch nicht gespeichert' : 'Gespeichert'}
+          {savePage.isPending ? t('commonSaving') : isDirty ? t('commonUnsaved') : t('commonSaved')}
         </Text>
       </ScrollView>
 
@@ -312,7 +309,7 @@ export default function NotebookEditorScreen({ route }: Props) {
         tool={tool}
         onChange={setTool}
         tools={['PEN', 'HIGHLIGHTER', 'TEXT', 'ERASER']}
-        clearLabel="Seite leeren"
+        clearLabel={t('editorClearPageLabel')}
         canUndo={history.length > 0}
         canClear={!isEmpty}
         onUndo={handleUndo}
@@ -331,6 +328,7 @@ function AnalysisModal({
   analysis: NotebookAnalysisDto | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   if (!analysis) return null;
 
   const severityColor = {
@@ -344,16 +342,16 @@ function AnalysisModal({
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
         <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}>
           <Row>
-            <Title>Korrektur</Title>
+            <Title>{t('editorAnalysisTitle')}</Title>
             <View style={{ flex: 1 }} />
-            <Pressable onPress={onClose} accessibilityLabel="Schließen">
+            <Pressable onPress={onClose} accessibilityLabel={t('commonClose')}>
               <CrossMark color={colors.textMuted} size={20} />
             </Pressable>
           </Row>
 
           <Card style={{ backgroundColor: colors.primarySoft, borderColor: colors.primary }}>
             <Row>
-              <Heading>Bewertung</Heading>
+              <Heading>{t('editorAnalysisRating')}</Heading>
               <View style={{ flex: 1 }} />
               <Text style={[typography.title, { color: colors.primary }]}>
                 {analysis.scorePercent}%
@@ -364,8 +362,8 @@ function AnalysisModal({
 
           <Heading>
             {analysis.corrections.length === 0
-              ? 'Keine Fehler gefunden'
-              : `${analysis.corrections.length} Korrekturen`}
+              ? t('editorAnalysisNoErrors')
+              : t('editorAnalysisCorrections', { count: analysis.corrections.length })}
           </Heading>
 
           {analysis.corrections.map((correction, index) => (
@@ -393,7 +391,7 @@ function AnalysisModal({
 
           {analysis.suggestions.length > 0 ? (
             <Card>
-              <Heading>Nächste Schritte</Heading>
+              <Heading>{t('editorAnalysisNextSteps')}</Heading>
               {analysis.suggestions.map((suggestion) => (
                 <Row key={suggestion} gap={spacing.sm} style={{ alignItems: 'flex-start' }}>
                   <Text>•</Text>
@@ -403,7 +401,7 @@ function AnalysisModal({
             </Card>
           ) : null}
 
-          <Button label="Schließen" variant="secondary" onPress={onClose} />
+          <Button label={t('commonClose')} variant="secondary" onPress={onClose} />
         </ScrollView>
       </SafeAreaView>
     </Modal>

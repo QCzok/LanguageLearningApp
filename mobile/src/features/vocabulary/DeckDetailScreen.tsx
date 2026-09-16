@@ -16,6 +16,7 @@ import {
   Screen,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import { useTranslation } from '../../i18n';
 import { colors, spacing, typography } from '../../theme';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckDetail'>;
 
 export default function DeckDetailScreen({ route, navigation }: Props) {
   const { deckId, title } = route.params;
+  const { t } = useTranslation();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['deck', deckId],
@@ -31,7 +33,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
 
   if (isLoading) return <Loading />;
   if (isError || !data) {
-    return <ErrorState message="Das Deck konnte nicht geladen werden." onRetry={refetch} />;
+    return <ErrorState message={t('deckError')} onRetry={refetch} />;
   }
 
   const progress = data.progress;
@@ -50,10 +52,10 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           <>
             <ProgressBar value={progress.total ? (learned / progress.total) * 100 : 0} />
             <Row gap={spacing.lg}>
-              <StatChip label="Neu" value={progress.new} color={colors.textMuted} />
-              <StatChip label="Am Lernen" value={progress.learning} color={colors.warning} />
-              <StatChip label="Wiederholung" value={progress.review} color={colors.primary} />
-              <StatChip label="Gemeistert" value={progress.mastered} color={colors.success} />
+              <StatChip label={t('deckStatNew')} value={progress.new} color={colors.textMuted} />
+              <StatChip label={t('deckStatLearning')} value={progress.learning} color={colors.warning} />
+              <StatChip label={t('deckStatReview')} value={progress.review} color={colors.primary} />
+              <StatChip label={t('deckStatMastered')} value={progress.mastered} color={colors.success} />
             </Row>
           </>
         ) : null}
@@ -61,14 +63,14 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         <Button
           label={
             progress && progress.dueNow > 0
-              ? `${progress.dueNow} fällige Karten lernen`
-              : 'Deck lernen'
+              ? t('deckLearnDue', { count: progress.dueNow })
+              : t('deckLearn')
           }
           onPress={() => navigation.navigate('Review', { deckId, title })}
         />
       </Card>
 
-      <Heading>Alle Vokabeln ({data.items.length})</Heading>
+      <Heading>{t('deckAllWords', { count: data.items.length })}</Heading>
 
       {data.items.map((item) => (
         <Card key={item.id}>

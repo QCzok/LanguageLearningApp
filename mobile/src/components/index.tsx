@@ -12,6 +12,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from '../i18n';
 import { colors, levelColors, radius, shadow, spacing, typography } from '../theme';
 
 /**
@@ -280,13 +281,14 @@ export function Loading({ label }: { label?: string }) {
 }
 
 export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.centered}>
       <Text style={{ fontSize: 36 }}>⚠️</Text>
       <Text style={[typography.body, { color: colors.textMuted, textAlign: 'center' }]}>
         {message}
       </Text>
-      {onRetry ? <Button label="Erneut versuchen" onPress={onRetry} fullWidth={false} /> : null}
+      {onRetry ? <Button label={t('commonRetry')} onPress={onRetry} fullWidth={false} /> : null}
     </View>
   );
 }

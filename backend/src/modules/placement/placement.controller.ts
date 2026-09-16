@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequestLanguage } from '../../common/decorators/request-language.decorator';
+import type { MessageLanguage } from '../../common/i18n/messages';
 import { SubmitPlacementDto, SubmitStageDto } from './dto/placement.dto';
 import { PlacementService } from './placement.service';
 
@@ -24,8 +26,12 @@ export class PlacementController {
 
   @Post('submit')
   @ApiOperation({ summary: 'Test auswerten und Niveau im Lernprofil setzen' })
-  submit(@CurrentUser('id') userId: string, @Body() dto: SubmitPlacementDto) {
-    return this.placement.submit(userId, dto);
+  submit(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SubmitPlacementDto,
+    @RequestLanguage() language: MessageLanguage,
+  ) {
+    return this.placement.submit(userId, dto, language);
   }
 
   @Get('history')
