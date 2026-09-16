@@ -18,6 +18,7 @@
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate -w @lingua/backend",
     "mobile:start": "npm run start -w @lingua/mobile",
+    "assets:covers": "node scripts/render-home-covers.mjs",
     "bootstrap": "npm install && npm run shared:build && npm run db:init && npm run db:migrate && npm run backend:seed",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
