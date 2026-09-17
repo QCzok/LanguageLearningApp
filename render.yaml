@@ -5,7 +5,7 @@ services:
     plan: free
     region: frankfurt
     buildCommand: >-
-      npm ci &&
+      npm ci --include=dev &&
       npm run shared:build &&
       npm run backend:build &&
       npx prisma generate --schema=backend/prisma/schema.prisma
