@@ -2,7 +2,15 @@ import React from 'react';
 import { Image, StyleSheet } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { LibraryContentDto } from '@lingua/shared';
-import { cityLibraryCover, genericLibraryCover, lighthouseLibraryCover, marketLibraryCover } from '../../assets';
+import {
+  cityLibraryCover,
+  genericLibraryCover,
+  kitchenLibraryCover,
+  lighthouseLibraryCover,
+  marketLibraryCover,
+  phoneLibraryCover,
+  villageLibraryCover,
+} from '../../assets';
 
 /**
  * Kachel-Bilder der Bibliothek.
@@ -21,9 +29,12 @@ import { cityLibraryCover, genericLibraryCover, lighthouseLibraryCover, marketLi
  *
  * Die Auswahl läuft über die Tags: ein Text über Einkaufen bekommt den
  * Marktstand, eine Natur-Geschichte den Leuchtturm, ein Gesellschaftstext die
- * Straße. Neue Inhalte ohne passenden Tag bekommen ein neutrales Buch-Motiv –
- * nie ein leeres Feld. Sobald es echte Bilder gibt, ersetzt `imageUrl` das
- * hier automatisch (siehe `LibraryCoverArt`).
+ * Straße. Die spanische B2-Bibliothek hat drei eigene Themen dazugebracht –
+ * ein Dorf für die Landflucht-Reportage, eine Küche für die Rezeptgeschichte,
+ * ein leuchtendes Telefon für den Text über Empfehlungsalgorithmen – und
+ * damit auch drei neue Tags. Neue Inhalte ohne passenden Tag bekommen ein
+ * neutrales Buch-Motiv – nie ein leeres Feld. Sobald es echte Bilder gibt,
+ * ersetzt `imageUrl` das hier automatisch (siehe `LibraryCoverArt`).
  */
 const COVERS_BY_TAG: Record<string, number> = {
   einkaufen: marketLibraryCover,
@@ -32,6 +43,10 @@ const COVERS_BY_TAG: Record<string, number> = {
   geschichte: lighthouseLibraryCover,
   gesellschaft: cityLibraryCover,
   umwelt: cityLibraryCover,
+  dorf: villageLibraryCover,
+  familie: kitchenLibraryCover,
+  essen: kitchenLibraryCover,
+  technologie: phoneLibraryCover,
 };
 
 /** Wählt die passende Illustration – ein echtes Foto hat immer Vorrang. */

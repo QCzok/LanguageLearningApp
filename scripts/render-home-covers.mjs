@@ -1254,6 +1254,269 @@ function renderLibraryCity(WIDTH, HEIGHT) {
   return canvas;
 }
 
+/** B2 „El renacer de los pueblos vacíos“: Dorf am Hang, Kirchturm, Signalbögen über einem Dach. */
+function renderLibraryVillage(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const SKY_TOP = [246, 214, 158];
+  const SKY_BOTTOM = [237, 176, 137];
+  const HILL_FAR = [176, 156, 108];
+  const HILL_NEAR = [143, 128, 82];
+  const STONE = [214, 199, 174];
+  const ROOF = [176, 96, 66];
+
+  const HOUSES = [
+    { nx: 0.2, w: 0.15, h: 0.15, roofH: 0.07 },
+    { nx: 0.38, w: 0.12, h: 0.12, roofH: 0.055 },
+    { nx: 0.6, w: 0.17, h: 0.18, roofH: 0.08 },
+  ];
+  const groundY = 0.72 * S;
+  const hillFarTop = 0.5 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = mixColor(SKY_TOP, SKY_BOTTOM, smoothstep(-0.1, 0.85, ny));
+
+      // Ferner Hügelzug, weich gewellt. Deckung steigt unterhalb der (gewellten)
+      // Horizontlinie, statt wie bei einer SDF innerhalb einer Form.
+      const farWave = Math.sin(nx * 5.5 + 1.4) * 0.02 * S + Math.sin(nx * 2.1) * 0.015 * S;
+      col = mixColor(col, HILL_FAR, smoothstep(-2, 2, y - (hillFarTop + farWave)));
+
+      // Naher Hügel, auf dem das Dorf steht.
+      const nearWave = Math.sin(nx * 3.2 + 0.6) * 0.018 * S;
+      col = mixColor(col, HILL_NEAR, smoothstep(-2, 2, y - (groundY + nearWave)));
+
+      // Kirchturm mittig im Hintergrund.
+      const towerCx = 0.5 * WIDTH;
+      const towerTop = groundY - 0.28 * S;
+      const towerD = sdRoundRect(x - towerCx, y - (towerTop + groundY) / 2, 0.028 * S, (groundY - towerTop) / 2, 0.004 * S);
+      col = mixColor(col, mixColor(STONE, [0, 0, 0], 0.12), smoothstep(aa, -aa, towerD));
+      const spireD = sdTriangle(x, y, [towerCx - 0.032 * S, towerTop], [towerCx + 0.032 * S, towerTop], [towerCx, towerTop - 0.06 * S]);
+      col = mixColor(col, ROOF, smoothstep(aa, -aa, spireD));
+
+      // Häuser: Blockkörper plus Satteldach, von links angeleuchtet.
+      for (const house of HOUSES) {
+        const left = house.nx * WIDTH;
+        const w = house.w * S;
+        const top = groundY - house.h * S;
+        const bodyD = sdRoundRect(x - (left + w / 2), y - (top + groundY) / 2, w / 2, (groundY - top) / 2, 0.006 * S);
+        const cov = smoothstep(aa, -aa, bodyD);
+        if (cov > 0) {
+          const lightT = clamp((x - left) / w, 0, 1);
+          col = mixColor(col, mixColor(mixColor(STONE, [255, 255, 255], 0.15), mixColor(STONE, [0, 0, 0], 0.18), lightT), cov);
+          const winD = sdRoundRect(x - (left + w * 0.5), y - (top + house.h * S * 0.55), 0.012 * S, 0.016 * S, 0.002 * S);
+          col = mixColor(col, [232, 186, 108], smoothstep(aa, -aa, winD) * cov);
+        }
+        const roofD = sdTriangle(x, y, [left - 0.012 * S, top], [left + w + 0.012 * S, top], [left + w / 2, top - house.roofH * S]);
+        col = mixColor(col, mixColor(ROOF, [0, 0, 0], clamp((x - left) / w, 0, 0.3)), smoothstep(aa, -aa, roofD));
+      }
+
+      // Baum rechts am Hang.
+      col = drawTree(col, x, y, 0.86 * WIDTH, groundY + 0.01 * S, 0.05 * S, aa);
+
+      // Signalbögen über dem mittleren Haus, wie bei einem Wifi-Symbol – das
+      // Dorf, das jetzt am Netz hängt.
+      const signalCx = 0.38 * WIDTH;
+      const signalCy = groundY - 0.14 * S;
+      for (const [r, alpha] of [
+        [0.03 * S, 0.55],
+        [0.05 * S, 0.35],
+        [0.07 * S, 0.2],
+      ]) {
+        const arcD = Math.abs(Math.hypot(x - signalCx, y - signalCy) - r) - 0.006 * S;
+        const onArc = y <= signalCy ? smoothstep(aa, -aa, arcD) : 0;
+        col = mixColor(col, [255, 244, 214], onArc * alpha);
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.4) * 0.85);
+      col = mixColor(col, [96, 62, 40], smoothstep(0.44, 0.94, vig) * 0.2);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** B2 „El cuaderno de recetas“: aufgeschlagenes Rezeptheft auf dem Küchentisch, Tasse mit Dampf. */
+function renderLibraryKitchen(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const TABLE_TOP = [150, 100, 56];
+  const TABLE_LIGHT = [186, 132, 76];
+  const PAGE = [250, 244, 228];
+  const PAGE_SHADE = [222, 208, 176];
+  const RULE = [178, 158, 118];
+  const INK_RED = [176, 66, 52];
+  const MUG = [186, 96, 66];
+  const MUG_DARK = [150, 72, 48];
+
+  const pageCx = 0.44 * WIDTH;
+  const pageCy = 0.52 * S;
+  const pageHalfW = 0.24 * S;
+  const pageHalfH = 0.19 * S;
+  const pageDeg = -6;
+  const mugCx = 0.83 * WIDTH;
+  const mugCy = 0.62 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      // Tischplatte, warm von oben rechts angeleuchtet, mit weicher Maserung.
+      let col = paintBackdrop(nx, ny, [244, 226, 196], TABLE_LIGHT, 0.7, 0.15, 0.6);
+      const lightT = clamp((nx - 0.1) * 0.85, 0, 1);
+      col = mixColor(col, mixColor(mixColor(TABLE_TOP, [255, 255, 255], 0.08), mixColor(TABLE_TOP, [0, 0, 0], 0.24), lightT), 0.4);
+      const grain = Math.sin(ny * 46 + nx * 2.4) * 0.5 + 0.5;
+      col = mixColor(col, [0, 0, 0], grain * 0.025);
+
+      // Aufgeschlagenes Rezeptheft, leicht gekippt, mit Schlagschatten.
+      const angle = (pageDeg * Math.PI) / 180;
+      const shadowD = sdRoundRect(...toLocal(x, y - 0.02 * S, pageCx, pageCy, angle), pageHalfW, pageHalfH, 0.014 * S);
+      col = mixColor(col, [60, 34, 16], smoothstep(0.05 * S, -0.015 * S, shadowD) * 0.3);
+
+      const [lx, ly] = toLocal(x, y, pageCx, pageCy, angle);
+      const pageD = sdRoundRect(lx, ly, pageHalfW, pageHalfH, 0.014 * S);
+      const pageCov = smoothstep(aa, -aa, pageD);
+      if (pageCov > 0) {
+        const shade = clamp((lx / pageHalfW) * 0.2 + (ly / pageHalfH) * 0.3 + 0.5, 0, 1);
+        col = mixColor(col, mixColor(PAGE, PAGE_SHADE, shade), pageCov);
+
+        // Mittelfalz.
+        const fold = Math.exp(-((lx / (0.02 * S)) ** 2));
+        col = mixColor(col, PAGE_SHADE, fold * 0.5 * pageCov);
+
+        // Handschriftliche Zeilen, unterschiedlich lang – eine in Rot, wie
+        // eine spätere Randnotiz zwischen den ursprünglichen Mengenangaben.
+        for (let row = -3; row <= 3; row += 1) {
+          const rowY = row * 0.045 * S;
+          const seed = hash2(row + 8, 3.1);
+          const lineHalf = pageHalfW * (0.55 + 0.3 * seed) * 0.5;
+          const startX = -pageHalfW * 0.55 + pageHalfW * 0.1 * hash2(row, 1.7);
+          const lineD = sdRoundRect(lx - (startX + lineHalf), ly - rowY, lineHalf, 0.006 * S, 0.006 * S);
+          const isRed = row === 2;
+          col = mixColor(col, isRed ? INK_RED : RULE, smoothstep(aa, -aa, lineD) * pageCov * 0.85);
+        }
+      }
+
+      // Tasse mit Dampf, rechts auf dem Tisch.
+      const mugD = sdRoundRect(x - mugCx, y - mugCy, 0.055 * S, 0.05 * S, 0.012 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.03 * S, -0.01 * S, mugD - 0.01 * S) * 0.2);
+      const mugCov = smoothstep(aa, -aa, mugD);
+      if (mugCov > 0) {
+        const mugLightT = clamp(((x - mugCx) / (0.055 * S)) * 0.5 + 0.5, 0, 1);
+        col = mixColor(col, mixColor(MUG, MUG_DARK, mugLightT), mugCov);
+      }
+      const handleD = Math.abs(Math.hypot(x - (mugCx + 0.07 * S), y - mugCy) - 0.024 * S) - 0.008 * S;
+      const handleMask = x > mugCx ? smoothstep(aa, -aa, handleD) : 0;
+      col = mixColor(col, MUG_DARK, handleMask);
+
+      for (const [ox, amp, alpha] of [
+        [-0.012, 0.01, 0.5],
+        [0.014, 0.008, 0.35],
+      ]) {
+        const steamX = mugCx + ox * S + Math.sin(ny * 22 + ox * 40) * amp * S;
+        const steamBand =
+          smoothstep(0.012 * S, 0, Math.abs(x - steamX)) * smoothstep(mugCy - 0.02 * S, mugCy - 0.24 * S, y);
+        col = mixColor(col, [255, 255, 255], steamBand * alpha);
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.42) * 0.85);
+      col = mixColor(col, [70, 42, 22], smoothstep(0.44, 0.94, vig) * 0.2);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** B2 „Cuando el teléfono decide por ti“: leuchtendes Telefon im Dunkeln, Benachrichtigungen. */
+function renderLibraryPhone(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const DARK_TOP = [16, 20, 34];
+  const DARK_BOTTOM = [28, 34, 54];
+  const SCREEN_GLOW = [110, 176, 255];
+  const SCREEN_DARK = [18, 30, 52];
+  const FRAME = [12, 14, 22];
+  const NOTIF = [255, 92, 92];
+
+  const phoneCx = 0.5 * WIDTH;
+  const phoneCy = 0.52 * S;
+  const phoneHalfW = 0.16 * S;
+  const phoneHalfH = 0.27 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = mixColor(DARK_TOP, DARK_BOTTOM, smoothstep(-0.1, 1.05, ny));
+      const cloud = valueNoise(nx * 2.4 + 6, ny * 2.4 + 9);
+      col = mixColor(col, DARK_BOTTOM, (cloud - 0.5) * 0.06);
+
+      // Weicher Lichthof um das Telefon, wie ein Bildschirm im dunklen Zimmer.
+      const glowDist = Math.hypot(x - phoneCx, y - phoneCy);
+      const glow = Math.exp(-((glowDist / (0.34 * S)) ** 2));
+      col = mixColor(col, SCREEN_GLOW, glow * 0.4);
+
+      // Schatten und Rahmen des Telefons.
+      const shadowD = sdRoundRect(x - phoneCx - 0.02 * S, y - phoneCy - 0.03 * S, phoneHalfW, phoneHalfH, 0.03 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.04 * S, -0.02 * S, shadowD) * 0.35);
+
+      const frameD = sdRoundRect(x - phoneCx, y - phoneCy, phoneHalfW, phoneHalfH, 0.032 * S);
+      const frameCov = smoothstep(aa, -aa, frameD);
+      if (frameCov > 0) col = mixColor(col, FRAME, frameCov);
+
+      // Bildschirm, etwas kleiner als der Rahmen, mit drei Inhaltskarten.
+      const screenD = sdRoundRect(x - phoneCx, y - phoneCy, phoneHalfW * 0.86, phoneHalfH * 0.9, 0.02 * S);
+      const screenCov = smoothstep(aa, -aa, screenD);
+      if (screenCov > 0) {
+        const lx = x - phoneCx;
+        const ly = y - phoneCy;
+        const shade = clamp(0.5 - ly / (phoneHalfH * 1.8), 0.15, 0.85);
+        col = mixColor(col, mixColor(SCREEN_GLOW, SCREEN_DARK, 1 - shade), screenCov);
+
+        for (const ry of [-0.55, -0.15, 0.25]) {
+          const cardD = sdRoundRect(lx, ly - ry * phoneHalfH, phoneHalfW * 0.68, phoneHalfH * 0.13, 0.01 * S);
+          col = mixColor(col, mixColor(SCREEN_DARK, [255, 255, 255], 0.15), smoothstep(aa, -aa, cardD) * screenCov * 0.6);
+        }
+      }
+
+      // Benachrichtigungspunkte, die oben rechts aus dem Rahmen „ausbrechen“.
+      for (const [dx, dy, r] of [
+        [0.14, -0.24, 0.028],
+        [0.19, -0.18, 0.018],
+      ]) {
+        const dotD = Math.hypot(x - (phoneCx + dx * S), y - (phoneCy + dy * S)) - r * S;
+        col = mixColor(col, [0, 0, 0], smoothstep(0.012 * S, -0.004 * S, dotD - 0.006 * S) * 0.2);
+        col = mixColor(col, NOTIF, smoothstep(aa, -aa, dotD));
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.42) * 0.85);
+      col = mixColor(col, [4, 6, 14], smoothstep(0.42, 0.92, vig) * 0.35);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
 /** Neutrales Motiv für Inhalte ohne passenden Themen-Tag: aufgeschlagenes Buch. */
 function renderLibraryGenericBook(WIDTH, HEIGHT) {
   const canvas = new Canvas(WIDTH, HEIGHT);
@@ -2145,6 +2408,9 @@ const COVERS = [
   { file: 'mobile/assets/covers/library-market.png', width: 480, height: 640, render: renderLibraryMarket },
   { file: 'mobile/assets/covers/library-lighthouse.png', width: 480, height: 640, render: renderLibraryLighthouse },
   { file: 'mobile/assets/covers/library-city.png', width: 480, height: 640, render: renderLibraryCity },
+  { file: 'mobile/assets/covers/library-village.png', width: 480, height: 640, render: renderLibraryVillage },
+  { file: 'mobile/assets/covers/library-kitchen.png', width: 480, height: 640, render: renderLibraryKitchen },
+  { file: 'mobile/assets/covers/library-phone.png', width: 480, height: 640, render: renderLibraryPhone },
   { file: 'mobile/assets/covers/library-book.png', width: 480, height: 640, render: renderLibraryGenericBook },
   // Lehrwerk-Szenen: 8:5 wie das bisherige 320x200-Raster.
   { file: 'mobile/assets/covers/scene-greeting-office.png', width: 720, height: 450, render: renderSceneGreeting },

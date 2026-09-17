@@ -18,6 +18,14 @@ import { CefrLevel, ExerciseType, LibraryType } from '@prisma/client';
  * Texte tragen schon die neue Struktur samt Glossar, aber noch keine
  * Absatzübersetzung. Der Umschalt-Link erscheint in der App ohnehin nur dort,
  * wo eine Übersetzung tatsächlich hinterlegt ist.
+ *
+ * Die spanische Bibliothek (`LIBRARY_SEEDS_ES`) beginnt auf B2: Wer dort
+ * ankommt, verlässt gerade den Bereich, in dem man noch mit vereinfachten
+ * Texten lernt, und liest hier zum ersten Mal etwas, das auch ein
+ * Muttersprachler ohne Anpassung lesen würde – ein Zeitungsessay, eine
+ * Kurzgeschichte. Deshalb tragen die Abschnitte, wie bei Deutsch und
+ * Englisch auf diesem Niveau, keine Übersetzung, nur das einsprachige
+ * Glossar.
  */
 
 type Translations = Partial<Record<'en' | 'es' | 'fr' | 'it', string>>;
@@ -591,6 +599,324 @@ export const LIBRARY_SEEDS_EN: LibraryContentSeed[] = [
         options: [],
         correctIndex: -1,
         explanation: 'Nützliche Wendungen: "The main argument is that …", "However, critics point out …"',
+      },
+    ],
+  },
+];
+
+// ============================================================ Spanisch (Zielsprache)
+
+export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
+  {
+    type: LibraryType.ARTICLE,
+    level: CefrLevel.B2,
+    title: 'El renacer de los pueblos vacíos',
+    summary: 'Un reportaje sobre la despoblación rural en España y los intentos, no siempre exitosos, de revertirla.',
+    author: 'Redacción Lingua',
+    tags: ['dorf', 'gesellschaft'],
+    sections: [
+      {
+        text: 'Hace quince años, el ayuntamiento de Fuenteguinaldo cerró la única escuela del pueblo: quedaban tres alumnos matriculados. El mes pasado volvió a abrir sus puertas, esta vez con once.',
+        glossary: [
+          {
+            term: 'el ayuntamiento',
+            explanation: 'la institución que gobierna un pueblo o una ciudad, y también el edificio donde tiene su sede.',
+          },
+          {
+            term: 'matricular',
+            explanation: 'inscribir oficialmente a alguien en un colegio, una universidad o un curso.',
+          },
+        ],
+      },
+      {
+        text: 'Fuenteguinaldo no es un caso aislado. Desde los años sesenta, millones de personas abandonaron el campo español para instalarse en Madrid, Barcelona o Bilbao, atraídas primero por la industria y después por los servicios. El resultado es lo que los geógrafos bautizaron como «la España vaciada»: una extensión enorme del interior peninsular con una densidad de población comparable a la de Laponia.',
+        glossary: [
+          { term: 'instalarse', explanation: 'irse a vivir a un lugar de forma más o menos permanente.' },
+          {
+            term: 'la densidad de población',
+            explanation: 'el número de habitantes que corresponde a cada kilómetro cuadrado de un territorio.',
+          },
+          {
+            term: 'bautizar (aquí)',
+            explanation: 'darle un nombre nuevo a algo, normalmente porque describe bien lo que es.',
+          },
+        ],
+      },
+      {
+        text: 'Lo que ha cambiado en los últimos años no es tanto el paisaje como la conexión a internet. La llegada de la fibra óptica a comarcas que antes apenas tenían cobertura para hacer una llamada, sumada a la normalización del teletrabajo tras la pandemia, ha hecho posible algo impensable hace una generación: seguir cobrando un sueldo urbano sin vivir en la ciudad.',
+        glossary: [
+          { term: 'la fibra óptica', explanation: 'un tipo de cable que permite una conexión a internet muy rápida.' },
+          {
+            term: 'la comarca',
+            explanation: 'una región formada por varios pueblos cercanos que comparten características geográficas o históricas.',
+          },
+          {
+            term: 'el teletrabajo',
+            explanation: 'la forma de trabajar desde casa u otro lugar, conectado por internet, en vez de acudir a una oficina.',
+          },
+        ],
+      },
+      {
+        text: 'Los alcaldes de la zona son los primeros en pedir prudencia. Un puñado de nuevos vecinos no basta para mantener abierto un centro de salud ni una línea de autobús, y muchos de los pueblos que ganan población siguen perdiendo, en paralelo, a sus habitantes de más edad. A eso se suma la falta de vivienda en alquiler: hay casas vacías, pero sus dueños no siempre viven cerca ni tienen prisa por decidir qué hacer con ellas.',
+        glossary: [
+          { term: 'el alcalde', explanation: 'la persona elegida para dirigir el ayuntamiento de un pueblo o una ciudad.' },
+          { term: 'un puñado de', explanation: 'una cantidad pequeña de personas o cosas.' },
+          { term: 'la vivienda', explanation: 'una casa o un piso en el que vive una persona o una familia.' },
+        ],
+      },
+      {
+        text: 'En Fuenteguinaldo nadie habla todavía de haber revertido décadas de éxodo rural. Pero la escuela vuelve a tener ruido de recreo, y eso, después de tanto silencio, ya se celebra como una buena noticia.',
+        glossary: [
+          { term: 'revertir', explanation: 'hacer que un proceso vuelva al estado en el que estaba antes.' },
+          {
+            term: 'el éxodo',
+            explanation: 'la salida de un gran número de personas de un lugar, generalmente en busca de mejores condiciones de vida.',
+          },
+          { term: 'el recreo', explanation: 'el tiempo de descanso entre las clases en un colegio.' },
+        ],
+      },
+    ],
+    exercises: [
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: '¿Qué diferencia hay entre el cierre y la reapertura de la escuela de Fuenteguinaldo?',
+        options: [
+          'La escuela cerró con once alumnos y reabrió con tres.',
+          'La escuela cerró con tres alumnos y reabrió con once.',
+          'La escuela nunca llegó a cerrar.',
+          'La escuela cerró y se convirtió en un centro de salud.',
+        ],
+        correctIndex: 1,
+        explanation: 'El texto dice que al cerrar «quedaban tres alumnos matriculados», y que reabrió «con once».',
+      },
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: 'Según el texto, ¿qué papel ha tenido la fibra óptica en este cambio?',
+        options: [
+          'Ha sustituido a la agricultura como principal actividad económica.',
+          'Ha permitido que la gente trabaje para empresas urbanas sin vivir en la ciudad.',
+          'Ha servido sobre todo para atraer turistas a los pueblos.',
+          'Ha reducido el precio de la vivienda en el campo.',
+        ],
+        correctIndex: 1,
+        explanation:
+          'El texto señala que la fibra óptica, junto con el teletrabajo, permite «seguir cobrando un sueldo urbano sin vivir en la ciudad».',
+      },
+      {
+        type: ExerciseType.TRUE_FALSE,
+        question: 'El texto presenta la repoblación de estos pueblos como un proceso ya resuelto.',
+        options: ['Verdadero', 'Falso'],
+        correctIndex: 1,
+        explanation:
+          'Los alcaldes piden prudencia: pocos vecinos nuevos no bastan para mantener los servicios, y muchos pueblos siguen perdiendo población de más edad.',
+      },
+      {
+        type: ExerciseType.OPEN,
+        question:
+          'Según el texto, ¿qué dos obstáculos dificultan que más familias se muden a estos pueblos? Explica cada uno en una frase.',
+        options: [],
+        correctIndex: -1,
+        explanation:
+          'Fíjate en el cuarto párrafo: la falta de servicios públicos (centro de salud, línea de autobús) y la falta de vivienda en alquiler.',
+      },
+    ],
+  },
+  {
+    type: LibraryType.STORY,
+    level: CefrLevel.B2,
+    title: 'El cuaderno de recetas',
+    summary: 'Una historia breve sobre tres generaciones de mujeres, una cocina y un cuaderno manchado de aceite.',
+    author: 'Redacción Lingua',
+    tags: ['familie', 'essen'],
+    sections: [
+      {
+        text: 'El cuaderno tiene las tapas de hule y las esquinas redondeadas de tanto abrirse. En la primera página, con una letra picuda que ya casi nadie usa, pone: «Recetas de la abuela Pilar, para cuando yo falte».',
+        glossary: [
+          {
+            term: 'el hule',
+            explanation: 'un material impermeable, a menudo de plástico, que se usa para cubrir mesas o cuadernos.',
+          },
+          { term: 'faltar (aquí)', explanation: 'morir; dejar de estar presente en la vida de alguien.' },
+        ],
+      },
+      {
+        text: 'Pilar lo empezó a los veinte años, recién casada, porque su suegra le dictaba las cantidades de memoria y ella no confiaba en la suya. «Ajo, al ojo. Sal, la que pida el guiso.» Con los años fue añadiendo sus propias notas al margen: «más despacio», «con el fuego bajo», «a Andrés no le gusta tan picante».',
+        glossary: [
+          { term: 'la suegra', explanation: 'la madre del marido o de la mujer de una persona.' },
+          {
+            term: 'el guiso',
+            explanation: 'un plato de cocina, generalmente de carne o legumbres, cocinado a fuego lento con salsa.',
+          },
+          { term: 'al margen', explanation: 'en el borde de una página, fuera del texto principal.' },
+        ],
+      },
+      {
+        text: 'Cuando Pilar murió, el cuaderno pasó a su hija Marisa, que durante años lo tuvo guardado en un cajón sin abrirlo. Le dolía demasiado la letra de su madre para usarlo como un libro de cocina cualquiera.',
+        glossary: [
+          { term: 'el cajón', explanation: 'una caja que se abre y se cierra deslizándola, dentro de un mueble.' },
+        ],
+      },
+      {
+        text: 'Marisa lo sacó por fin la Nochebuena en que su hija Elena, de dieciséis años, le pidió ayuda para hacer las croquetas «como las de la bisabuela». Cocinaron juntas por primera vez en mucho tiempo, siguiendo instrucciones que no explicaban nada y lo daban todo por sabido.',
+        glossary: [
+          { term: 'la Nochebuena', explanation: 'la noche del 24 de diciembre, víspera de Navidad.' },
+          { term: 'la bisabuela', explanation: 'la madre de la abuela o del abuelo de una persona.' },
+          {
+            term: 'dar algo por sabido',
+            explanation: 'no explicar algo porque se supone que la otra persona ya lo conoce.',
+          },
+        ],
+      },
+      {
+        text: 'Las croquetas les salieron demasiado líquidas la primera vez, y quemadas la segunda. A la tercera, Elena entendió que «al ojo» no significaba «sin pensar», sino algo que solo se aprende con las manos, repitiendo el mismo gesto muchas veces.',
+      },
+      {
+        text: 'Ahora Elena tiene su propio cuaderno, uno nuevo, de tapas azules. Copia en él las recetas de Pilar, pero también añade las suyas, y dibuja pequeñas flechas hacia los márgenes: «esto se puede hacer sin gluten», «mi madre le pone más ajo».',
+        glossary: [
+          { term: 'la flecha', explanation: 'un símbolo con forma de línea y punta que señala una dirección.' },
+        ],
+      },
+      {
+        text: 'El cuaderno viejo, el de tapas de hule, ha vuelto al cajón. Pero esta vez no es porque nadie quiera abrirlo, sino porque ya ha hecho su trabajo: enseñar a alguien a cocinar sin necesitarlo.',
+      },
+    ],
+    exercises: [
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: '¿Por qué Pilar empezó a escribir el cuaderno de recetas?',
+        options: [
+          'Porque quería publicar un libro de cocina.',
+          'Porque no confiaba en su memoria y quería anotar las cantidades que le dictaba su suegra.',
+          'Porque se lo pidió su hija Marisa.',
+          'Porque trabajaba como cocinera profesional.',
+        ],
+        correctIndex: 1,
+        explanation:
+          'El texto dice que lo empezó «porque su suegra le dictaba las cantidades de memoria y ella no confiaba en la suya».',
+      },
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: '¿Por qué Marisa no usó el cuaderno durante años?',
+        options: [
+          'Porque no sabía cocinar.',
+          'Porque el cuaderno se había perdido.',
+          'Porque le dolía demasiado ver la letra de su madre.',
+          'Porque prefería recetas más modernas.',
+        ],
+        correctIndex: 2,
+        explanation: '«Le dolía demasiado la letra de su madre para usarlo como un libro de cocina cualquiera.»',
+      },
+      {
+        type: ExerciseType.TRUE_FALSE,
+        question: 'A Elena le salieron perfectas las croquetas la primera vez que las hizo.',
+        options: ['Verdadero', 'Falso'],
+        correctIndex: 1,
+        explanation:
+          'Le salieron demasiado líquidas la primera vez y quemadas la segunda; solo a la tercera consiguió hacerlas bien.',
+      },
+      {
+        type: ExerciseType.OPEN,
+        question:
+          '¿Qué crees que significa la expresión «al ojo» en una receta? Explica tu respuesta con tus propias palabras, en dos o tres frases.',
+        options: [],
+        correctIndex: -1,
+        explanation:
+          'La historia sugiere que es una medida que no se puede escribir con números exactos: solo se aprende practicando, con las manos.',
+      },
+    ],
+  },
+  {
+    type: LibraryType.ARTICLE,
+    level: CefrLevel.B2,
+    title: 'Cuando el teléfono decide por ti',
+    summary: 'Un artículo sobre cómo los algoritmos de recomendación moldean lo que vemos y compramos sin que nos demos cuenta.',
+    author: 'Redacción Lingua',
+    tags: ['technologie', 'gesellschaft'],
+    sections: [
+      {
+        text: 'Abres el teléfono para comprobar la hora y, veinte minutos después, sigues ahí, mirando vídeos que no recuerdas haber elegido. No ha sido casualidad: alguien ha diseñado esa aplicación precisamente para que ocurra.',
+        glossary: [
+          { term: 'la casualidad', explanation: 'algo que ocurre sin haber sido planeado ni buscado por nadie.' },
+        ],
+      },
+      {
+        text: 'Detrás de cada red social hay un sistema de recomendación: un programa que analiza qué contenidos has visto antes, cuánto tiempo te has quedado en cada uno y en qué momento has dejado de mirar. Con esos datos, predice qué es más probable que te haga quedarte un minuto más, y te lo enseña primero.',
+        glossary: [
+          {
+            term: 'el sistema de recomendación',
+            explanation: 'un programa informático que sugiere contenidos, productos o personas según los gustos que ha detectado en el usuario.',
+          },
+          {
+            term: 'predecir',
+            explanation: 'anunciar o calcular algo que va a suceder en el futuro, antes de que ocurra.',
+          },
+        ],
+      },
+      {
+        text: 'El objetivo de estas empresas no es que el usuario esté satisfecho al cerrar la aplicación, sino que la abra de nuevo cuanto antes. Por eso hablan menos de «satisfacción» y más de «tiempo de uso» o «tasa de retorno», métricas que se pueden medir y optimizar con precisión.',
+        glossary: [
+          { term: 'la métrica', explanation: 'un dato numérico que se usa para medir el rendimiento o el éxito de algo.' },
+          { term: 'optimizar', explanation: 'mejorar algo hasta conseguir el mejor resultado posible.' },
+        ],
+      },
+      {
+        text: 'Algunos ingenieros que trabajaron en el diseño de estos sistemas han reconocido públicamente que evitaban dar ciertas funciones a sus propios hijos. No porque la tecnología sea mala en sí misma, dicen, sino porque saben exactamente qué mecanismos activa y lo difícil que resulta resistirse a ellos, incluso siendo consciente de cómo funcionan.',
+      },
+      {
+        text: 'Frente a esto han surgido movimientos que piden un «diseño ético»: aplicaciones que muestren cuánto tiempo llevas usándolas, que permitan desactivar las notificaciones automáticas o que, simplemente, no tengan scroll infinito. La pregunta de fondo, sin embargo, sigue abierta: ¿debe ser el usuario quien controle su propio consumo, o la empresa quien limite un producto que, cuanto más adictivo, más dinero genera?',
+        glossary: [
+          {
+            term: 'el scroll infinito',
+            explanation: 'una función que carga contenido nuevo automáticamente al llegar al final de la pantalla, para que el usuario nunca encuentre un final natural.',
+          },
+          {
+            term: 'adictivo',
+            explanation: 'que provoca una necesidad fuerte y difícil de controlar de repetir una acción.',
+          },
+        ],
+      },
+    ],
+    exercises: [
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: 'Según el texto, ¿qué analiza un sistema de recomendación?',
+        options: [
+          'La edad y el lugar de residencia del usuario',
+          'Qué contenidos ha visto el usuario antes y cuánto tiempo se ha quedado en cada uno',
+          'Solo los contenidos que el usuario ha compartido con otros',
+          'Las opiniones que otros usuarios tienen sobre él',
+        ],
+        correctIndex: 1,
+        explanation:
+          'El texto dice que el sistema «analiza qué contenidos has visto antes, cuánto tiempo te has quedado en cada uno y en qué momento has dejado de mirar».',
+      },
+      {
+        type: ExerciseType.MULTIPLE_CHOICE,
+        question: '¿Cuál es, según el texto, el verdadero objetivo de estas aplicaciones?',
+        options: [
+          'Que el usuario esté satisfecho al cerrar la aplicación',
+          'Que el usuario vuelva a abrirla cuanto antes',
+          'Que el usuario aprenda a usar menos el teléfono',
+          'Que el usuario comparta más contenido con sus amigos',
+        ],
+        correctIndex: 1,
+        explanation:
+          'El texto lo dice explícitamente: el objetivo «no es que el usuario esté satisfecho al cerrar la aplicación, sino que la abra de nuevo cuanto antes».',
+      },
+      {
+        type: ExerciseType.TRUE_FALSE,
+        question: 'El texto afirma que la tecnología es mala en sí misma.',
+        options: ['Verdadero', 'Falso'],
+        correctIndex: 1,
+        explanation: 'El texto dice explícitamente: «No porque la tecnología sea mala en sí misma».',
+      },
+      {
+        type: ExerciseType.OPEN,
+        question:
+          '¿Qué opinas de las propuestas de «diseño ético» que menciona el texto? ¿Crees que serían suficientes? Responde en tres o cuatro frases.',
+        options: [],
+        correctIndex: -1,
+        explanation: 'Puedes usar expresiones como «en mi opinión», «por un lado… por otro lado», «aunque…».',
       },
     ],
   },

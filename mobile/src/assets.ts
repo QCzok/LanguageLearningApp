@@ -19,6 +19,9 @@ import grammarBookCover from '../assets/covers/book-grammar.png';
 import marketLibraryCover from '../assets/covers/library-market.png';
 import lighthouseLibraryCover from '../assets/covers/library-lighthouse.png';
 import cityLibraryCover from '../assets/covers/library-city.png';
+import villageLibraryCover from '../assets/covers/library-village.png';
+import kitchenLibraryCover from '../assets/covers/library-kitchen.png';
+import phoneLibraryCover from '../assets/covers/library-phone.png';
 import genericLibraryCover from '../assets/covers/library-book.png';
 import sceneGreetingOffice from '../assets/covers/scene-greeting-office.png';
 import sceneIntroduction from '../assets/covers/scene-introduction.png';
@@ -46,6 +49,9 @@ export {
   marketLibraryCover,
   lighthouseLibraryCover,
   cityLibraryCover,
+  villageLibraryCover,
+  kitchenLibraryCover,
+  phoneLibraryCover,
   genericLibraryCover,
   sceneGreetingOffice,
   sceneIntroduction,
@@ -82,5 +88,8 @@ export const preloadImages = [
   marketLibraryCover,
   lighthouseLibraryCover,
   cityLibraryCover,
+  villageLibraryCover,
+  kitchenLibraryCover,
+  phoneLibraryCover,
   genericLibraryCover,
 ];

@@ -15,7 +15,7 @@ import {
   mediaSlug,
   transcriptOf,
 } from './seed/media-scripts';
-import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, type LibraryContentSeed } from './seed/library';
+import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, LIBRARY_SEEDS_ES, type LibraryContentSeed } from './seed/library';
 import { PLACEMENT_SEEDS_DE, PLACEMENT_SEEDS_EN, PLACEMENT_SEEDS_ES } from './seed/placement';
 import { GERMAN_VOCAB_A1 } from './seed/german-vocab-a1';
 import { GERMAN_VOCAB_A2 } from './seed/german-vocab-a2';
@@ -337,6 +337,7 @@ async function main(): Promise<void> {
 
   await seedLibraryContent(en, LIBRARY_SEEDS_EN);
   await seedLibraryContent(de, LIBRARY_SEEDS_DE);
+  await seedLibraryContent(es, LIBRARY_SEEDS_ES);
 
   // ------------------------------------------------------------ Mediathek
   const mediaSeeds = [
