@@ -9,6 +9,10 @@ const schema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
     DATABASE_URL: z.string().url({ message: 'DATABASE_URL muss eine gültige URL sein' }),
+    // Nur für Supabase & Co. nötig, wo DATABASE_URL über einen Pooler läuft
+    // und Migrationen eine direkte Verbindung brauchen. Fällt sonst auf
+    // DATABASE_URL zurück (siehe schema.prisma directUrl).
+    DIRECT_URL: z.string().url().optional(),
     API_PREFIX: z.string().default('api/v1'),
     CORS_ORIGINS: z.string().default(''),
     JWT_ACCESS_SECRET: z.string().min(16, 'JWT_ACCESS_SECRET ist zu kurz'),

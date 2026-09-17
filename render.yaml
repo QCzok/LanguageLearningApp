@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: lingua-backend
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: >-
+      npm ci &&
+      npm run shared:build &&
+      npm run backend:build &&
+      npx prisma generate --schema=backend/prisma/schema.prisma
+    startCommand: >-
+      npx prisma migrate deploy --schema=backend/prisma/schema.prisma &&
+      node backend/dist/main.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: API_PREFIX
+        value: api/v1
+      - key: MEDIA_BASE_URL
+        value: /static
+      - key: STATIC_DIR
+        value: static
+      - key: AI_MODEL
+        value: claude-opus-5
+      - key: AI_PROVIDER
+        value: api
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

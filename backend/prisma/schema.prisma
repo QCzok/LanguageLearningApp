@@ -6,8 +6,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Supabase: DATABASE_URL zeigt auf den Connection-Pooler (Port 6543,
+  // pgbouncer=true), DIRECT_URL auf die direkte Verbindung (Port 5432) –
+  // Migrationen brauchen die direkte Verbindung, der Pooler unterstützt kein
+  // Prepared-Statement-Verhalten, das `migrate deploy` benötigt.
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================ Enums
