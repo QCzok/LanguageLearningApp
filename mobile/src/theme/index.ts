@@ -30,8 +30,8 @@ export const colors = {
   infoSoft: '#E2E5E9',
 
   background: '#F2F2F2',
-  /** Etwas heller als der App-Hintergrund – für längere Lesetexte, wo mehr Helligkeit die Lesbarkeit verbessert. */
-  readingBackground: '#F8F7F4',
+  /** Deutlich heller als der App-Hintergrund – fast weißes Papier, für längere Lesetexte, wo mehr Helligkeit die Lesbarkeit verbessert. */
+  readingBackground: '#FCFBF9',
   surface: '#FFFFFF',
   surfaceAlt: '#E8E8E8',
   border: '#DBDBDB',
@@ -254,10 +254,10 @@ export const bookColors = {
 export const reading = {
   paper: colors.readingBackground,
   /** Leicht abgetönt – für Vorspann, Übersetzung und Worterklärungen. */
-  paperDeep: '#EFEDE8',
-  edge: '#E3E0D9',
+  paperDeep: '#F5F3EF',
+  edge: '#EAE7E0',
   /** Haarlinie zwischen zwei Blöcken; deutlich blasser als eine Rahmenlinie. */
-  rule: '#DDD9D1',
+  rule: '#E7E3DB',
   ink: colors.text,
   inkSoft: '#5E5A54',
   inkFaint: '#968F86',

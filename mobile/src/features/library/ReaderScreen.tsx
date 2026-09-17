@@ -19,7 +19,6 @@ import {
   radius,
   reading,
   readingLabel,
-  shadow,
   spacing,
   typography,
 } from '../../theme';
@@ -411,16 +410,20 @@ const endGlyph = {
 };
 
 /**
- * Der Kasten am Fuß der Seite ist kein Kartenstapel, sondern ein einzelner
- * getönter Block in der Leitfarbe – die eine Sache, die nach dem Lesen noch
- * ansteht.
+ * Der Kasten am Fuß der Seite ist kein Kartenstapel, sondern eine ruhige
+ * Papierfläche mit Rücken in der Leitfarbe – dieselbe Sprache wie der
+ * Vorspann und die Karten im Regal, statt eines satten Farbblocks, der auf
+ * dem hellen Papier zu schwer wirkte.
  */
 const exerciseBox = {
-  backgroundColor: colors.primarySoft,
+  backgroundColor: reading.paperDeep,
   borderRadius: radius.lg,
+  borderWidth: 1,
+  borderColor: reading.rule,
+  borderLeftWidth: 3,
+  borderLeftColor: colors.primary,
   padding: spacing.lg,
   gap: spacing.sm,
-  ...shadow.card,
 };
 
 const exerciseTitle = {

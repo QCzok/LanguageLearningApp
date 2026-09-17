@@ -20,7 +20,6 @@ import {
   spacing,
   typography,
 } from '../../theme';
-import { LibraryCoverArt } from './LibraryCovers';
 import type { LibraryStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'LibraryList'>;
@@ -31,6 +30,12 @@ const TYPE_FILTERS: ReadonlyArray<{ value?: string; label: TranslationKey }> = [
   { value: 'STORY', label: 'libraryFilterStories' },
 ];
 
+/** Das Thema als Kicker über dem Titel – der erste Tag, sonst die Textart. */
+function topic(content: LibraryContentDto, typeLabel: string): string {
+  const tag = content.tags[0];
+  return tag ? tag.charAt(0).toUpperCase() + tag.slice(1) : typeLabel;
+}
+
 /**
  * Bibliotheksübersicht als Bücherregal.
  *
@@ -39,10 +44,10 @@ const TYPE_FILTERS: ReadonlyArray<{ value?: string; label: TranslationKey }> = [
  * Knopfleiste), dann – falls vorhanden – der angefangene Text als breite
  * Karte zum Weiterlesen, und erst darunter das Regal selbst.
  *
- * Jede Kachel ist ein Buchcover mit farbigem Rücken: Bild, Titel und die
- * ersten Zeichen des Texts. Das Bild kommt von `LibraryCoverArt` – mangels
- * echter Fotos eine zum Thema passende, selbst gezeichnete Illustration
- * (siehe dort für die Begründung).
+ * Jede Kachel ist eine Papierkarte statt eines Covers: kein Bild, sondern
+ * Thema, Titel, Vorspann und ein echter Auszug der ersten Zeilen – gesetzt
+ * wie eine Bibliothekskarteikarte, mit dem Buchrücken als farbigem Streifen
+ * am linken Rand.
  */
 export default function LibraryListScreen({ navigation }: Props) {
   const { t } = useTranslation();
@@ -208,42 +213,45 @@ function Rubric({ label, active, onPress }: { label: string; active: boolean; on
 }
 
 /**
- * Der angefangene Text, quer statt hochkant: Cover links, daneben Titel,
- * Fortschritt in Prozent und die verbleibende Lesezeit. So ist auf einen
- * Blick klar, wie weit man war – die Kachel im Regal zeigt das nur als
- * schmalen Balken.
+ * Der angefangene Text als schlichte Papierkarte – kein Cover, sondern Thema,
+ * Titel und Fortschritt, gesetzt wie ein Lesezeichen: der Rücken links trägt
+ * die Niveaufarbe weiter, die auch im Regal darunter gilt.
  */
 function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
   const { t } = useTranslation();
   const percent = content.userProgress?.progressPercent ?? 0;
   const remaining = Math.max(1, Math.round(content.estimatedMinutes * (1 - percent / 100)));
+  const accent = levelColors[content.level] ?? colors.primary;
+  const typeLabel = content.type === 'STORY' ? t('libraryTypeStory') : t('libraryTypeArticle');
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [continueCard, pressed && { opacity: 0.92 }]}
+      style={({ pressed }) => [continueCard, { borderLeftColor: accent }, pressed && { opacity: 0.92 }]}
     >
-      <View style={continueCover}>
-        <LibraryCoverArt content={content} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Text style={[readingLabel, { color: accent }]}>{topic(content, typeLabel)}</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: reading.rule }} />
+        <LevelBadge level={content.level} small />
       </View>
 
-      <View style={{ flex: 1, gap: spacing.xs, justifyContent: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <LevelBadge level={content.level} small />
-          <Text style={[readingLabel, { color: colors.textMuted }]}>
-            {t('libraryRemainingMinutes', { count: remaining })}
-          </Text>
-        </View>
+      <Text style={continueTitle} numberOfLines={2}>
+        {content.title}
+      </Text>
 
-        <Text style={[typography.bodyStrong, { fontSize: 16 }]} numberOfLines={2}>
-          {content.title}
-        </Text>
+      <Text style={continueSubtitle} numberOfLines={1}>
+        {content.summary}
+      </Text>
 
-        <View style={{ gap: 4, marginTop: 2 }}>
-          <ProgressBar value={percent} height={4} />
-          <Text style={[typography.caption, { color: colors.textMuted }]}>
+      <View style={{ gap: 4, marginTop: spacing.xs }}>
+        <ProgressBar value={percent} height={4} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={[typography.caption, { color: reading.inkFaint }]}>
             {t('libraryPercentRead', { percent })}
+          </Text>
+          <Text style={[typography.caption, { color: reading.inkFaint }]}>
+            {t('libraryRemainingMinutes', { count: remaining })}
           </Text>
         </View>
       </View>
@@ -252,53 +260,65 @@ function ContinueCard({ content, onPress }: { content: LibraryContentDto; onPres
 }
 
 /**
- * Eine Kachel ist ein Buchcover, kein Listenelement: Das Bild füllt die ganze
- * Kachel, Titel und Textauszug liegen als echter Text über dem abgedunkelten
- * unteren Rand (den die Illustration selbst mitbringt, siehe `LibraryCovers`).
+ * Eine Kachel ist eine Papierkarte, kein Bildausschnitt: Ohne Cover trägt sie
+ * nur, was vom Text selbst kommt – Thema, Titel, Vorspann und ein echter
+ * Auszug der ersten Zeilen, gesetzt wie eine Bibliothekskarteikarte.
  *
- * Dazu kommt der Buchrücken – ein schmaler Streifen in der Farbe des Niveaus
- * am linken Rand. Er macht aus dem Raster ein Regal: Man sieht schon an der
- * Farbkante, wie schwer ein Text ist, bevor man die Plakette liest.
+ * Der Buchrücken bleibt als schmaler Streifen in der Niveaufarbe am linken
+ * Rand – dieselbe Farbkante wie zuvor, jetzt nur auf Papier statt auf einem
+ * Bild.
  */
 function ContentTile({ content, onPress }: { content: LibraryContentDto; onPress: () => void }) {
   const { t } = useTranslation();
   const progress = content.userProgress;
   const done = Boolean(progress?.completedAt);
+  const accent = levelColors[content.level] ?? colors.primary;
+  const typeLabel = content.type === 'STORY' ? t('libraryTypeStory') : t('libraryTypeArticle');
 
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [tile, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
+      style={({ pressed }) => [
+        tile,
+        { borderLeftColor: accent },
+        pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
+      ]}
     >
-      <LibraryCoverArt content={content} />
-
-      <View style={[spine, { backgroundColor: levelColors[content.level] ?? colors.primary }]} />
-
-      <View style={topRow}>
-        <LevelBadge level={content.level} small />
+      <View style={tileTopRow}>
+        <Text style={[readingLabel, { color: accent, flex: 1 }]} numberOfLines={1}>
+          {topic(content, typeLabel)}
+        </Text>
         {done ? (
           <View style={doneBadge}>
-            <Text style={{ fontSize: 11, color: colors.textInverse }}>✓</Text>
+            <Text style={{ fontSize: 10, color: colors.textInverse }}>✓</Text>
           </View>
-        ) : null}
+        ) : (
+          <LevelBadge level={content.level} small />
+        )}
       </View>
 
-      <View style={bottomOverlay}>
+      <Text style={tileTitle} numberOfLines={2}>
+        {content.title}
+      </Text>
+
+      <Text style={tileSubtitle} numberOfLines={2}>
+        {content.summary}
+      </Text>
+
+      {/* Die ersten ~50 Zeichen des Texts – ein echter Auszug, keine Zusammenfassung. */}
+      <Text style={tileExcerpt} numberOfLines={2}>
+        {content.excerpt}…
+      </Text>
+
+      <View style={{ flex: 1 }} />
+
+      <View style={tileFooter}>
         <Text style={tileMeta}>
-          {content.type === 'STORY' ? t('libraryTypeStory') : t('libraryTypeArticle')} ·{' '}
           {content.estimatedMinutes} {t('commonMinutesShort')}
         </Text>
-        <Text style={tileTitle} numberOfLines={2}>
-          {content.title}
-        </Text>
-        {/* Die ersten ~50 Zeichen des Texts – ein echter Auszug, keine Zusammenfassung. */}
-        <Text style={tileExcerpt} numberOfLines={2}>
-          {content.excerpt}
-        </Text>
-
         {progress && progress.progressPercent > 0 && !done ? (
-          <View style={{ marginTop: 6 }}>
+          <View style={{ flex: 1, marginLeft: spacing.sm }}>
             <ProgressBar value={progress.progressPercent} height={3} />
           </View>
         ) : null}
@@ -380,24 +400,36 @@ const chipStyle = {
   borderColor: colors.border,
 };
 
+/**
+ * Der Fortsetzungstext als schmale Papierkarte über dem Regal: kein Cover
+ * mehr, nur der Rücken links in der Niveaufarbe, wie ein Lesezeichen, das
+ * noch im Buch steckt.
+ */
 const continueCard = {
-  flexDirection: 'row' as const,
-  gap: spacing.md,
-  padding: spacing.sm,
-  paddingRight: spacing.md,
+  gap: 4,
+  padding: spacing.md,
   borderRadius: radius.lg,
-  backgroundColor: colors.surface,
+  backgroundColor: reading.paper,
   borderWidth: 1,
-  borderColor: colors.border,
+  borderColor: reading.rule,
+  borderLeftWidth: 3,
   ...shadow.card,
 };
 
-const continueCover = {
-  width: 68,
-  aspectRatio: 3 / 4,
-  borderRadius: radius.md,
-  overflow: 'hidden' as const,
-  backgroundColor: reading.paperDeep,
+const continueTitle = {
+  fontFamily: fontFamily.bold,
+  fontSize: 18,
+  lineHeight: 23,
+  color: reading.ink,
+  marginTop: 2,
+};
+
+const continueSubtitle = {
+  fontFamily: fontFamily.regular,
+  fontStyle: 'italic' as const,
+  fontSize: 13,
+  lineHeight: 18,
+  color: reading.inkSoft,
 };
 
 const tileGrid = {
@@ -407,75 +439,76 @@ const tileGrid = {
 };
 
 /**
- * Die ganze Kachel ist das Buchcover (3:4, siehe `LibraryCovers`) – deutlich
- * kompakter als ein breites Bild mit separatem Textblock darunter. Ein
- * kräftiger Schatten statt einer reinen Rahmenlinie macht sie zum Gegenstand
- * im Regal.
+ * Die Kachel ist jetzt eine reine Papierkarte, kein Bildausschnitt: warmes
+ * Papier wie in der Lesestrecke, eine Haarlinie als Rahmen und der
+ * Buchrücken als linker Farbstreifen – dieselbe Niveaufarbe, die vorher über
+ * dem Cover lag, trägt die Karte jetzt allein.
  */
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
-  aspectRatio: 3 / 4,
+  minHeight: 190,
   borderRadius: radius.lg,
-  overflow: 'hidden' as const,
-  backgroundColor: colors.surfaceAlt,
-  ...shadow.lift,
+  backgroundColor: reading.paper,
+  borderWidth: 1,
+  borderColor: reading.rule,
+  borderLeftWidth: 3,
+  padding: spacing.md,
+  ...shadow.card,
 };
 
-/** Der Buchrücken am linken Rand, in der Farbe des Niveaus. */
-const spine = {
-  position: 'absolute' as const,
-  left: 0,
-  top: 0,
-  bottom: 0,
-  width: 5,
-};
-
-const topRow = {
-  position: 'absolute' as const,
-  top: spacing.sm,
-  left: spacing.md,
-  right: spacing.sm,
+const tileTopRow = {
   flexDirection: 'row' as const,
-  justifyContent: 'space-between' as const,
+  alignItems: 'center' as const,
+  gap: spacing.xs,
 };
 
 const doneBadge = {
-  width: 22,
-  height: 22,
-  borderRadius: 11,
+  width: 20,
+  height: 20,
+  borderRadius: 10,
   backgroundColor: colors.success,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };
 
-/** Titel und Auszug liegen auf dem abgedunkelten unteren Rand des Covers. */
-const bottomOverlay = {
-  position: 'absolute' as const,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  padding: spacing.sm,
-  paddingLeft: spacing.md,
-  paddingTop: spacing.lg,
+const tileTitle = {
+  fontFamily: fontFamily.bold,
+  fontSize: 16,
+  lineHeight: 21,
+  color: reading.ink,
+  marginTop: spacing.xs,
+};
+
+const tileSubtitle = {
+  fontFamily: fontFamily.medium,
+  fontSize: 12.5,
+  lineHeight: 17,
+  color: reading.inkSoft,
+  marginTop: 3,
+};
+
+/** Der Textauszug – kursiv gesetzt, wie ein Zitat aus dem Text selbst. */
+const tileExcerpt = {
+  fontFamily: fontFamily.regular,
+  fontStyle: 'italic' as const,
+  fontSize: 12,
+  lineHeight: 16,
+  color: reading.inkFaint,
+  marginTop: 4,
+};
+
+const tileFooter = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  marginTop: spacing.sm,
+  paddingTop: spacing.xs,
+  borderTopWidth: 1,
+  borderTopColor: reading.rule,
 };
 
 const tileMeta = {
-  fontSize: 11,
-  fontWeight: '700' as const,
-  letterSpacing: 0.4,
-  color: 'rgba(255,255,255,0.8)',
-  marginBottom: 2,
-};
-
-const tileTitle = {
-  ...typography.bodyStrong,
-  color: '#FFFFFF',
-};
-
-const tileExcerpt = {
-  fontSize: 12,
-  lineHeight: 17,
-  color: 'rgba(255,255,255,0.82)',
-  marginTop: 2,
+  ...readingLabel,
+  fontSize: 10,
+  color: reading.inkFaint,
 };

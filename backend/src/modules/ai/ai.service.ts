@@ -596,6 +596,7 @@ export class AiService {
       id: deck.id,
       title: deck.title,
       description: deck.description,
+      iconEmoji: deck.iconEmoji,
       level: deck.level,
       language: toLanguageDto(deck.language),
       itemCount: deck._count.items,

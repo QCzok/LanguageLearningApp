@@ -131,6 +131,8 @@ export interface VocabDeckDto {
   id: string;
   title: string;
   description: string | null;
+  /** Themenzeichen des Stapels – trägt die Kachel in der Übersicht. */
+  iconEmoji: string;
   level: CefrLevel;
   language: LanguageDto;
   itemCount: number;
@@ -162,6 +164,16 @@ export interface VocabItemDto {
   exampleTranslation: string | null;
   audioUrl: string | null;
   tags: string[];
+}
+
+/** Eine Vokabel samt Lernstand – die Wortliste eines Stapels zeigt beides. */
+export interface DeckItemDto extends VocabItemDto {
+  /** `null`, solange das Wort noch nie bewertet wurde. */
+  status: CardStatus | null;
+}
+
+export interface VocabDeckDetailDto extends VocabDeckDto {
+  items: DeckItemDto[];
 }
 
 /** Eine Lerneinheit: Karte + modusspezifische Zusatzdaten. */

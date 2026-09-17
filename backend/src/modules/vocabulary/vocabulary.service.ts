@@ -8,6 +8,7 @@ import { toLanguageDto } from '../languages/languages.service';
 import type {
   DeckProgressDto,
   ReviewCardDto,
+  VocabDeckDetailDto,
   VocabDeckDto,
   VocabItemDto,
   VocabStatsDto,
@@ -45,12 +46,21 @@ export class VocabularyService {
     const profile = await this.users.getActiveProfileOrThrow(userId);
     const languageId = query.languageId ?? profile.languageId;
 
+    // Systemdecks sind auf das aktuelle Profil-Niveau begrenzt – höhere Niveaus
+    // bleiben unsichtbar, bis das Profil-Niveau steigt (Platzierungstest oder
+    // manuelle Änderung in ProfileScreen). `query.level` kann das für die aktive
+    // Sprache absichtlich NICHT umgehen, sonst wäre die Sperre nur kosmetisch.
+    // Eigene Decks (KI-generiert oder manuell) sind davon ausgenommen: sie
+    // gehören dem Nutzer unabhängig vom Niveau.
+    const systemLevel = languageId === profile.languageId ? profile.level : query.level;
+
     const decks = await this.prisma.vocabDeck.findMany({
       where: {
         languageId,
-        ...(query.level ? { level: query.level } : {}),
-        // Systemdecks plus eigene Decks – fremde Nutzerdecks bleiben unsichtbar.
-        OR: [{ isSystem: true }, { ownerId: userId }],
+        OR: [
+          { isSystem: true, ...(systemLevel ? { level: systemLevel } : {}) },
+          { ownerId: userId },
+        ],
       },
       include: deckWithCount,
       orderBy: [{ level: 'asc' }, { sortOrder: 'asc' }, { title: 'asc' }],
@@ -65,6 +75,7 @@ export class VocabularyService {
       id: deck.id,
       title: deck.title,
       description: deck.description,
+      iconEmoji: deck.iconEmoji,
       level: deck.level,
       language: toLanguageDto(deck.language),
       itemCount: deck._count.items,
@@ -73,7 +84,7 @@ export class VocabularyService {
     }));
   }
 
-  async getDeck(userId: string, deckId: string) {
+  async getDeck(userId: string, deckId: string): Promise<VocabDeckDetailDto> {
     const deck = await this.prisma.vocabDeck.findUnique({
       where: { id: deckId },
       include: { ...deckWithCount, items: { orderBy: { sortOrder: 'asc' } } },
@@ -83,18 +94,34 @@ export class VocabularyService {
       throw new ForbiddenException(ERR['forbidden.deck_other_user']);
     }
 
-    const progress = (await this.progressByDeck(userId, [deck.id])).get(deck.id);
+    const [progress, statuses] = await Promise.all([
+      this.progressByDeck(userId, [deck.id]).then((map) => map.get(deck.id)),
+      // Lernstand je Wort – die Wortliste zeigt an jedem Eintrag, wie er steht.
+      // Wörter ohne Zeile waren noch nie dran und bleiben bewusst `null` statt
+      // `NEW`: „noch nie gesehen“ und „gesehen, aber noch nicht gekonnt“ sind
+      // in der Liste zwei verschiedene Zustände (siehe `progressByDeck`).
+      this.prisma.vocabProgress.findMany({
+        where: { userId, vocabItem: { deckId: deck.id } },
+        select: { vocabItemId: true, status: true },
+      }),
+    ]);
+
+    const statusByItem = new Map(statuses.map((row) => [row.vocabItemId, row.status]));
 
     return {
       id: deck.id,
       title: deck.title,
       description: deck.description,
+      iconEmoji: deck.iconEmoji,
       level: deck.level,
       language: toLanguageDto(deck.language),
       itemCount: deck._count.items,
       isSystem: deck.isSystem,
       progress,
-      items: deck.items.map(toVocabItemDto),
+      items: deck.items.map((item) => ({
+        ...toVocabItemDto(item),
+        status: statusByItem.get(item.id) ?? null,
+      })),
     };
   }
 
@@ -116,6 +143,7 @@ export class VocabularyService {
       id: deck.id,
       title: deck.title,
       description: deck.description,
+      iconEmoji: deck.iconEmoji,
       level: deck.level,
       language: toLanguageDto(deck.language),
       itemCount: 0,
@@ -167,12 +195,16 @@ export class VocabularyService {
     // eigenen Platz in der App und werden ausschließlich über ihre `deckId`
     // gelernt, sonst würden ihre Karten unsichtbar in der Niveau-Summe
     // aufgehen statt als eigener Stapel zu erscheinen (siehe DeckListScreen).
+    //
+    // Bewusst `profile.level` statt `query.level`: Systemdecks eines höheren
+    // Niveaus dürfen erst lernbar sein, wenn das Profil-Niveau dort ankommt –
+    // ein von außen mitgegebenes `level` dürfte diese Sperre sonst umgehen.
     const deckFilter: Prisma.VocabItemWhereInput = query.deckId
       ? { deckId: query.deckId }
       : {
           deck: {
             languageId: profile.languageId,
-            ...(query.level ? { level: query.level } : {}),
+            level: profile.level,
             isSystem: true,
           },
         };

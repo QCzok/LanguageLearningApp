@@ -19,7 +19,11 @@ export class ListDecksQueryDto {
   @IsString()
   languageId?: string;
 
-  @ApiPropertyOptional({ enum: CefrLevel })
+  @ApiPropertyOptional({
+    enum: CefrLevel,
+    description:
+      'Nur für Fremdsprachen relevant (siehe `languageId`) – für die aktive Sprache gilt für Systemdecks stets deren Profil-Niveau.',
+  })
   @IsOptional()
   @IsEnum(CefrLevel)
   level?: CefrLevel;
@@ -31,7 +35,10 @@ export class ReviewQueueQueryDto {
   @IsString()
   deckId?: string;
 
-  @ApiPropertyOptional({ enum: CefrLevel })
+  @ApiPropertyOptional({
+    enum: CefrLevel,
+    description: 'Ohne `deckId` wird ignoriert – Systemdecks folgen stets dem Profil-Niveau.',
+  })
   @IsOptional()
   @IsEnum(CefrLevel)
   level?: CefrLevel;

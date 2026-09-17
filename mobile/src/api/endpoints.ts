@@ -30,8 +30,8 @@ import type {
   UnitCheckResult,
   UnitDetailDto,
   UserDto,
+  VocabDeckDetailDto,
   VocabDeckDto,
-  VocabItemDto,
   VocabMode,
   VocabStatsDto,
   WorkbookBook,
@@ -98,7 +98,7 @@ export const vocabularyApi = {
     api.get<VocabDeckDto[]>('/vocabulary/decks', { params }).then((r) => r.data),
   deck: (id: string) =>
     api
-      .get<VocabDeckDto & { items: VocabItemDto[] }>(`/vocabulary/decks/${id}`)
+      .get<VocabDeckDetailDto>(`/vocabulary/decks/${id}`)
       .then((r) => r.data),
   queue: (params?: {
     deckId?: string;
