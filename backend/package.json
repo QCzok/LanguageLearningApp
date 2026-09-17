@@ -14,11 +14,11 @@
     "prisma:migrate": "prisma migrate dev --name init",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "seed": "ts-node prisma/seed.ts",
+    "seed": "ts-node --transpile-only prisma/seed.ts",
     "media:tts": "ts-node scripts/generate-media-audio.ts"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
