@@ -320,6 +320,20 @@ export function bookForLevel(level: CefrLevel): WorkbookBook {
   return 'ADVANCED';
 }
 
+/**
+ * Die Bücher, die auf dem Regal eines Niveaus liegen.
+ *
+ * Von den drei Kursbüchern ist immer nur eines offen – das, in dem die eigene
+ * Stufe liegt (A1/A2 → Beginner). Die höheren Bände erscheinen erst, wenn das
+ * Profil-Niveau dort ankommt; die niedrigeren sind durchgearbeitet. Das
+ * Grammatikbuch bleibt immer dabei: Es ist kein Schritt auf der Leiter,
+ * sondern das Nachschlagewerk quer dazu, und wer auf B1 die Artikel
+ * nachschlagen will, soll das können.
+ */
+export function booksForLevel(level: CefrLevel): WorkbookBook[] {
+  return [bookForLevel(level), 'GRAMMAR'];
+}
+
 export const UNIT_STATUSES = ['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED'] as const;
 export type UnitStatus = (typeof UNIT_STATUSES)[number];
 

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { bookForLevel } from '@lingua/shared';
+import { BOOK_LABELS } from '@lingua/shared';
 import type { BookSummaryDto } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
@@ -27,8 +27,13 @@ type Props = NativeStackScreenProps<NotebookStackParamList, 'Bookshelf'>;
  * war – und die erste davon (A1 oder A2?) konnte kaum jemand beantworten, der
  * gerade anfängt.
  *
- * Jetzt liegen vier Bücher da. Man nimmt eines und schlägt es auf; wo es
- * weitergeht, weiß das Buch selbst (siehe `resume` in `BookSummaryDto`).
+ * Jetzt liegt das eigene Kursbuch da, daneben die Grammatik. Man nimmt eines
+ * und schlägt es auf; wo es weitergeht, weiß das Buch selbst (siehe `resume`
+ * in `BookSummaryDto`). Welche Bände offen liegen, entscheidet das
+ * Profil-Niveau – A1/A2 sehen den Beginner, die höheren Bände erscheinen
+ * erst, wenn das Niveau dort ankommt (dieselbe Grenze zieht das Backend,
+ * siehe `WorkbookService.listBooks`). Die Grammatik steht quer dazu und
+ * bleibt immer im Regal: ein Nachschlagewerk, keine Stufe.
  */
 export default function BookshelfScreen({ navigation }: Props) {
   const { t, tLanguage } = useTranslation();
@@ -51,10 +56,6 @@ export default function BookshelfScreen({ navigation }: Props) {
   if (isError || !data) {
     return <ErrorState message={t('bookshelfError')} onRetry={refetch} />;
   }
-
-  // Das Buch, in dem das eigene Niveau liegt, wird als solches ausgewiesen –
-  // eine Empfehlung, keine Sperre: Jedes Buch lässt sich jederzeit aufschlagen.
-  const suggested = profile ? bookForLevel(profile.level) : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
@@ -81,7 +82,6 @@ export default function BookshelfScreen({ navigation }: Props) {
               <BookRow
                 key={summary.book}
                 summary={summary}
-                isSuggested={summary.book === suggested}
                 onPress={() => navigation.navigate('BookContents', { book: summary.book })}
               />
             ))}
@@ -113,19 +113,18 @@ export default function BookshelfScreen({ navigation }: Props) {
  * Stand. Die Zeile ist die ganze Schaltfläche – ein Buch schlägt man auf,
  * indem man es anfasst, nicht indem man einen Knopf daneben drückt.
  */
-function BookRow({
-  summary,
-  isSuggested,
-  onPress,
-}: {
-  summary: BookSummaryDto;
-  isSuggested: boolean;
-  onPress: () => void;
-}) {
+function BookRow({ summary, onPress }: { summary: BookSummaryDto; onPress: () => void }) {
   const { t, tBookLabel, tBookSubtitle, tBookDescription } = useTranslation();
   const label = tBookLabel(summary.book);
   const accent = bookColors[summary.book].accent;
   const isEmpty = summary.publishedChapterCount === 0;
+  // Welche Stufen im Band stecken: beim Kursbuch die beiden, die es abdeckt
+  // (A1 · A2), bei der Grammatik alle – sie ist das Nachschlagewerk quer zur
+  // Leiter und wird nicht mit der Stufe freigeschaltet.
+  const levels =
+    summary.book === 'GRAMMAR'
+      ? t('bookshelfAllLevels')
+      : BOOK_LABELS[summary.book].levels.join(' · ');
 
   return (
     <Pressable
@@ -146,14 +145,13 @@ function BookRow({
         </Text>
 
         <Text style={bookMeta}>
-          {t('bookshelfChapterCount', { count: summary.chapterCount })}
+          {levels} · {t('bookshelfChapterCount', { count: summary.chapterCount })}
           {isEmpty
             ? ` · ${t('bookshelfInPreparation')}`
             : ` · ${t('bookshelfPagesProgress', {
                 done: summary.completedUnits,
                 total: summary.totalUnits,
               })}`}
-          {isSuggested ? ` · ${t('bookshelfSuggested')}` : ''}
         </Text>
 
         {summary.resume ? (

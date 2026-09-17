@@ -280,14 +280,14 @@ export const fr: TranslationDictionary = {
   bookshelfEyebrow: 'Manuels',
   bookshelfLanguageFallback: 'ta langue',
   bookshelfSubtitle:
-    'Trois manuels et un livre de grammaire. Sur chaque page, l’exercice suit directement l’explication.',
+    'Ton manuel et la grammaire. Sur chaque page, l’exercice suit directement l’explication.',
   bookshelfError: 'Les manuels n’ont pas pu être chargés.',
   bookshelfOwnNotebooks: 'Mes cahiers',
   bookshelfOwnNotebooksHint: 'Des pages libres pour écrire et dessiner.',
   bookshelfChapterCount: '{count} chapitres',
   bookshelfInPreparation: 'en préparation',
   bookshelfPagesProgress: '{done}/{total} pages',
-  bookshelfSuggested: 'correspond à ton niveau',
+  bookshelfAllLevels: 'tous les niveaux',
   bookshelfResumeStart: 'Commencer par',
   bookshelfResumeContinue: 'Continuer à',
 

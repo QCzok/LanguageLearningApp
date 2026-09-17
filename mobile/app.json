@@ -56,7 +56,7 @@
       ]
     ],
     "extra": {
-      "apiUrl": "http://192.168.54.115:3000/api/v1",
+      "apiUrl": "https://lingua-backend-3q0z.onrender.com/api/v1",
       "eas": {
         "projectId": "4f675313-77f3-4c10-8990-8d5b739addd8"
       }

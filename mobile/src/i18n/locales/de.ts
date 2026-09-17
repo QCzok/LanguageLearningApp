@@ -291,14 +291,14 @@ export const de = {
   bookshelfEyebrow: 'Lehrwerk',
   bookshelfLanguageFallback: 'Ihre Sprache',
   bookshelfSubtitle:
-    'Drei Kursbücher und ein Grammatikbuch. Auf jeder Seite folgt die Übung direkt auf die Erklärung.',
+    'Dein Kursbuch und die Grammatik. Auf jeder Seite folgt die Übung direkt auf die Erklärung.',
   bookshelfError: 'Das Lehrwerk konnte nicht geladen werden.',
   bookshelfOwnNotebooks: 'Eigene Notizhefte',
   bookshelfOwnNotebooksHint: 'Freie Seiten zum Schreiben und Zeichnen.',
   bookshelfChapterCount: '{count} Kapitel',
   bookshelfInPreparation: 'in Vorbereitung',
   bookshelfPagesProgress: '{done}/{total} Seiten',
-  bookshelfSuggested: 'passt zu Ihrem Niveau',
+  bookshelfAllLevels: 'alle Niveaus',
   bookshelfResumeStart: 'Beginnen mit',
   bookshelfResumeContinue: 'Weiter auf',
 

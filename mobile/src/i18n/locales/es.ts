@@ -280,14 +280,14 @@ export const es: TranslationDictionary = {
   bookshelfEyebrow: 'Libros de curso',
   bookshelfLanguageFallback: 'tu idioma',
   bookshelfSubtitle:
-    'Tres libros de curso y un libro de gramática. En cada página el ejercicio sigue directamente a la explicación.',
+    'Tu libro de curso y la gramática. En cada página el ejercicio sigue directamente a la explicación.',
   bookshelfError: 'No se pudieron cargar los libros.',
   bookshelfOwnNotebooks: 'Mis cuadernos',
   bookshelfOwnNotebooksHint: 'Páginas en blanco para escribir y dibujar.',
   bookshelfChapterCount: '{count} capítulos',
   bookshelfInPreparation: 'en preparación',
   bookshelfPagesProgress: '{done}/{total} páginas',
-  bookshelfSuggested: 'coincide con tu nivel',
+  bookshelfAllLevels: 'todos los niveles',
   bookshelfResumeStart: 'Empezar por',
   bookshelfResumeContinue: 'Continuar en',
 

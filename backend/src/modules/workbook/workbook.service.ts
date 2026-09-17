@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, UnitStatus, WorkbookBook } from '@prisma/client';
 import {
   WORKBOOK_BOOKS,
+  booksForLevel,
   countExercises,
   isExerciseBlock,
   type BlockAnswer,
@@ -38,8 +44,12 @@ export class WorkbookService {
   // --------------------------------------------------------------- Regal
 
   /**
-   * Das Bücherregal: die vier Bücher mit ihrem Stand und der Seite, auf der es
-   * weitergeht.
+   * Das Bücherregal: die Bücher des eigenen Niveaus mit ihrem Stand und der
+   * Seite, auf der es weitergeht.
+   *
+   * Offen liegt nur das Kursbuch der eigenen Stufe plus die Grammatik (siehe
+   * `booksForLevel`) – die anderen Bände erscheinen erst, wenn das
+   * Profil-Niveau dort ankommt.
    *
    * Der Einstiegspunkt jedes Buchs wird hier berechnet und nicht in der App –
    * „die erste Seite, die noch nicht abgeschlossen ist“ braucht den Stand
@@ -49,6 +59,7 @@ export class WorkbookService {
   async listBooks(userId: string, languageId?: string): Promise<BookSummaryDto[]> {
     const profile = await this.users.getActiveProfileOrThrow(userId);
     const language = languageId ?? profile.languageId;
+    const visible = this.visibleBooks(profile.level as CefrLevel, language, profile.languageId);
 
     const chapters = await this.prisma.chapter.findMany({
       where: { languageId: language },
@@ -65,7 +76,7 @@ export class WorkbookService {
     });
     const statusByUnit = new Map(rows.map((row) => [row.unitId, row.status]));
 
-    return WORKBOOK_BOOKS.map((book) => {
+    return visible.map((book) => {
       const ofBook = chapters.filter((chapter) => chapter.book === book);
       const publishedChapters = ofBook.filter((chapter) => chapter.isPublished);
       const pages = publishedChapters.flatMap((chapter) =>
@@ -107,9 +118,16 @@ export class WorkbookService {
    */
   async getBook(userId: string, book: WorkbookBook, languageId?: string): Promise<BookDetailDto> {
     const profile = await this.users.getActiveProfileOrThrow(userId);
+    const language = languageId ?? profile.languageId;
+
+    // Ein gesperrtes Kursbuch lässt sich auch nicht direkt aufschlagen – sonst
+    // wäre die Sperre im Regal bloß Kulisse (siehe `listBooks`).
+    if (!this.visibleBooks(profile.level as CefrLevel, language, profile.languageId).includes(book)) {
+      throw new ForbiddenException(ERR['forbidden.book_level']);
+    }
 
     const chapters = await this.prisma.chapter.findMany({
-      where: { languageId: languageId ?? profile.languageId, book },
+      where: { languageId: language, book },
       include: { units: { orderBy: { order: 'asc' } } },
       orderBy: { order: 'asc' },
     });
@@ -123,6 +141,23 @@ export class WorkbookService {
       book: book as WorkbookBookName,
       chapters: chapters.map((chapter) => this.toDetail(chapter, chapter.units, byUnit)),
     };
+  }
+
+  /**
+   * Welche Bände für diesen Nutzer offen liegen – das Kursbuch seiner Stufe
+   * plus die Grammatik (siehe `booksForLevel`).
+   *
+   * Fragt die App ausdrücklich eine andere Sprache ab als die aktive, gibt es
+   * dafür kein Profil-Niveau; dann bleibt es bei allen Bänden, statt anhand
+   * einer fremden Stufe zu sperren.
+   */
+  private visibleBooks(
+    level: CefrLevel,
+    languageId: string,
+    profileLanguageId: string,
+  ): WorkbookBook[] {
+    const books = languageId === profileLanguageId ? booksForLevel(level) : WORKBOOK_BOOKS;
+    return books as unknown as WorkbookBook[];
   }
 
   // ------------------------------------------------------------- Kapitel

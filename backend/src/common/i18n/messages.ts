@@ -57,6 +57,7 @@ const de = {
   'forbidden.notebook': 'Kein Zugriff auf dieses Heft',
   'forbidden.conversation': 'Kein Zugriff auf dieses Gespräch',
   'forbidden.deck_other_user': 'Dieses Deck gehört einem anderen Nutzer',
+  'forbidden.book_level': 'Dieses Buch gehört zu einem anderen Niveau',
   'forbidden.deck_readonly': 'Dieses Deck kann nicht bearbeitet werden',
   'forbidden.vocab_readonly': 'Diese Vokabel kann nicht gelöscht werden',
 
@@ -155,6 +156,7 @@ const en: MessageCatalog = {
   'forbidden.notebook': 'No access to this notebook',
   'forbidden.conversation': 'No access to this conversation',
   'forbidden.deck_other_user': 'This deck belongs to another user',
+  'forbidden.book_level': 'This book belongs to a different level',
   'forbidden.deck_readonly': 'This deck cannot be edited',
   'forbidden.vocab_readonly': 'This word cannot be deleted',
 
@@ -243,6 +245,7 @@ const es: MessageCatalog = {
   'forbidden.notebook': 'Sin acceso a este cuaderno',
   'forbidden.conversation': 'Sin acceso a esta conversación',
   'forbidden.deck_other_user': 'Este mazo pertenece a otro usuario',
+  'forbidden.book_level': 'Este libro pertenece a otro nivel',
   'forbidden.deck_readonly': 'Este mazo no se puede editar',
   'forbidden.vocab_readonly': 'Esta palabra no se puede eliminar',
 
@@ -331,6 +334,7 @@ const fr: MessageCatalog = {
   'forbidden.notebook': 'Pas d’accès à ce cahier',
   'forbidden.conversation': 'Pas d’accès à cette conversation',
   'forbidden.deck_other_user': 'Ce paquet appartient à un autre utilisateur',
+  'forbidden.book_level': 'Ce livre appartient à un autre niveau',
   'forbidden.deck_readonly': 'Ce paquet ne peut pas être modifié',
   'forbidden.vocab_readonly': 'Ce mot ne peut pas être supprimé',
 
@@ -421,6 +425,7 @@ const it: MessageCatalog = {
   'forbidden.notebook': 'Nessun accesso a questo quaderno',
   'forbidden.conversation': 'Nessun accesso a questa conversazione',
   'forbidden.deck_other_user': 'Questo mazzo appartiene a un altro utente',
+  'forbidden.book_level': 'Questo libro appartiene a un altro livello',
   'forbidden.deck_readonly': 'Questo mazzo non può essere modificato',
   'forbidden.vocab_readonly': 'Questo vocabolo non può essere eliminato',
 
