@@ -16,7 +16,7 @@ import type {
 } from '@lingua/shared';
 import { Button, ErrorState, Loading } from '../../components';
 import { alert } from '../../utils/alert';
-import { placementApi, usersApi } from '../../api/endpoints';
+import { placementApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, fontFamily, levelColors, radius, shadow, spacing, typography } from '../../theme';
@@ -47,7 +47,7 @@ type Phase = 'intro' | 'question' | 'stageBreak' | 'evaluating' | 'result';
  * welche Stufen geschafft sind und wo man gerade steht, die Punktreihe
  * darunter, die wievielte der fünf Fragen dran ist.
  */
-export default function PlacementTestScreen({ route }: Props) {
+export default function PlacementTestScreen({ route, navigation }: Props) {
   const { languageId, languageName } = route.params;
   const { t } = useTranslation();
   const refreshUser = useAuthStore((state) => state.refreshUser);
@@ -118,10 +118,12 @@ export default function PlacementTestScreen({ route }: Props) {
       alert(t('placementEvaluationFailedTitle'), t('placementEvaluationFailedBody')),
   });
 
-  // Der Test ist der letzte Schritt des Onboardings – mit dem Ergebnisbild ist es durch.
+  // Das Lernprofil steht mit der Auswertung bereits (siehe `PlacementService`);
+  // hier wird nur der frische Nutzer geholt, damit der Startbildschirm Sprache
+  // und erreichtes Niveau anzeigen kann. Abgeschlossen wird das Einrichten dort.
   const finish = useMutation({
-    mutationFn: () => usersApi.completeOnboarding(),
-    onSuccess: () => refreshUser(),
+    mutationFn: () => refreshUser(),
+    onSuccess: () => navigation.navigate('Ready'),
   });
 
   if (isLoading) return <Loading label={t('placementPreparing')} />;
@@ -496,7 +498,7 @@ function ResultView({
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={footer}>
-        <Button label={t('placementLetsGo')} onPress={onFinish} loading={isFinishing} />
+        <Button label={t('commonNext')} onPress={onFinish} loading={isFinishing} />
       </SafeAreaView>
     </SafeAreaView>
   );

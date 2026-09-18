@@ -115,28 +115,24 @@ export const de = {
   homeWeekdayFri: 'Fr',
   homeWeekdaySat: 'Sa',
 
-  // -------------------------------------------------------------- Anmelden
-  authLoginTitle: 'Willkommen bei Lingopanda',
-  authLoginSubtitle: 'Melde dich an und lerne dort weiter, wo du aufgehört hast.',
-  authEmail: 'E-Mail',
-  authEmailPlaceholder: 'du@beispiel.de',
-  authPassword: 'Passwort',
-  authSignIn: 'Anmelden',
-  authNoAccount: 'Noch kein Konto? Registrieren',
-  authTestAccess: 'Testzugang',
-  authRegisterTitle: 'Konto erstellen',
-  authRegisterSubtitle: 'Danach wählst du deine Lernsprache und dein Niveau.',
-  authName: 'Name',
-  authNamePlaceholder: 'Wie sollen wir dich nennen?',
-  authPasswordPlaceholder: 'Mindestens 8 Zeichen',
-  authRegister: 'Registrieren',
-  authHaveAccount: 'Ich habe schon ein Konto',
-  authErrorEmail: 'Bitte eine gültige E-Mail-Adresse angeben.',
-  authErrorName: 'Mindestens 2 Zeichen.',
-  authErrorPasswordLength: 'Mindestens 8 Zeichen.',
-  authErrorPasswordChars: 'Mindestens ein Buchstabe und eine Ziffer.',
+  // ------------------------------------------------ Profil & Willkommen
+  welcomeWhoIsLearning: 'Wer lernt gerade?',
+  welcomeGateSubtitle: 'Tippe auf dein Profil und lerne dort weiter, wo du aufgehört hast.',
+  welcomeContinueLearning: 'Weiterlernen',
+  welcomeResumeSetup: 'Einrichtung fortsetzen',
+  welcomeAddProfile: 'Neues Profil',
+  welcomeAddProfileHint: 'Für jemanden, der dieses Gerät mitbenutzt.',
+  welcomeProfileGone: 'Dieses Profil gibt es nicht mehr. Bitte lege ein neues an.',
+  welcomeCreateTitle: 'Wie sollen wir dich nennen?',
+  welcomeCreateSubtitle:
+    'Kein Konto, keine E-Mail: Name und Tier genügen – alles andere lässt sich später ändern.',
+  welcomePickAnimal: 'Wähle dein Tier',
+  welcomeNameLabel: 'Dein Name',
+  welcomeNamePlaceholder: 'z. B. Alex',
+  welcomeBackToProfiles: 'Zurück zur Auswahl',
 
   // ------------------------------------------------------------ Onboarding
+  onboardingStepOf: 'Schritt {current} von {total}',
   onboardingLanguagesLoading: 'Sprachen werden geladen …',
   onboardingLanguagesError: 'Die Sprachen konnten nicht geladen werden.',
   onboardingWhatToLearn: 'Was möchtest du lernen?',
@@ -151,6 +147,12 @@ export const de = {
   onboardingChooseLevel: 'Niveau auswählen',
   onboardingSaveFailedTitle: 'Speichern fehlgeschlagen',
   onboardingSaveFailedBody: 'Bitte prüfe deine Verbindung und versuche es erneut.',
+
+  // ------------------------------------------------------------- Startklar
+  readyTitle: 'Alles bereit, {name}!',
+  readySubtitle: 'Dein Profil steht. Ab hier geht es ums Lernen.',
+  readyChangeLaterHint: 'Sprache, Niveau und Tier lassen sich jederzeit im Profil ändern.',
+  readyStart: 'Loslernen',
 
   // -------------------------------------------------------- Einstufungstest
   placementPreparing: 'Test wird vorbereitet …',
@@ -176,7 +178,6 @@ export const de = {
   placementContinueTo: 'Weiter zu {level}',
   placementYourLevel: 'Dein Niveau',
   placementYourPath: 'Dein Weg durch den Test',
-  placementLetsGo: 'Los geht’s',
   placementEvaluationFailedTitle: 'Auswertung fehlgeschlagen',
   placementEvaluationFailedBody: 'Bitte prüfe deine Verbindung und versuche es erneut.',
 
@@ -592,9 +593,12 @@ export const de = {
   profileTestMode: 'Testmodus – noch ohne Zahlungsanbieter.',
   profilePremiumActivatedTitle: 'Premium aktiv',
   profilePremiumActivatedBody: 'Alle KI-Funktionen stehen dir jetzt zur Verfügung.',
-  profileLogout: 'Abmelden',
-  profileLogoutTitle: 'Abmelden?',
-  profileLogoutBody: 'Du kannst dich jederzeit wieder anmelden.',
+  profileSwitchProfile: 'Profil wechseln',
+  profileLockProfile: 'Profil verlassen',
+  profileDeleteProfile: 'Dieses Profil löschen',
+  profileDeleteTitle: 'Profil löschen?',
+  profileDeleteBody:
+    '{name} wird mit dem gesamten Lernstand endgültig gelöscht. Das lässt sich nicht rückgängig machen.',
   profileLevelFromTest: 'per Test ermittelt',
   profileLevelSelfSelected: 'selbst gewählt',
   profileActive: 'Aktiv',

@@ -105,28 +105,24 @@ export const it: TranslationDictionary = {
   homeWeekdayFri: 'Ven',
   homeWeekdaySat: 'Sab',
 
-  // ----------------------------------------------------------------- Login
-  authLoginTitle: 'Benvenuto su Lingopanda',
-  authLoginSubtitle: 'Accedi e riprendi da dove avevi lasciato.',
-  authEmail: 'E-mail',
-  authEmailPlaceholder: 'tu@esempio.com',
-  authPassword: 'Password',
-  authSignIn: 'Accedi',
-  authNoAccount: 'Non hai ancora un account? Registrati',
-  authTestAccess: 'Account demo',
-  authRegisterTitle: 'Crea un account',
-  authRegisterSubtitle: 'Poi scegli la lingua da imparare e il tuo livello.',
-  authName: 'Nome',
-  authNamePlaceholder: 'Come vuoi che ti chiamiamo?',
-  authPasswordPlaceholder: 'Almeno 8 caratteri',
-  authRegister: 'Registrati',
-  authHaveAccount: 'Ho già un account',
-  authErrorEmail: 'Inserisci un indirizzo e-mail valido.',
-  authErrorName: 'Almeno 2 caratteri.',
-  authErrorPasswordLength: 'Almeno 8 caratteri.',
-  authErrorPasswordChars: 'Almeno una lettera e una cifra.',
+  // ------------------------------------------------ Profili e benvenuto
+  welcomeWhoIsLearning: 'Chi sta imparando?',
+  welcomeGateSubtitle: 'Tocca il tuo profilo e riprendi da dove eri rimasto.',
+  welcomeContinueLearning: 'Continua a imparare',
+  welcomeResumeSetup: 'Completa la configurazione',
+  welcomeAddProfile: 'Nuovo profilo',
+  welcomeAddProfileHint: 'Per qualcun altro che usa questo dispositivo.',
+  welcomeProfileGone: 'Questo profilo non esiste più. Creane uno nuovo.',
+  welcomeCreateTitle: 'Come vuoi che ti chiamiamo?',
+  welcomeCreateSubtitle:
+    'Niente account, niente e-mail: bastano un nome e un animale, il resto si cambia dopo.',
+  welcomePickAnimal: 'Scegli il tuo animale',
+  welcomeNameLabel: 'Il tuo nome',
+  welcomeNamePlaceholder: 'es. Alex',
+  welcomeBackToProfiles: 'Torna ai profili',
 
   // ------------------------------------------------------------ Onboarding
+  onboardingStepOf: 'Passo {current} di {total}',
   onboardingLanguagesLoading: 'Caricamento delle lingue …',
   onboardingLanguagesError: 'Non è stato possibile caricare le lingue.',
   onboardingWhatToLearn: 'Che cosa vuoi imparare?',
@@ -141,6 +137,13 @@ export const it: TranslationDictionary = {
   onboardingChooseLevel: 'Scegli un livello',
   onboardingSaveFailedTitle: 'Salvataggio non riuscito',
   onboardingSaveFailedBody: 'Controlla la connessione e riprova.',
+
+  // ------------------------------------------------------------ Tutto pronto
+  readyTitle: 'Tutto pronto, {name}!',
+  readySubtitle: 'Il tuo profilo è a posto. Da qui in poi si impara.',
+  readyChangeLaterHint:
+    'Lingua, livello e animale si possono cambiare in qualsiasi momento nel profilo.',
+  readyStart: 'Inizia a imparare',
 
   // -------------------------------------------------------- Test di livello
   placementPreparing: 'Preparazione del test …',
@@ -166,7 +169,6 @@ export const it: TranslationDictionary = {
   placementContinueTo: 'Continua con {level}',
   placementYourLevel: 'Il tuo livello',
   placementYourPath: 'Il tuo percorso nel test',
-  placementLetsGo: 'Si parte',
   placementEvaluationFailedTitle: 'Valutazione non riuscita',
   placementEvaluationFailedBody: 'Controlla la connessione e riprova.',
 
@@ -581,9 +583,12 @@ export const it: TranslationDictionary = {
   profileTestMode: 'Modalità di prova: ancora senza sistema di pagamento.',
   profilePremiumActivatedTitle: 'Premium attivo',
   profilePremiumActivatedBody: 'Ora hai a disposizione tutte le funzioni IA.',
-  profileLogout: 'Esci',
-  profileLogoutTitle: 'Uscire?',
-  profileLogoutBody: 'Puoi rientrare quando vuoi.',
+  profileSwitchProfile: 'Cambia profilo',
+  profileLockProfile: 'Esci dal profilo',
+  profileDeleteProfile: 'Elimina questo profilo',
+  profileDeleteTitle: 'Eliminare il profilo?',
+  profileDeleteBody:
+    '{name} verrà eliminato definitivamente con tutti i progressi. L’operazione è irreversibile.',
   profileLevelFromTest: 'dal test di livello',
   profileLevelSelfSelected: 'scelto da te',
   profileActive: 'Attivo',

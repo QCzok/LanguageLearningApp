@@ -12,14 +12,21 @@ import { createHash, randomBytes } from 'node:crypto';
 import { authConfig } from '../../config/configuration';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
-import { ChangePasswordDto, LoginDto, RegisterDto } from './dto/auth.dto';
-import type { AuthResponse, AuthTokens } from '@lingua/shared';
+import { ChangePasswordDto, CreateGuestDto, LoginDto, RegisterDto } from './dto/auth.dto';
+import type { AuthResponse, AuthTokens, GuestAuthResponse } from '@lingua/shared';
 
 import { ERR } from '../../common/i18n/messages';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+
+  /**
+   * Adressraum der still angelegten Geräteprofile. Die Domain existiert nicht
+   * und soll es auch nicht: Die Adresse ist nur ein eindeutiger Schlüssel, an
+   * ihr hängt kein Postfach.
+   */
+  private static readonly GUEST_EMAIL_DOMAIN = 'guest.lingopanda.app';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -43,6 +50,38 @@ export class AuthService {
 
     this.logger.log(`Neues Konto registriert: ${user.id}`);
     return this.buildAuthResponse(user.id, user.email, userAgent);
+  }
+
+  /**
+   * Legt ein Konto ohne Registrierung an – der Weg, den die App geht.
+   *
+   * Der Lernende gibt nur Name und Tier-Icon an; E-Mail und Geheimnis entstehen
+   * hier und gehen einmalig an das Gerät zurück, das sie verwahrt. Anmelden
+   * läuft danach über den gewöhnlichen `/auth/login`: Ein Geräteprofil ist
+   * serverseitig ein normales Konto, nur eines, dessen Zugangsdaten niemand
+   * eintippen muss.
+   *
+   * Die Zufallswerte entstehen bewusst auf dem Server: React Native bringt kein
+   * `crypto.getRandomValues` mit, und das Geheimnis ist der einzige Schlüssel
+   * zu diesem Konto.
+   */
+  async createGuest(dto: CreateGuestDto, userAgent?: string): Promise<GuestAuthResponse> {
+    const email = `guest.${randomBytes(12).toString('hex')}@${AuthService.GUEST_EMAIL_DOMAIN}`;
+    const secret = randomBytes(24).toString('base64url');
+
+    const user = await this.prisma.user.create({
+      data: {
+        email,
+        passwordHash: await this.hashPassword(secret),
+        displayName: dto.displayName,
+        avatarIcon: dto.avatarIcon,
+        nativeLanguage: dto.nativeLanguage ?? 'de',
+      },
+    });
+
+    this.logger.log(`Geräteprofil angelegt: ${user.id}`);
+    const response = await this.buildAuthResponse(user.id, user.email, userAgent);
+    return { ...response, credentials: { email, secret } };
   }
 
   async login(dto: LoginDto, userAgent?: string): Promise<AuthResponse> {

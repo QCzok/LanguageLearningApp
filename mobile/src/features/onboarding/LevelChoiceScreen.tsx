@@ -10,13 +10,15 @@ import { usersApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, spacing, typography } from '../../theme';
+import { StepIndicator } from './StepIndicator';
 import type { OnboardingStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'LevelChoice'>;
 
 /**
- * Zwei Wege zum Niveau: Einstufungstest oder Selbsteinschätzung.
- * Beide enden im selben Zustand (aktives Lernprofil + abgeschlossenes Onboarding).
+ * Schritt 3 von 4 – zwei Wege zum Niveau: Einstufungstest oder
+ * Selbsteinschätzung. Beide enden im selben Zustand (ein aktives Lernprofil)
+ * und münden in den Startbildschirm, der das Einrichten abschließt.
  */
 export default function LevelChoiceScreen({ route, navigation }: Props) {
   const { languageId, languageName } = route.params;
@@ -25,18 +27,21 @@ export default function LevelChoiceScreen({ route, navigation }: Props) {
   const refreshUser = useAuthStore((state) => state.refreshUser);
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async (level: CefrLevel) => {
-      await usersApi.setLearningProfile({ languageId, level, levelSource: 'SELF_SELECTED' });
-      return usersApi.completeOnboarding();
+    mutationFn: (level: CefrLevel) =>
+      usersApi.setLearningProfile({ languageId, level, levelSource: 'SELF_SELECTED' }),
+    // Erst den frischen Nutzer holen, dann weiter: Der Startbildschirm zeigt
+    // Sprache und Niveau aus dem Store – ohne diesen Schritt stünde er leer.
+    onSuccess: async () => {
+      await refreshUser();
+      navigation.navigate('Ready');
     },
-    // Nach dem Onboarding wechselt der RootNavigator automatisch in die Haupt-App,
-    // sobald der aktualisierte Nutzer im Store liegt.
-    onSuccess: () => refreshUser(),
     onError: () => alert(t('onboardingSaveFailedTitle'), t('onboardingSaveFailedBody')),
   });
 
   return (
     <Screen scroll>
+      <StepIndicator step={3} />
+
       <View style={{ gap: spacing.sm }}>
         <Title>{t('onboardingLevelTitle', { language: languageName })}</Title>
         <Body muted>{t('onboardingLevelSubtitle')}</Body>

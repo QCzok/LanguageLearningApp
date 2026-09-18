@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEmail, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength, MinLength } from 'class-validator';
+import { AVATAR_ICON_IDS } from '@lingua/shared';
 
 import { ERR } from '../../../common/i18n/messages';
 
@@ -23,6 +24,31 @@ export class RegisterDto {
   @Length(2, 40, { message: ERR['validation.display_name'] })
   @Transform(({ value }) => String(value).trim())
   displayName!: string;
+
+  @ApiPropertyOptional({ example: 'de', description: 'Muttersprache (ISO-639-1)' })
+  @IsOptional()
+  @IsString()
+  @Length(2, 5)
+  nativeLanguage?: string;
+}
+
+/**
+ * Ein Profil ohne Registrierung: Name und Tier-Icon genügen.
+ *
+ * E-Mail und Geheimnis vergibt der Server (siehe `AuthService.createGuest`) –
+ * abgefragt wird beides nie.
+ */
+export class CreateGuestDto {
+  @ApiProperty({ example: 'Alex' })
+  @IsString()
+  @Length(2, 40, { message: ERR['validation.display_name'] })
+  @Transform(({ value }) => String(value).trim())
+  displayName!: string;
+
+  @ApiPropertyOptional({ enum: AVATAR_ICON_IDS, example: 'panda' })
+  @IsOptional()
+  @IsIn(AVATAR_ICON_IDS, { message: ERR['validation.avatar_icon'] })
+  avatarIcon?: string;
 
   @ApiPropertyOptional({ example: 'de', description: 'Muttersprache (ISO-639-1)' })
   @IsOptional()

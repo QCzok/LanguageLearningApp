@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { AuthService } from './auth.service';
-import { ChangePasswordDto, LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import { ChangePasswordDto, CreateGuestDto, LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -17,6 +17,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Neues Konto anlegen' })
   register(@Body() dto: RegisterDto, @Headers('user-agent') userAgent?: string) {
     return this.auth.register(dto, userAgent);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Post('guest')
+  @ApiOperation({ summary: 'Profil ohne Registrierung anlegen' })
+  guest(@Body() dto: CreateGuestDto, @Headers('user-agent') userAgent?: string) {
+    return this.auth.createGuest(dto, userAgent);
   }
 
   @Public()

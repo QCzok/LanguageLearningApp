@@ -105,28 +105,24 @@ export const en: TranslationDictionary = {
   homeWeekdayFri: 'Fri',
   homeWeekdaySat: 'Sat',
 
-  // ---------------------------------------------------------------- Auth
-  authLoginTitle: 'Welcome to Lingopanda',
-  authLoginSubtitle: 'Sign in and carry on where you left off.',
-  authEmail: 'Email',
-  authEmailPlaceholder: 'you@example.com',
-  authPassword: 'Password',
-  authSignIn: 'Sign in',
-  authNoAccount: 'No account yet? Sign up',
-  authTestAccess: 'Demo account',
-  authRegisterTitle: 'Create an account',
-  authRegisterSubtitle: 'Next you pick the language you want to learn and your level.',
-  authName: 'Name',
-  authNamePlaceholder: 'What should we call you?',
-  authPasswordPlaceholder: 'At least 8 characters',
-  authRegister: 'Sign up',
-  authHaveAccount: 'I already have an account',
-  authErrorEmail: 'Please enter a valid email address.',
-  authErrorName: 'At least 2 characters.',
-  authErrorPasswordLength: 'At least 8 characters.',
-  authErrorPasswordChars: 'At least one letter and one digit.',
+  // ------------------------------------------------- Profiles & welcome
+  welcomeWhoIsLearning: 'Who is learning?',
+  welcomeGateSubtitle: 'Tap your profile and carry on where you left off.',
+  welcomeContinueLearning: 'Keep learning',
+  welcomeResumeSetup: 'Finish setting up',
+  welcomeAddProfile: 'New profile',
+  welcomeAddProfileHint: 'For someone else who shares this device.',
+  welcomeProfileGone: 'This profile no longer exists. Please create a new one.',
+  welcomeCreateTitle: 'What should we call you?',
+  welcomeCreateSubtitle:
+    'No account, no email: a name and an animal are enough – everything else you can change later.',
+  welcomePickAnimal: 'Pick your animal',
+  welcomeNameLabel: 'Your name',
+  welcomeNamePlaceholder: 'e.g. Alex',
+  welcomeBackToProfiles: 'Back to the profiles',
 
   // ---------------------------------------------------------- Onboarding
+  onboardingStepOf: 'Step {current} of {total}',
   onboardingLanguagesLoading: 'Loading languages …',
   onboardingLanguagesError: 'The languages could not be loaded.',
   onboardingWhatToLearn: 'What would you like to learn?',
@@ -141,6 +137,12 @@ export const en: TranslationDictionary = {
   onboardingChooseLevel: 'Choose a level',
   onboardingSaveFailedTitle: 'Could not save',
   onboardingSaveFailedBody: 'Please check your connection and try again.',
+
+  // ------------------------------------------------------------- Ready to go
+  readyTitle: 'All set, {name}!',
+  readySubtitle: 'Your profile is ready. From here on it is all learning.',
+  readyChangeLaterHint: 'You can change language, level and animal in your profile at any time.',
+  readyStart: 'Start learning',
 
   // ------------------------------------------------------- Placement test
   placementPreparing: 'Preparing the test …',
@@ -166,7 +168,6 @@ export const en: TranslationDictionary = {
   placementContinueTo: 'Continue to {level}',
   placementYourLevel: 'Your level',
   placementYourPath: 'Your way through the test',
-  placementLetsGo: 'Let’s go',
   placementEvaluationFailedTitle: 'Evaluation failed',
   placementEvaluationFailedBody: 'Please check your connection and try again.',
 
@@ -581,9 +582,12 @@ export const en: TranslationDictionary = {
   profileTestMode: 'Test mode – no payment provider yet.',
   profilePremiumActivatedTitle: 'Premium active',
   profilePremiumActivatedBody: 'All AI features are available to you now.',
-  profileLogout: 'Sign out',
-  profileLogoutTitle: 'Sign out?',
-  profileLogoutBody: 'You can sign back in at any time.',
+  profileSwitchProfile: 'Switch profile',
+  profileLockProfile: 'Leave profile',
+  profileDeleteProfile: 'Delete this profile',
+  profileDeleteTitle: 'Delete profile?',
+  profileDeleteBody:
+    '{name} will be deleted for good, along with all progress. This cannot be undone.',
   profileLevelFromTest: 'from the placement test',
   profileLevelSelfSelected: 'chosen by you',
   profileActive: 'Active',

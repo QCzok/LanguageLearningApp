@@ -83,10 +83,14 @@ und Empfehlungen aktiv. Modell und Kontingente sind über `AI_MODEL`,
 
 ## Funktionsumfang
 
-**Registrierung & Onboarding** – Registrierung/Login mit Argon2id und rotierenden
-Refresh-Tokens. Danach Sprachwahl, dann entweder Einstufungstest (24 Fragen von
-A1 bis C2, stufenweise Auswertung) oder Selbsteinschätzung. Mehrere Lernsprachen
-pro Konto, genau eine davon aktiv.
+**Profil & Onboarding** – keine Registrierung: Wer die App öffnet, wählt Namen
+und Tier-Icon, und das Konto dahinter legt die App still an (`/auth/guest`,
+Argon2id und rotierende Refresh-Tokens wie zuvor). Einrichten in vier Schritten:
+Profil, Lernsprache, Niveau – entweder über den Einstufungstest (24 Fragen von
+A1 bis C2, stufenweise Auswertung) oder selbst gewählt – und los. Das Gerät
+verwahrt die Zugangsdaten; beim nächsten Start wählt man sein Profil aus einer
+Liste, auf einem Gerät können also mehrere Lernende eines haben. Mehrere
+Lernsprachen pro Profil, genau eine davon aktiv.
 
 **Vokabeltrainer** – Decks nach Sprache und Niveau, fünf Lernmodi (Lernkarte,
 Auswahl, Eintippen, Hören, Zuordnen) und ein SM-2-Wiederholungssystem. Die

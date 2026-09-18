@@ -105,28 +105,24 @@ export const es: TranslationDictionary = {
   homeWeekdayFri: 'Vi',
   homeWeekdaySat: 'Sá',
 
-  // ---------------------------------------------------------- Autenticación
-  authLoginTitle: 'Bienvenido a Lingopanda',
-  authLoginSubtitle: 'Inicia sesión y sigue donde lo dejaste.',
-  authEmail: 'Correo electrónico',
-  authEmailPlaceholder: 'tu@ejemplo.com',
-  authPassword: 'Contraseña',
-  authSignIn: 'Iniciar sesión',
-  authNoAccount: '¿Aún no tienes cuenta? Regístrate',
-  authTestAccess: 'Cuenta de prueba',
-  authRegisterTitle: 'Crear una cuenta',
-  authRegisterSubtitle: 'Después eliges el idioma que quieres aprender y tu nivel.',
-  authName: 'Nombre',
-  authNamePlaceholder: '¿Cómo quieres que te llamemos?',
-  authPasswordPlaceholder: 'Al menos 8 caracteres',
-  authRegister: 'Registrarse',
-  authHaveAccount: 'Ya tengo una cuenta',
-  authErrorEmail: 'Introduce una dirección de correo válida.',
-  authErrorName: 'Al menos 2 caracteres.',
-  authErrorPasswordLength: 'Al menos 8 caracteres.',
-  authErrorPasswordChars: 'Al menos una letra y un número.',
+  // ---------------------------------------------- Perfiles y bienvenida
+  welcomeWhoIsLearning: '¿Quién está aprendiendo?',
+  welcomeGateSubtitle: 'Toca tu perfil y sigue donde lo dejaste.',
+  welcomeContinueLearning: 'Seguir aprendiendo',
+  welcomeResumeSetup: 'Terminar la configuración',
+  welcomeAddProfile: 'Nuevo perfil',
+  welcomeAddProfileHint: 'Para otra persona que use este dispositivo.',
+  welcomeProfileGone: 'Este perfil ya no existe. Crea uno nuevo, por favor.',
+  welcomeCreateTitle: '¿Cómo quieres que te llamemos?',
+  welcomeCreateSubtitle:
+    'Sin cuenta ni correo: basta con un nombre y un animal; lo demás se puede cambiar después.',
+  welcomePickAnimal: 'Elige tu animal',
+  welcomeNameLabel: 'Tu nombre',
+  welcomeNamePlaceholder: 'p. ej. Alex',
+  welcomeBackToProfiles: 'Volver a los perfiles',
 
   // ----------------------------------------------------------- Primeros pasos
+  onboardingStepOf: 'Paso {current} de {total}',
   onboardingLanguagesLoading: 'Cargando idiomas …',
   onboardingLanguagesError: 'No se pudieron cargar los idiomas.',
   onboardingWhatToLearn: '¿Qué quieres aprender?',
@@ -141,6 +137,13 @@ export const es: TranslationDictionary = {
   onboardingChooseLevel: 'Elegir un nivel',
   onboardingSaveFailedTitle: 'No se pudo guardar',
   onboardingSaveFailedBody: 'Comprueba tu conexión e inténtalo de nuevo.',
+
+  // ------------------------------------------------------------ Todo listo
+  readyTitle: '¡Todo listo, {name}!',
+  readySubtitle: 'Tu perfil está preparado. A partir de aquí toca aprender.',
+  readyChangeLaterHint:
+    'Puedes cambiar el idioma, el nivel y el animal en tu perfil cuando quieras.',
+  readyStart: 'Empezar a aprender',
 
   // -------------------------------------------------------- Prueba de nivel
   placementPreparing: 'Preparando la prueba …',
@@ -166,7 +169,6 @@ export const es: TranslationDictionary = {
   placementContinueTo: 'Continuar con {level}',
   placementYourLevel: 'Tu nivel',
   placementYourPath: 'Tu recorrido por la prueba',
-  placementLetsGo: '¡Vamos!',
   placementEvaluationFailedTitle: 'Falló la evaluación',
   placementEvaluationFailedBody: 'Comprueba tu conexión e inténtalo de nuevo.',
 
@@ -581,9 +583,12 @@ export const es: TranslationDictionary = {
   profileTestMode: 'Modo de prueba: todavía sin pasarela de pago.',
   profilePremiumActivatedTitle: 'Premium activo',
   profilePremiumActivatedBody: 'Ya tienes disponibles todas las funciones de IA.',
-  profileLogout: 'Cerrar sesión',
-  profileLogoutTitle: '¿Cerrar sesión?',
-  profileLogoutBody: 'Puedes volver a entrar cuando quieras.',
+  profileSwitchProfile: 'Cambiar de perfil',
+  profileLockProfile: 'Salir del perfil',
+  profileDeleteProfile: 'Eliminar este perfil',
+  profileDeleteTitle: '¿Eliminar el perfil?',
+  profileDeleteBody:
+    '{name} se eliminará definitivamente junto con todo su progreso. No se puede deshacer.',
   profileLevelFromTest: 'según la prueba de nivel',
   profileLevelSelfSelected: 'elegido por ti',
   profileActive: 'Activo',

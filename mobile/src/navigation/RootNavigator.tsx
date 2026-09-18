@@ -9,11 +9,12 @@ import { useAuthStore } from '../store/auth.store';
 import { useTranslation } from '../i18n';
 import { WebLayout } from './WebLayout';
 
-import LoginScreen from '../features/auth/LoginScreen';
-import RegisterScreen from '../features/auth/RegisterScreen';
+import ProfileGateScreen from '../features/welcome/ProfileGateScreen';
+import CreateProfileScreen from '../features/welcome/CreateProfileScreen';
 import LanguageSelectScreen from '../features/onboarding/LanguageSelectScreen';
 import LevelChoiceScreen from '../features/onboarding/LevelChoiceScreen';
 import PlacementTestScreen from '../features/onboarding/PlacementTestScreen';
+import ReadyScreen from '../features/onboarding/ReadyScreen';
 import HomeScreen from '../features/home/HomeScreen';
 import DeckListScreen from '../features/vocabulary/DeckListScreen';
 import DeckDetailScreen from '../features/vocabulary/DeckDetailScreen';
@@ -36,7 +37,6 @@ import ProfileScreen from '../features/profile/ProfileScreen';
 
 import type {
   AiStackParamList,
-  AuthStackParamList,
   LibraryStackParamList,
   MainTabParamList,
   MediaStackParamList,
@@ -44,6 +44,7 @@ import type {
   OnboardingStackParamList,
   RootStackParamList,
   VocabularyStackParamList,
+  WelcomeStackParamList,
 } from './types';
 
 const defaultStackOptions = {
@@ -55,21 +56,37 @@ const defaultStackOptions = {
 
 // ------------------------------------------------------------------- Stacks
 
-const AuthStack = createNativeStackNavigator<AuthStackParamList>();
-function AuthNavigator() {
+const WelcomeStack = createNativeStackNavigator<WelcomeStackParamList>();
+
+/**
+ * Ohne Sitzung: die Profilauswahl – und für den ersten Start der App direkt
+ * das Anlegen eines Profils. Welcher Bildschirm zuerst kommt, entscheidet
+ * allein die Reihenfolge hier; gibt es noch kein Profil, existiert die
+ * Auswahl gar nicht und niemand landet auf einer leeren Liste.
+ */
+function WelcomeNavigator() {
+  const hasProfiles = useAuthStore((state) => state.profiles.length > 0);
   return (
-    <AuthStack.Navigator screenOptions={{ ...defaultStackOptions, headerShown: false }}>
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-      <AuthStack.Screen name="Register" component={RegisterScreen} />
-    </AuthStack.Navigator>
+    <WelcomeStack.Navigator screenOptions={{ ...defaultStackOptions, headerShown: false }}>
+      {hasProfiles && <WelcomeStack.Screen name="ProfileGate" component={ProfileGateScreen} />}
+      <WelcomeStack.Screen name="CreateProfile" component={CreateProfileScreen} />
+    </WelcomeStack.Navigator>
   );
 }
 
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 function OnboardingNavigator() {
   const { t } = useTranslation();
+  // Wer die App zwischen Niveauwahl und Startknopf geschlossen hat, hat sein
+  // Lernprofil bereits – ihm fehlt nur der letzte Schritt. Ihn noch einmal
+  // durch Sprache und Niveau zu schicken, hieße, eine erledigte Wahl erneut
+  // abzufragen.
+  const hasLearningProfile = useAuthStore((state) => (state.user?.profiles.length ?? 0) > 0);
   return (
-    <OnboardingStack.Navigator screenOptions={defaultStackOptions}>
+    <OnboardingStack.Navigator
+      initialRouteName={hasLearningProfile ? 'Ready' : 'LanguageSelect'}
+      screenOptions={defaultStackOptions}
+    >
       <OnboardingStack.Screen
         name="LanguageSelect"
         component={LanguageSelectScreen}
@@ -84,6 +101,13 @@ function OnboardingNavigator() {
         name="PlacementTest"
         component={PlacementTestScreen}
         options={{ title: t('onboardingPlacementTest') }}
+      />
+      {/* Der letzte Schritt steht für sich: Zurück führte nur in Entscheidungen,
+          die bereits gespeichert sind. */}
+      <OnboardingStack.Screen
+        name="Ready"
+        component={ReadyScreen}
+        options={{ headerShown: false }}
       />
     </OnboardingStack.Navigator>
   );
@@ -270,15 +294,17 @@ export default function RootNavigator() {
 
   if (isBootstrapping) return <Loading label={t('commonAppLoading')} />;
 
-  // Der Navigationsbaum leitet sich vollständig aus dem Auth-Zustand ab –
-  // kein imperatives navigate() nach Login oder Onboarding nötig.
-  const target = !user ? 'Auth' : user.onboardingCompleted ? 'Main' : 'Onboarding';
+  // Der Navigationsbaum leitet sich vollständig aus dem Sitzungszustand ab –
+  // kein imperatives navigate() nach Profilwahl oder Onboarding nötig.
+  const target = !user ? 'Welcome' : user.onboardingCompleted ? 'Main' : 'Onboarding';
 
   return (
     <WebLayout>
       <NavigationContainer>
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
-          {target === 'Auth' && <RootStack.Screen name="Auth" component={AuthNavigator} />}
+          {target === 'Welcome' && (
+            <RootStack.Screen name="Welcome" component={WelcomeNavigator} />
+          )}
           {target === 'Onboarding' && (
             <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
           )}

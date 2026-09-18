@@ -35,14 +35,19 @@ Bei Validierungsfehlern ist `message` ein Array mit einer Meldung je Feld.
 
 | Methode | Pfad                    | Beschreibung |
 | ------- | ----------------------- | ------------ |
-| POST    | `/auth/register`        | **öffentlich** · Konto anlegen, liefert Tokens + Nutzer. 5 Versuche/Min. |
-| POST    | `/auth/login`           | **öffentlich** · Anmelden. 10 Versuche/Min. |
+| POST    | `/auth/guest`           | **öffentlich** · Profil ohne Registrierung anlegen (Name + Icon). Liefert Tokens, Nutzer und die Zugangsdaten, die das Gerät verwahrt. 5 Versuche/Min. |
+| POST    | `/auth/register`        | **öffentlich** · Konto mit E-Mail anlegen, liefert Tokens + Nutzer. 5 Versuche/Min. |
+| POST    | `/auth/login`           | **öffentlich** · Anmelden – auch der Weg, auf dem die App ein Geräteprofil fortsetzt. 10 Versuche/Min. |
 | POST    | `/auth/refresh`         | **öffentlich** · Neues Token-Paar. Der alte Refresh-Token wird entwertet. |
 | POST    | `/auth/logout`          | **öffentlich** · Refresh-Token entwerten. |
 | POST    | `/auth/change-password` | Passwort ändern; beendet alle Sitzungen. |
 
 Wiederverwendung eines bereits entwerteten Refresh-Tokens beendet **alle**
 Sitzungen des Kontos – das ist die Reaktion auf einen möglichen Tokendiebstahl.
+
+Die App geht den Weg über `/auth/guest`: Ein Lernender gibt nur Namen und
+Tier-Icon an, E-Mail und Geheimnis vergibt der Server. Serverseitig ist das ein
+gewöhnliches Konto – nur eines, dessen Zugangsdaten niemand eintippen muss.
 
 ## Nutzer & Onboarding
 

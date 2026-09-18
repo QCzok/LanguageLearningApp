@@ -25,7 +25,11 @@ export default function ProfileScreen() {
   const { t, formatDate } = useTranslation();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
-  const logout = useAuthStore((state) => state.logout);
+  const signOut = useAuthStore((state) => state.signOut);
+  const deleteProfile = useAuthStore((state) => state.deleteProfile);
+  const hasOtherProfiles = useAuthStore(
+    (state) => state.profiles.some((profile) => profile.userId !== state.user?.id),
+  );
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const isPremium = useIsPremium();
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -113,7 +117,6 @@ export default function ProfileScreen() {
           </View>
         ) : null}
         <Title>{user.displayName}</Title>
-        <Caption>{user.email}</Caption>
         {isPremium ? <PremiumBadge /> : null}
       </Card>
 
@@ -207,13 +210,27 @@ export default function ProfileScreen() {
         ) : null}
       </Card>
 
+      {/* Kein Abmelden, sondern ein Wechsel: Das Profil bleibt auf dem Gerät
+          und steht beim nächsten Start wieder in der Auswahl. Wirklich
+          verschwinden soll es nur über den zweiten, ausdrücklichen Weg –
+          und dann auch serverseitig samt Lernstand. */}
       <Button
-        label={t('profileLogout')}
+        label={hasOtherProfiles ? t('profileSwitchProfile') : t('profileLockProfile')}
         variant="secondary"
+        onPress={() => void signOut()}
+      />
+
+      <Button
+        label={t('profileDeleteProfile')}
+        variant="ghost"
         onPress={() =>
-          alert(t('profileLogoutTitle'), t('profileLogoutBody'), [
+          alert(t('profileDeleteTitle'), t('profileDeleteBody', { name: user.displayName }), [
             { text: t('commonCancel'), style: 'cancel' },
-            { text: t('profileLogout'), style: 'destructive', onPress: () => void logout() },
+            {
+              text: t('commonDelete'),
+              style: 'destructive',
+              onPress: () => void deleteProfile().catch(() => undefined),
+            },
           ])
         }
       />

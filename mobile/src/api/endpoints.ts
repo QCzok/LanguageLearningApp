@@ -12,6 +12,7 @@ import type {
   ChapterDetailDto,
   DashboardDto,
   ExerciseResultDto,
+  GuestAuthResponse,
   LanguageDto,
   LearningProfileDto,
   LibraryContentDto,
@@ -53,6 +54,13 @@ export const authApi = {
     nativeLanguage?: string;
   }) =>
     api.post<AuthResponse>('/auth/register', body).then((r) => r.data),
+  /**
+   * Legt ein Profil ohne Registrierung an. Die zurückgegebenen Zugangsdaten
+   * verwahrt das Gerät (siehe `device-profiles`) und meldet das Profil damit
+   * später über `login` wieder an.
+   */
+  guest: (body: { displayName: string; avatarIcon?: AvatarIconId; nativeLanguage?: string }) =>
+    api.post<GuestAuthResponse>('/auth/guest', body).then((r) => r.data),
   login: (body: { email: string; password: string }) =>
     api.post<AuthResponse>('/auth/login', body).then((r) => r.data),
   logout: (refreshToken: string) => api.post('/auth/logout', { refreshToken }),
@@ -72,6 +80,7 @@ export const usersApi = {
   activateProfile: (id: string) =>
     api.post<LearningProfileDto>(`/users/me/learning-profiles/${id}/activate`).then((r) => r.data),
   completeOnboarding: () => api.post<UserDto>('/users/me/complete-onboarding').then((r) => r.data),
+  deleteAccount: () => api.delete('/users/me'),
 };
 
 export const languagesApi = {

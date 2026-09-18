@@ -3,16 +3,21 @@ import type { CefrLevel, WorkbookBook } from '@lingua/shared';
 
 /** Zentrale Routen-Typen – jede navigation.navigate()-Nutzung ist damit typgeprüft. */
 
-export type AuthStackParamList = {
-  Login: undefined;
-  Register: undefined;
+/**
+ * Der Weg in die App, solange keine Sitzung besteht: ein Profil wählen oder
+ * eines anlegen. Eine Anmeldung mit E-Mail gibt es nicht.
+ */
+export type WelcomeStackParamList = {
+  ProfileGate: undefined;
+  CreateProfile: undefined;
 };
 
+/** Die Schritte 2 bis 4 des Einrichtens; Schritt 1 liegt im Willkommensteil. */
 export type OnboardingStackParamList = {
   LanguageSelect: undefined;
   LevelChoice: { languageId: string; languageName: string };
   PlacementTest: { languageId: string; languageName: string };
-  PlacementResult: { languageId: string };
+  Ready: undefined;
 };
 
 export type VocabularyStackParamList = {
@@ -72,7 +77,7 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
-  Auth: NavigatorScreenParams<AuthStackParamList>;
+  Welcome: NavigatorScreenParams<WelcomeStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
 };

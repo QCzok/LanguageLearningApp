@@ -72,6 +72,27 @@ export interface AuthResponse extends AuthTokens {
   user: UserDto;
 }
 
+/**
+ * Zugangsdaten eines still angelegten Geräteprofils.
+ *
+ * Die App legt Profile ohne Registrierung an: kein Formular, keine E-Mail, kein
+ * Passwort. Serverseitig bleibt es trotzdem ein gewöhnliches Konto – diese
+ * beiden Werte sind sein Schlüssel. Das Gerät verwahrt sie und meldet das
+ * Profil damit später wieder an; sonst wäre es verloren, sobald der
+ * Refresh-Token abläuft.
+ *
+ * Sie entstehen auf dem Server, weil React Native keine kryptografisch sichere
+ * Zufallsquelle mitbringt.
+ */
+export interface GuestCredentials {
+  email: string;
+  secret: string;
+}
+
+export interface GuestAuthResponse extends AuthResponse {
+  credentials: GuestCredentials;
+}
+
 // ---------------------------------------------------------------- Einstufung
 
 export interface PlacementQuestionDto {

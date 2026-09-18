@@ -6,6 +6,7 @@ import { Body, Card, ErrorState, Heading, Loading, Row, Screen, Title } from '..
 import { languagesApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
 import { colors, spacing, typography } from '../../theme';
+import { StepIndicator } from './StepIndicator';
 import type { OnboardingStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<OnboardingStackParamList, 'LanguageSelect'>;
@@ -25,6 +26,8 @@ export default function LanguageSelectScreen({ navigation }: Props) {
 
   return (
     <Screen scroll>
+      <StepIndicator step={2} />
+
       <View style={{ gap: spacing.sm }}>
         <Title>{t('onboardingWhatToLearn')}</Title>
         <Body muted>{t('onboardingAddLater')}</Body>

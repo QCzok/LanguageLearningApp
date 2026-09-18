@@ -155,15 +155,31 @@ Zwei Ebenen, bewusst getrennt:
 - **Serverdaten**: TanStack Query. Cache, Nachladen, Fehler- und Ladezustände.
   Query-Keys sind nach Ressource geschnitten, damit gezielt invalidiert werden
   kann (z. B. nach einer Lernsitzung: `decks`, `vocab-stats`, `dashboard`).
-- **Sitzung**: Zustand-Store. Nutzer, Tokens, Anmeldung. Die Tokens selbst liegen
-  im Secure Store (Keychain/Keystore), nicht im JS-Zustand.
+- **Sitzung**: Zustand-Store. Nutzer, Tokens und die Profile, die auf diesem
+  Gerät eingerichtet sind. Tokens und Profil-Zugangsdaten liegen im Secure Store
+  (Keychain/Keystore), nicht im JS-Zustand.
 
-### Navigation als Funktion des Auth-Zustands
+### Profile statt Anmeldung
 
-Der `RootNavigator` rendert genau einen von drei Bäumen, abgeleitet aus dem Store:
-kein Nutzer → Auth, Onboarding offen → Onboarding, sonst → Haupt-Tabs. Nach Login
-oder Onboarding gibt es deshalb kein imperatives `navigate()`; es genügt, den
-Nutzer im Store zu aktualisieren.
+Die App verlangt keine Registrierung. Schritt 1 des Einrichtens fragt nur nach
+Namen und Tier-Icon; `/auth/guest` legt dafür ein Konto an und gibt einmalig
+dessen Zugangsdaten zurück. Das Gerät verwahrt sie (`api/device-profiles`, ein
+Secure-Store-Schlüssel je Profil) und meldet das Profil später über den
+gewöhnlichen `/auth/login` wieder an – deshalb der Umweg über dauerhafte
+Zugangsdaten statt über den Refresh-Token: Der läuft nach 30 Tagen ab, das
+Profil soll es nicht.
+
+Die Zufallswerte entstehen im Backend, weil React Native kein
+`crypto.getRandomValues` mitbringt und das Geheimnis der einzige Schlüssel zu
+diesem Konto ist.
+
+### Navigation als Funktion des Sitzungszustands
+
+Der `RootNavigator` rendert genau einen von drei Bäumen, abgeleitet aus dem
+Store: kein Nutzer → Willkommen (Profilauswahl bzw. Profil anlegen), Onboarding
+offen → Onboarding, sonst → Haupt-Tabs. Nach Profilwahl oder Onboarding gibt es
+deshalb kein imperatives `navigate()`; es genügt, den Nutzer im Store zu
+aktualisieren.
 
 ### Token-Refresh
 

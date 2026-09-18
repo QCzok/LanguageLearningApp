@@ -105,28 +105,24 @@ export const fr: TranslationDictionary = {
   homeWeekdayFri: 'Ven',
   homeWeekdaySat: 'Sam',
 
-  // ----------------------------------------------------------- Connexion
-  authLoginTitle: 'Bienvenue sur Lingopanda',
-  authLoginSubtitle: 'Connecte-toi et reprends là où tu t’étais arrêté.',
-  authEmail: 'E-mail',
-  authEmailPlaceholder: 'toi@exemple.com',
-  authPassword: 'Mot de passe',
-  authSignIn: 'Se connecter',
-  authNoAccount: 'Pas encore de compte ? S’inscrire',
-  authTestAccess: 'Compte de démonstration',
-  authRegisterTitle: 'Créer un compte',
-  authRegisterSubtitle: 'Ensuite, tu choisis la langue à apprendre et ton niveau.',
-  authName: 'Nom',
-  authNamePlaceholder: 'Comment devons-nous t’appeler ?',
-  authPasswordPlaceholder: 'Au moins 8 caractères',
-  authRegister: 'S’inscrire',
-  authHaveAccount: 'J’ai déjà un compte',
-  authErrorEmail: 'Indique une adresse e-mail valide.',
-  authErrorName: 'Au moins 2 caractères.',
-  authErrorPasswordLength: 'Au moins 8 caractères.',
-  authErrorPasswordChars: 'Au moins une lettre et un chiffre.',
+  // ------------------------------------------------ Profils & bienvenue
+  welcomeWhoIsLearning: 'Qui apprend ?',
+  welcomeGateSubtitle: 'Touche ton profil et reprends où tu t’es arrêté.',
+  welcomeContinueLearning: 'Continuer à apprendre',
+  welcomeResumeSetup: 'Terminer la configuration',
+  welcomeAddProfile: 'Nouveau profil',
+  welcomeAddProfileHint: 'Pour quelqu’un d’autre qui utilise cet appareil.',
+  welcomeProfileGone: 'Ce profil n’existe plus. Crée-en un nouveau.',
+  welcomeCreateTitle: 'Comment veux-tu qu’on t’appelle ?',
+  welcomeCreateSubtitle:
+    'Pas de compte, pas d’e-mail : un prénom et un animal suffisent – tout le reste se change plus tard.',
+  welcomePickAnimal: 'Choisis ton animal',
+  welcomeNameLabel: 'Ton prénom',
+  welcomeNamePlaceholder: 'par ex. Alex',
+  welcomeBackToProfiles: 'Retour aux profils',
 
   // ------------------------------------------------------------- Démarrage
+  onboardingStepOf: 'Étape {current} sur {total}',
   onboardingLanguagesLoading: 'Chargement des langues …',
   onboardingLanguagesError: 'Les langues n’ont pas pu être chargées.',
   onboardingWhatToLearn: 'Que veux-tu apprendre ?',
@@ -141,6 +137,13 @@ export const fr: TranslationDictionary = {
   onboardingChooseLevel: 'Choisir un niveau',
   onboardingSaveFailedTitle: 'Enregistrement impossible',
   onboardingSaveFailedBody: 'Vérifie ta connexion et réessaie.',
+
+  // ------------------------------------------------------------ Tout est prêt
+  readyTitle: 'Tout est prêt, {name} !',
+  readySubtitle: 'Ton profil est en place. À partir d’ici, place à l’apprentissage.',
+  readyChangeLaterHint:
+    'La langue, le niveau et l’animal se changent à tout moment dans ton profil.',
+  readyStart: 'Commencer à apprendre',
 
   // -------------------------------------------------------- Test de niveau
   placementPreparing: 'Préparation du test …',
@@ -166,7 +169,6 @@ export const fr: TranslationDictionary = {
   placementContinueTo: 'Continuer vers {level}',
   placementYourLevel: 'Ton niveau',
   placementYourPath: 'Ton parcours dans le test',
-  placementLetsGo: 'C’est parti',
   placementEvaluationFailedTitle: 'Échec de l’évaluation',
   placementEvaluationFailedBody: 'Vérifie ta connexion et réessaie.',
 
@@ -581,9 +583,12 @@ export const fr: TranslationDictionary = {
   profileTestMode: 'Mode test – pas encore de prestataire de paiement.',
   profilePremiumActivatedTitle: 'Premium actif',
   profilePremiumActivatedBody: 'Toutes les fonctions IA sont maintenant à ta disposition.',
-  profileLogout: 'Se déconnecter',
-  profileLogoutTitle: 'Se déconnecter ?',
-  profileLogoutBody: 'Tu peux te reconnecter à tout moment.',
+  profileSwitchProfile: 'Changer de profil',
+  profileLockProfile: 'Quitter le profil',
+  profileDeleteProfile: 'Supprimer ce profil',
+  profileDeleteTitle: 'Supprimer le profil ?',
+  profileDeleteBody:
+    '{name} sera supprimé définitivement avec toute sa progression. C’est irréversible.',
   profileLevelFromTest: 'issu du test de niveau',
   profileLevelSelfSelected: 'choisi par toi',
   profileActive: 'Actif',
