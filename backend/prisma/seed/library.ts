@@ -13,19 +13,19 @@ import { CefrLevel, ExerciseType, LibraryType } from '@prisma/client';
  * funktioniert unabhängig von der eingestellten Muttersprache und bleibt so
  * für jeden Text gleich einfach zu pflegen.
  *
- * Volle Übersetzungen (Englisch/Spanisch/Französisch/Italienisch) gibt es
- * bislang nur für den deutschen Wochenmarkt-Text als Referenz – die übrigen
- * Texte tragen schon die neue Struktur samt Glossar, aber noch keine
- * Absatzübersetzung. Der Umschalt-Link erscheint in der App ohnehin nur dort,
- * wo eine Übersetzung tatsächlich hinterlegt ist.
+ * Absatzübersetzungen tragen bisher zwei Bestände: der deutsche
+ * Wochenmarkt-Text in alle vier Sprachen (die Referenz für das Format) und
+ * die gesamte spanische Bibliothek nach Englisch. Die englischen Texte haben
+ * noch keine. Die App blendet den Übersetzungsschalter ohnehin nur dort ein,
+ * wo für die Muttersprache des Lesenden tatsächlich etwas hinterlegt ist.
  *
  * Die spanische Bibliothek (`LIBRARY_SEEDS_ES`) beginnt auf B2: Wer dort
  * ankommt, verlässt gerade den Bereich, in dem man noch mit vereinfachten
  * Texten lernt, und liest hier zum ersten Mal etwas, das auch ein
  * Muttersprachler ohne Anpassung lesen würde – ein Zeitungsessay, eine
- * Kurzgeschichte. Deshalb tragen die Abschnitte, wie bei Deutsch und
- * Englisch auf diesem Niveau, keine Übersetzung, nur das einsprachige
- * Glossar.
+ * Kurzgeschichte. Die englische Fassung steht deshalb als ganzer Absatz
+ * daneben und nicht Wort für Wort: Sie soll tragen, wenn ein langer Satz
+ * kippt, und nicht das Lesen im Original ersetzen.
  */
 
 type Translations = Partial<Record<'en' | 'es' | 'fr' | 'it', string>>;
@@ -617,6 +617,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
     sections: [
       {
         text: 'Hace quince años, el ayuntamiento de Fuenteguinaldo cerró la única escuela del pueblo: quedaban tres alumnos matriculados. El mes pasado volvió a abrir sus puertas, esta vez con once.',
+        translations: {
+          en: "Fifteen years ago, the town council of Fuenteguinaldo closed the village's only school: three pupils were still enrolled. Last month it opened its doors again, this time with eleven.",
+        },
         glossary: [
           {
             term: 'el ayuntamiento',
@@ -630,6 +633,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Fuenteguinaldo no es un caso aislado. Desde los años sesenta, millones de personas abandonaron el campo español para instalarse en Madrid, Barcelona o Bilbao, atraídas primero por la industria y después por los servicios. El resultado es lo que los geógrafos bautizaron como «la España vaciada»: una extensión enorme del interior peninsular con una densidad de población comparable a la de Laponia.',
+        translations: {
+          en: "Fuenteguinaldo is not an isolated case. Since the 1960s, millions of people have left the Spanish countryside to settle in Madrid, Barcelona or Bilbao, drawn first by industry and later by the service sector. The result is what geographers christened 'emptied Spain': a vast stretch of the interior of the peninsula with a population density comparable to Lapland's.",
+        },
         glossary: [
           { term: 'instalarse', explanation: 'irse a vivir a un lugar de forma más o menos permanente.' },
           {
@@ -644,6 +650,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Lo que ha cambiado en los últimos años no es tanto el paisaje como la conexión a internet. La llegada de la fibra óptica a comarcas que antes apenas tenían cobertura para hacer una llamada, sumada a la normalización del teletrabajo tras la pandemia, ha hecho posible algo impensable hace una generación: seguir cobrando un sueldo urbano sin vivir en la ciudad.',
+        translations: {
+          en: 'What has changed in recent years is not so much the landscape as the internet connection. The arrival of fibre optics in districts that previously barely had the coverage to make a phone call, together with remote work becoming normal after the pandemic, has made something possible that was unthinkable a generation ago: going on drawing a city salary without living in the city.',
+        },
         glossary: [
           { term: 'la fibra óptica', explanation: 'un tipo de cable que permite una conexión a internet muy rápida.' },
           {
@@ -658,6 +667,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Los alcaldes de la zona son los primeros en pedir prudencia. Un puñado de nuevos vecinos no basta para mantener abierto un centro de salud ni una línea de autobús, y muchos de los pueblos que ganan población siguen perdiendo, en paralelo, a sus habitantes de más edad. A eso se suma la falta de vivienda en alquiler: hay casas vacías, pero sus dueños no siempre viven cerca ni tienen prisa por decidir qué hacer con ellas.',
+        translations: {
+          en: 'The mayors of the area are the first to urge caution. A handful of new residents is not enough to keep a health centre or a bus route open, and many of the villages that are gaining population are at the same time still losing their oldest inhabitants. On top of that comes the shortage of rental housing: there are empty houses, but their owners do not always live nearby, nor are they in any hurry to decide what to do with them.',
+        },
         glossary: [
           { term: 'el alcalde', explanation: 'la persona elegida para dirigir el ayuntamiento de un pueblo o una ciudad.' },
           { term: 'un puñado de', explanation: 'una cantidad pequeña de personas o cosas.' },
@@ -666,6 +678,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'En Fuenteguinaldo nadie habla todavía de haber revertido décadas de éxodo rural. Pero la escuela vuelve a tener ruido de recreo, y eso, después de tanto silencio, ya se celebra como una buena noticia.',
+        translations: {
+          en: 'In Fuenteguinaldo nobody is talking yet about having reversed decades of rural exodus. But the school has the noise of break time again, and after so much silence that alone is being welcomed as good news.',
+        },
         glossary: [
           { term: 'revertir', explanation: 'hacer que un proceso vuelva al estado en el que estaba antes.' },
           {
@@ -731,6 +746,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
     sections: [
       {
         text: 'El cuaderno tiene las tapas de hule y las esquinas redondeadas de tanto abrirse. En la primera página, con una letra picuda que ya casi nadie usa, pone: «Recetas de la abuela Pilar, para cuando yo falte».',
+        translations: {
+          en: "The notebook has oilcloth covers and corners rounded off from being opened so often. On the first page, in a spiky hand that almost nobody writes in any more, it says: 'Grandma Pilar's recipes, for when I'm gone.'",
+        },
         glossary: [
           {
             term: 'el hule',
@@ -741,6 +759,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Pilar lo empezó a los veinte años, recién casada, porque su suegra le dictaba las cantidades de memoria y ella no confiaba en la suya. «Ajo, al ojo. Sal, la que pida el guiso.» Con los años fue añadiendo sus propias notas al margen: «más despacio», «con el fuego bajo», «a Andrés no le gusta tan picante».',
+        translations: {
+          en: "Pilar started it at twenty, newly married, because her mother-in-law would dictate the quantities from memory and she did not trust her own. 'Garlic, by eye. Salt, however much the stew asks for.' Over the years she added notes of her own in the margin: 'more slowly', 'on a low flame', 'Andrés doesn't like it this spicy'.",
+        },
         glossary: [
           { term: 'la suegra', explanation: 'la madre del marido o de la mujer de una persona.' },
           {
@@ -752,12 +773,18 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Cuando Pilar murió, el cuaderno pasó a su hija Marisa, que durante años lo tuvo guardado en un cajón sin abrirlo. Le dolía demasiado la letra de su madre para usarlo como un libro de cocina cualquiera.',
+        translations: {
+          en: "When Pilar died, the notebook passed to her daughter Marisa, who kept it shut away in a drawer for years without opening it. Her mother's handwriting hurt too much for her to use it as just another cookery book.",
+        },
         glossary: [
           { term: 'el cajón', explanation: 'una caja que se abre y se cierra deslizándola, dentro de un mueble.' },
         ],
       },
       {
         text: 'Marisa lo sacó por fin la Nochebuena en que su hija Elena, de dieciséis años, le pidió ayuda para hacer las croquetas «como las de la bisabuela». Cocinaron juntas por primera vez en mucho tiempo, siguiendo instrucciones que no explicaban nada y lo daban todo por sabido.',
+        translations: {
+          en: "Marisa finally took it out on the Christmas Eve when her sixteen-year-old daughter Elena asked for help making the croquettes 'like great-grandma's'. They cooked together for the first time in a long while, following instructions that explained nothing and took everything for granted.",
+        },
         glossary: [
           { term: 'la Nochebuena', explanation: 'la noche del 24 de diciembre, víspera de Navidad.' },
           { term: 'la bisabuela', explanation: 'la madre de la abuela o del abuelo de una persona.' },
@@ -769,15 +796,24 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Las croquetas les salieron demasiado líquidas la primera vez, y quemadas la segunda. A la tercera, Elena entendió que «al ojo» no significaba «sin pensar», sino algo que solo se aprende con las manos, repitiendo el mismo gesto muchas veces.',
+        translations: {
+          en: "The croquettes came out too runny the first time, and burnt the second. On the third, Elena understood that 'by eye' did not mean 'without thinking', but something you can only learn with your hands, by repeating the same movement many times over.",
+        },
       },
       {
         text: 'Ahora Elena tiene su propio cuaderno, uno nuevo, de tapas azules. Copia en él las recetas de Pilar, pero también añade las suyas, y dibuja pequeñas flechas hacia los márgenes: «esto se puede hacer sin gluten», «mi madre le pone más ajo».',
+        translations: {
+          en: "Now Elena has a notebook of her own, a new one with blue covers. She copies Pilar's recipes into it, but she adds her own as well, and draws little arrows out to the margins: 'this can be made gluten-free', 'my mother puts more garlic in'.",
+        },
         glossary: [
           { term: 'la flecha', explanation: 'un símbolo con forma de línea y punta que señala una dirección.' },
         ],
       },
       {
         text: 'El cuaderno viejo, el de tapas de hule, ha vuelto al cajón. Pero esta vez no es porque nadie quiera abrirlo, sino porque ya ha hecho su trabajo: enseñar a alguien a cocinar sin necesitarlo.',
+        translations: {
+          en: 'The old notebook, the one with the oilcloth covers, has gone back into the drawer. But this time it is not because nobody wants to open it; it is because it has already done its job: teaching someone to cook without it.',
+        },
       },
     ],
     exercises: [
@@ -835,12 +871,18 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
     sections: [
       {
         text: 'Abres el teléfono para comprobar la hora y, veinte minutos después, sigues ahí, mirando vídeos que no recuerdas haber elegido. No ha sido casualidad: alguien ha diseñado esa aplicación precisamente para que ocurra.',
+        translations: {
+          en: "You open your phone to check the time and, twenty minutes later, you are still there, watching videos you don't remember choosing. It was no accident: somebody designed that app precisely so that it would happen.",
+        },
         glossary: [
           { term: 'la casualidad', explanation: 'algo que ocurre sin haber sido planeado ni buscado por nadie.' },
         ],
       },
       {
         text: 'Detrás de cada red social hay un sistema de recomendación: un programa que analiza qué contenidos has visto antes, cuánto tiempo te has quedado en cada uno y en qué momento has dejado de mirar. Con esos datos, predice qué es más probable que te haga quedarte un minuto más, y te lo enseña primero.',
+        translations: {
+          en: 'Behind every social network there is a recommendation system: a program that analyses which content you have watched before, how long you stayed with each item and at what point you stopped looking. From that data it predicts what is most likely to keep you there a minute longer, and shows you that first.',
+        },
         glossary: [
           {
             term: 'el sistema de recomendación',
@@ -854,6 +896,9 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'El objetivo de estas empresas no es que el usuario esté satisfecho al cerrar la aplicación, sino que la abra de nuevo cuanto antes. Por eso hablan menos de «satisfacción» y más de «tiempo de uso» o «tasa de retorno», métricas que se pueden medir y optimizar con precisión.',
+        translations: {
+          en: "The aim of these companies is not for users to be satisfied when they close the app, but for them to open it again as soon as possible. That is why they talk less about 'satisfaction' and more about 'time on app' or 'return rate' - metrics that can be measured and optimised precisely.",
+        },
         glossary: [
           { term: 'la métrica', explanation: 'un dato numérico que se usa para medir el rendimiento o el éxito de algo.' },
           { term: 'optimizar', explanation: 'mejorar algo hasta conseguir el mejor resultado posible.' },
@@ -861,9 +906,15 @@ export const LIBRARY_SEEDS_ES: LibraryContentSeed[] = [
       },
       {
         text: 'Algunos ingenieros que trabajaron en el diseño de estos sistemas han reconocido públicamente que evitaban dar ciertas funciones a sus propios hijos. No porque la tecnología sea mala en sí misma, dicen, sino porque saben exactamente qué mecanismos activa y lo difícil que resulta resistirse a ellos, incluso siendo consciente de cómo funcionan.',
+        translations: {
+          en: 'Some engineers who worked on the design of these systems have publicly admitted that they kept certain features away from their own children. Not because the technology is bad in itself, they say, but because they know exactly which mechanisms it triggers and how hard it is to resist them, even when you are aware of how they work.',
+        },
       },
       {
         text: 'Frente a esto han surgido movimientos que piden un «diseño ético»: aplicaciones que muestren cuánto tiempo llevas usándolas, que permitan desactivar las notificaciones automáticas o que, simplemente, no tengan scroll infinito. La pregunta de fondo, sin embargo, sigue abierta: ¿debe ser el usuario quien controle su propio consumo, o la empresa quien limite un producto que, cuanto más adictivo, más dinero genera?',
+        translations: {
+          en: "In response, movements have sprung up calling for 'ethical design': apps that show you how long you have been using them, that let you turn off automatic notifications, or that simply have no infinite scroll. The underlying question, however, remains open: should it be the user who controls their own consumption, or the company that limits a product which makes more money the more addictive it is?",
+        },
         glossary: [
           {
             term: 'el scroll infinito',

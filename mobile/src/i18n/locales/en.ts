@@ -115,10 +115,8 @@ export const en: TranslationDictionary = {
   welcomeProfileGone: 'This profile no longer exists. Please create a new one.',
   welcomeCreateTitle: 'What should we call you?',
   welcomeCreateSubtitle:
-    'No account, no email: a name and an animal are enough – everything else you can change later.',
-  welcomePickAnimal: 'Pick your animal',
-  welcomeNameLabel: 'Your name',
-  welcomeNamePlaceholder: 'e.g. Alex',
+    'Welcome to LingoPanda.',
+  welcomeNamePlaceholder: 'Your name',
   welcomeBackToProfiles: 'Back to the profiles',
 
   // ---------------------------------------------------------- Onboarding
@@ -467,7 +465,11 @@ export const en: TranslationDictionary = {
   readerExerciseCountOne: '1 exercise on this text',
   readerBestResult: 'best result {percent} %',
   readerStartExercises: 'Start the exercises',
-  readingWordsLabel: 'Words',
+  readingWordsLabel: 'More words',
+  readingExplanationLabel: 'Word note',
+  readingExplainWord: '{word} – show the explanation',
+  readingCloseExplanation: 'Close the explanation',
+  readingHint: 'Tap an underlined word – the explanation appears right next to it.',
   readingReadInLanguage: 'Read in {language}',
 
   exercisesError: 'There are no exercises for this text.',

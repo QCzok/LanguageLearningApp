@@ -478,7 +478,11 @@ export const de = {
   readerExerciseCountOne: '1 Aufgabe zu diesem Text',
   readerBestResult: 'bestes Ergebnis {percent} %',
   readerStartExercises: 'Übungen starten',
-  readingWordsLabel: 'Wörter',
+  readingWordsLabel: 'Weitere Wörter',
+  readingExplanationLabel: 'Worterklärung',
+  readingExplainWord: '{word} – Erklärung anzeigen',
+  readingCloseExplanation: 'Erklärung schließen',
+  readingHint: 'Farbig unterstrichene Wörter antippen – die Erklärung erscheint daneben.',
   readingReadInLanguage: 'Auf {language} lesen',
 
   exercisesError: 'Zu diesem Text gibt es keine Übungen.',

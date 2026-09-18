@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, ErrorState, LevelBadge, Loading, ProgressBar } from '../../components';
 import { libraryApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
+import { useAuthStore } from '../../store/auth.store';
+import { asTranslatableLanguage } from '../../utils/translation';
 import {
   colors,
   fontFamily,
@@ -24,7 +26,9 @@ import {
 } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { CoverScrim, LibraryCoverArt } from './LibraryCovers';
+import { GlossaryPopover } from './GlossaryPopover';
 import { ReadingSection } from './ReadingSection';
+import type { GlossaryAnchor } from './ReadingSection';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Reader'>;
 
@@ -36,18 +40,30 @@ const PROGRESS_STEP = 10;
  *
  * Aufgebaut wie eine Zeitschriftenseite, nicht wie ein Bildschirm voller
  * Karten: oben ein Titelbild, über das Kicker, Titel und Autor gesetzt sind;
- * darunter der Vorspann; dann der Fließtext auf warmem Papier, mit Initiale
- * am Anfang und einer Schlussvignette am Ende. Zwischen Vorspann und Text
- * sitzt der einzige Bedienstreifen der Seite – Schriftgröße, Restzeit,
- * Übersetzungen –, damit das dort ist, wo man es beim Lesen sucht, und sonst
- * nichts den Text unterbricht.
+ * darunter der Vorspann; dann der Fließtext auf warmem Papier, im Blocksatz,
+ * mit Initiale am Anfang und einer Schlussvignette am Ende. Zwischen Vorspann
+ * und Text sitzt der einzige Bedienstreifen der Seite – Schriftgröße,
+ * Restzeit, Übersetzungen –, damit das dort ist, wo man es beim Lesen sucht,
+ * und sonst nichts den Text unterbricht.
+ *
+ * Die Erklärungen zum Text stecken in den Absätzen selbst (siehe
+ * `ReadingSection`): schwierige Wörter als Verweis im Satz, die Übersetzung
+ * als Kasten darunter. Der Zettel zum angetippten Wort gehört dagegen
+ * hierher – er muss den Satzspiegel verlassen können und liegt deshalb als
+ * `GlossaryPopover` über der ganzen Seite.
  */
 export default function ReaderScreen({ route, navigation }: Props) {
   const { contentId, title } = route.params;
   const { t } = useTranslation();
+  const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
+  const language = asTranslatableLanguage(nativeLanguage);
   const [progress, setProgress] = useState(0);
   const [sizeStep, setSizeStep] = useState(1);
-  const [translationsOpen, setTranslationsOpen] = useState(false);
+  // Die Übersetzungskästen stehen von Anfang an unter den Absätzen: der Text
+  // soll als zweisprachige Ausgabe gelesen werden. Wer ohne sie auskommt,
+  // schaltet sie im Lesekopf für die ganze Strecke ab.
+  const [translationsOpen, setTranslationsOpen] = useState(true);
+  const [anchor, setAnchor] = useState<GlossaryAnchor | null>(null);
   const lastSaved = useRef(0);
   const startedAt = useRef(Date.now());
 
@@ -72,6 +88,9 @@ export default function ReaderScreen({ route, navigation }: Props) {
       const percent = Math.min(100, Math.round((contentOffset.y / scrollable) * 100));
 
       setProgress((previous) => Math.max(previous, percent));
+      // Der Zettel klebt an einer Bildschirmstelle, nicht am Wort – sobald die
+      // Seite sich bewegt, zeigt er ins Leere und wird geschlossen.
+      setAnchor((current) => (current ? null : current));
 
       if (percent - lastSaved.current >= PROGRESS_STEP) {
         lastSaved.current = percent;
@@ -101,6 +120,13 @@ export default function ReaderScreen({ route, navigation }: Props) {
   const fontSize = reading.textSizes[sizeStep];
   const remaining = Math.max(1, Math.round(data.estimatedMinutes * (1 - progress / 100)));
   const finished = progress >= 98 || Boolean(data.userProgress?.completedAt);
+  const hasGlossary = Boolean(data.body?.some((section) => section.glossary?.length));
+  // Nicht jeder Text bringt eine Übersetzung in die Muttersprache des Lesenden
+  // mit. Fehlt sie überall, bleibt der Schalter weg: Ein Knopf, der nichts
+  // bewirkt, sieht aus wie ein Fehler in der App und ist keiner.
+  const hasTranslations = Boolean(
+    language && data.body?.some((section) => section.translations?.[language]),
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: reading.paper }} edges={['left', 'right']}>
@@ -145,13 +171,18 @@ export default function ReaderScreen({ route, navigation }: Props) {
             onSizeStep={setSizeStep}
             translationsOpen={translationsOpen}
             onToggleTranslations={() => setTranslationsOpen((value) => !value)}
+            hasTranslations={hasTranslations}
             remaining={remaining}
             finished={finished}
           />
 
+          {/* Einmal gesagt, wozu die farbigen Wörter da sind – danach erklärt
+              sich der Verweis von selbst. */}
+          {hasGlossary ? <Text style={hint}>{t('readingHint')}</Text> : null}
+
           {/* Abschnitte einzeln rendern: jeder trägt seine eigene Übersetzung
               und sein eigenes Glossar, statt einen einzigen Textblock. */}
-          <View style={{ gap: spacing.xl }}>
+          <View style={{ gap: spacing.md }}>
             {data.body?.map((section, index) => (
               <ReadingSection
                 key={section.id}
@@ -159,6 +190,8 @@ export default function ReaderScreen({ route, navigation }: Props) {
                 fontSize={fontSize}
                 dropCap={index === 0}
                 translationsOpen={translationsOpen}
+                activeTermId={anchor?.id}
+                onTermPress={setAnchor}
               />
             ))}
           </View>
@@ -197,6 +230,10 @@ export default function ReaderScreen({ route, navigation }: Props) {
       <View style={progressOverlay} pointerEvents="none">
         <ProgressBar value={progress} height={3} />
       </View>
+
+      {/* Die Worterklärung liegt über der ganzen Seite, nicht im Absatz –
+          nur so kann sie den Satzspiegel verlassen und neben dem Wort stehen. */}
+      <GlossaryPopover anchor={anchor} onClose={() => setAnchor(null)} />
     </SafeAreaView>
   );
 }
@@ -214,6 +251,7 @@ function ReaderToolbar({
   onSizeStep,
   translationsOpen,
   onToggleTranslations,
+  hasTranslations,
   remaining,
   finished,
 }: {
@@ -221,6 +259,8 @@ function ReaderToolbar({
   onSizeStep: (step: number) => void;
   translationsOpen: boolean;
   onToggleTranslations: () => void;
+  /** Ob der Text überhaupt eine Übersetzung mitbringt – sonst fehlt der Schalter. */
+  hasTranslations: boolean;
   remaining: number;
   finished: boolean;
 }) {
@@ -250,18 +290,23 @@ function ReaderToolbar({
         {finished ? t('readerFinished') : t('libraryRemainingMinutes', { count: remaining })}
       </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected: translationsOpen }}
-        onPress={onToggleTranslations}
-        style={[toolbarChip, translationsOpen && toolbarChipActive]}
-      >
-        <Text
-          style={[readingLabel, { color: translationsOpen ? colors.textInverse : reading.inkSoft }]}
+      {hasTranslations ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: translationsOpen }}
+          onPress={onToggleTranslations}
+          style={[toolbarChip, translationsOpen && toolbarChipActive]}
         >
-          {t('readerTranslation')}
-        </Text>
-      </Pressable>
+          <Text
+            style={[
+              readingLabel,
+              { color: translationsOpen ? colors.textInverse : reading.inkSoft },
+            ]}
+          >
+            {t('readerTranslation')}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -356,6 +401,17 @@ const leadText = {
   lineHeight: 25,
   fontStyle: 'italic' as const,
   color: reading.inkSoft,
+};
+
+/** Die Lesehilfe unter dem Bedienstreifen – eine Zeile, so leise wie möglich. */
+const hint = {
+  fontFamily: fontFamily.regular,
+  fontSize: 12,
+  lineHeight: 17,
+  fontStyle: 'italic' as const,
+  textAlign: 'center' as const,
+  color: reading.inkFaint,
+  marginTop: -spacing.xs,
 };
 
 const toolbar = {

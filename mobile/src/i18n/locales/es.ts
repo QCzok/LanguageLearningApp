@@ -468,7 +468,11 @@ export const es: TranslationDictionary = {
   readerExerciseCountOne: '1 ejercicio sobre este texto',
   readerBestResult: 'mejor resultado {percent} %',
   readerStartExercises: 'Empezar los ejercicios',
-  readingWordsLabel: 'Palabras',
+  readingWordsLabel: 'Más palabras',
+  readingExplanationLabel: 'Nota de vocabulario',
+  readingExplainWord: '{word}: ver la explicación',
+  readingCloseExplanation: 'Cerrar la explicación',
+  readingHint: 'Toca una palabra subrayada: la explicación aparece a su lado.',
   readingReadInLanguage: 'Leer en {language}',
 
   exercisesError: 'No hay ejercicios para este texto.',
