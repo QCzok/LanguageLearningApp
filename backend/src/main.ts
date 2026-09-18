@@ -42,7 +42,9 @@ async function bootstrap(): Promise<void> {
 
   app.enableCors({
     // In der Entwicklung sind Expo-Clients unter wechselnden Ports erreichbar.
-    origin: isProduction ? corsOrigins : true,
+    origin: isProduction
+      ? (origin, callback) => callback(null, isAllowedOrigin(origin, corsOrigins))
+      : true,
     credentials: true,
   });
 
@@ -75,3 +77,31 @@ async function bootstrap(): Promise<void> {
 }
 
 void bootstrap();
+
+/** Ein Entwicklungsrechner – gleich unter welchem Port der Dev-Server gerade läuft. */
+const LOCALHOST_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+/**
+ * Welche Herkunft im Produktivbetrieb Antworten lesen darf: die ausdrücklich
+ * konfigurierten (`CORS_ORIGINS`) – und dazu jeder lokale Entwicklungsrechner.
+ *
+ * Der Zusatz für localhost steht hier, weil der Expo-Web-Client seinen Port
+ * nicht selbst bestimmt: Ist 8081 belegt, läuft er auf 8082, manche Setups
+ * öffnen ihn unter 127.0.0.1 statt localhost. Jede dieser Abweichungen endete
+ * bisher in „keine Verbindung zum Server“ – der Browser verwarf die Antwort,
+ * während dieselbe App auf dem Telefon lief, weil dort keine Herkunft geprüft
+ * wird. Eine Liste im Dashboard ist der falsche Ort, um eine Zufälligkeit der
+ * lokalen Umgebung nachzupflegen.
+ *
+ * Tragbar ist das, weil diese API ausschließlich Bearer-Tokens aus dem
+ * `Authorization`-Kopf auswertet und keine Cookies: Eine fremde Seite auf dem
+ * Rechner eines Nutzers erhielte dadurch keinen Zugang, den sie nicht ohnehin
+ * hätte – an den Token in der Ablage einer anderen Herkunft kommt sie nicht.
+ *
+ * Anfragen ohne `Origin` – die Apps auf iOS und Android, `curl`, Health-Checks –
+ * unterliegen keiner Herkunftsprüfung und bleiben erlaubt.
+ */
+function isAllowedOrigin(origin: string | undefined, allowed: string[]): boolean {
+  if (!origin) return true;
+  return allowed.includes(origin) || LOCALHOST_ORIGIN.test(origin);
+}
