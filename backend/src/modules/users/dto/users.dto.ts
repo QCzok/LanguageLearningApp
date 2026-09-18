@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { AVATAR_ICON_IDS } from '@lingua/shared';
 import { CefrLevel, LevelSource } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -26,6 +28,11 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsUrl({}, { message: ERR['validation.avatar_url'] })
   avatarUrl?: string;
+
+  @ApiPropertyOptional({ enum: AVATAR_ICON_IDS })
+  @IsOptional()
+  @IsIn(AVATAR_ICON_IDS, { message: ERR['validation.avatar_icon'] })
+  avatarIcon?: string;
 
   @ApiPropertyOptional({ example: 'de' })
   @IsOptional()

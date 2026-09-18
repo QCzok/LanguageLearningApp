@@ -4,6 +4,27 @@ export type Plan = (typeof PLANS)[number];
 export const USER_ROLES = ['USER', 'EDITOR', 'ADMIN'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+/**
+ * Wählbare Profil-Icons – bewusst Tiere statt echter Fotos, damit sich jedes
+ * Profil (auch von Kindern) ohne Foto-Upload individuell darstellen kann.
+ */
+export const AVATAR_ICONS = [
+  { id: 'fox', emoji: '🦊' },
+  { id: 'owl', emoji: '🦉' },
+  { id: 'cat', emoji: '🐱' },
+  { id: 'dog', emoji: '🐶' },
+  { id: 'panda', emoji: '🐼' },
+  { id: 'koala', emoji: '🐨' },
+  { id: 'lion', emoji: '🦁' },
+  { id: 'penguin', emoji: '🐧' },
+  { id: 'frog', emoji: '🐸' },
+  { id: 'rabbit', emoji: '🐰' },
+  { id: 'turtle', emoji: '🐢' },
+  { id: 'octopus', emoji: '🐙' },
+] as const;
+export const AVATAR_ICON_IDS = AVATAR_ICONS.map((icon) => icon.id);
+export type AvatarIconId = (typeof AVATAR_ICONS)[number]['id'];
+
 /** Lernmodi des Vokabeltrainers. */
 export const VOCAB_MODES = [
   'FLASHCARD', // klassische Lernkarte (Selbsteinschätzung)

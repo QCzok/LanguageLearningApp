@@ -601,4 +601,6 @@ export const de = {
   profileTapToSwitch: 'Zum Wechseln tippen',
   profileChangeLevel: 'Niveau ändern',
   profileAddLanguage: '+ Sprache hinzufügen',
+  profileChangeAvatar: 'Icon ändern',
+  profileChooseAvatar: 'Profil-Icon wählen',
 } as const;

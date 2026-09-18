@@ -36,6 +36,7 @@ export class UsersService {
       data: {
         displayName: dto.displayName,
         avatarUrl: dto.avatarUrl,
+        avatarIcon: dto.avatarIcon,
         nativeLanguage: dto.nativeLanguage,
       },
       include: userWithProfiles,
@@ -222,6 +223,7 @@ export class UsersService {
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      avatarIcon: user.avatarIcon as UserDto['avatarIcon'],
       role: user.role,
       plan: user.plan,
       premiumUntil: user.premiumUntil?.toISOString() ?? null,

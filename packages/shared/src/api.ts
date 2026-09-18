@@ -1,6 +1,7 @@
 import type { CefrLevel } from './cefr';
 import type {
   AiMode,
+  AvatarIconId,
   CardStatus,
   ExerciseType,
   LibraryType,
@@ -55,6 +56,7 @@ export interface UserDto {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  avatarIcon: AvatarIconId | null;
   role: UserRole;
   plan: Plan;
   premiumUntil: string | null;

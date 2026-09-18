@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { alert } from '../../utils/alert';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CEFR_LEVELS } from '@lingua/shared';
-import type { CefrLevel, LanguageDto, LearningProfileDto } from '@lingua/shared';
+import { AVATAR_ICONS, CEFR_LEVELS } from '@lingua/shared';
+import type { AvatarIconId, CefrLevel, LanguageDto, LearningProfileDto } from '@lingua/shared';
 import {
   Body,
   Button,
@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   const logout = useAuthStore((state) => state.logout);
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const isPremium = useIsPremium();
+  const [pickingAvatar, setPickingAvatar] = useState(false);
 
   const subscription = useQuery({ queryKey: ['subscription'], queryFn: subscriptionApi.status });
   const languages = useQuery({ queryKey: ['languages'], queryFn: languagesApi.list });
@@ -40,6 +41,14 @@ export default function ProfileScreen() {
       // Einstellung – alles neu laden, damit nichts in der alten Sprache
       // stehen bleibt.
       await queryClient.invalidateQueries();
+    },
+  });
+
+  const setAvatarIcon = useMutation({
+    mutationFn: (avatarIcon: AvatarIconId) => usersApi.update({ avatarIcon }),
+    onSuccess: async () => {
+      setPickingAvatar(false);
+      await refreshUser();
     },
   });
 
@@ -64,13 +73,45 @@ export default function ProfileScreen() {
 
   if (!user) return null;
   const activeProfile = user.profiles.find((profile) => profile.isActive);
+  const currentIcon = AVATAR_ICONS.find((icon) => icon.id === user.avatarIcon);
 
   return (
     <Screen scroll>
       <Card style={{ alignItems: 'center', gap: spacing.sm }}>
-        <View style={avatarStyle}>
-          <Text style={{ fontSize: 32 }}>{user.displayName.charAt(0).toUpperCase()}</Text>
-        </View>
+        <Pressable onPress={() => setPickingAvatar((value) => !value)} hitSlop={8}>
+          <View style={avatarStyle}>
+            {currentIcon ? (
+              <Text style={{ fontSize: 36 }}>{currentIcon.emoji}</Text>
+            ) : (
+              <Text style={{ fontSize: 32 }}>{user.displayName.charAt(0).toUpperCase()}</Text>
+            )}
+          </View>
+        </Pressable>
+        <Pressable onPress={() => setPickingAvatar((value) => !value)} hitSlop={8}>
+          <Text style={changeLevelLink}>
+            {pickingAvatar ? t('commonCancel') : t('profileChangeAvatar')}
+          </Text>
+        </Pressable>
+        {pickingAvatar ? (
+          <View>
+            <Caption>{t('profileChooseAvatar')}</Caption>
+            <Row gap={spacing.xs} style={{ flexWrap: 'wrap', justifyContent: 'center', marginTop: spacing.xs }}>
+              {AVATAR_ICONS.map((icon) => {
+                const active = icon.id === user.avatarIcon;
+                return (
+                  <Pressable
+                    key={icon.id}
+                    disabled={setAvatarIcon.isPending}
+                    onPress={() => setAvatarIcon.mutate(icon.id)}
+                    style={[avatarChip, active && avatarChipActive]}
+                  >
+                    <Text style={{ fontSize: 24 }}>{icon.emoji}</Text>
+                  </Pressable>
+                );
+              })}
+            </Row>
+          </View>
+        ) : null}
         <Title>{user.displayName}</Title>
         <Caption>{user.email}</Caption>
         {isPremium ? <PremiumBadge /> : null}
@@ -394,6 +435,23 @@ const levelChip = {
 const levelChipActive = {
   backgroundColor: colors.primary,
   borderColor: colors.primary,
+};
+
+const avatarChip = {
+  width: 44,
+  height: 44,
+  borderRadius: radius.full,
+  borderWidth: 1,
+  borderColor: colors.border,
+  backgroundColor: colors.surface,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
+
+const avatarChipActive = {
+  borderColor: colors.primary,
+  borderWidth: 2,
+  backgroundColor: colors.primarySoft,
 };
 
 const avatarStyle = {

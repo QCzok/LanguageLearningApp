@@ -5,6 +5,7 @@ import type {
   AiTurnDto,
   AiQuotaDto,
   AuthResponse,
+  AvatarIconId,
   BookDetailDto,
   BookSummaryDto,
   CefrLevel,
@@ -59,7 +60,7 @@ export const authApi = {
 
 export const usersApi = {
   me: () => api.get<UserDto>('/users/me').then((r) => r.data),
-  update: (body: { displayName?: string; nativeLanguage?: string }) =>
+  update: (body: { displayName?: string; nativeLanguage?: string; avatarIcon?: AvatarIconId }) =>
     api.patch<UserDto>('/users/me', body).then((r) => r.data),
   setLearningProfile: (body: {
     languageId: string;

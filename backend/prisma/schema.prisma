@@ -120,6 +120,8 @@ model User {
   passwordHash        String
   displayName         String
   avatarUrl           String?
+  /// Ausgewähltes Profil-Icon (siehe AVATAR_ICONS in @lingua/shared), z. B. "fox".
+  avatarIcon          String?
   role                UserRole  @default(USER)
   plan                Plan      @default(FREE)
   premiumUntil        DateTime?

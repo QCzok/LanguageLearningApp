@@ -590,4 +590,6 @@ export const fr: TranslationDictionary = {
   profileTapToSwitch: 'Touche pour changer',
   profileChangeLevel: 'Changer de niveau',
   profileAddLanguage: '+ Ajouter une langue',
+  profileChangeAvatar: 'Changer d\'icône',
+  profileChooseAvatar: 'Choisir une icône de profil',
 };

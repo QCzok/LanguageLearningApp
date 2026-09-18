@@ -35,6 +35,7 @@ const de = {
   'validation.display_name': 'Der Name muss zwischen 2 und 40 Zeichen lang sein',
   'validation.cover_color': 'coverColor muss ein Hex-Farbwert sein (#RRGGBB)',
   'validation.avatar_url': 'avatarUrl muss eine gültige URL sein',
+  'validation.avatar_icon': 'avatarIcon muss eines der verfügbaren Profil-Icons sein',
 
   // ------------------------------------------------------------- Nicht gefunden
   'notfound.user': 'Nutzer nicht gefunden',
@@ -136,6 +137,7 @@ const en: MessageCatalog = {
   'validation.display_name': 'The name must be between 2 and 40 characters long',
   'validation.cover_color': 'coverColor must be a hex colour value (#RRGGBB)',
   'validation.avatar_url': 'avatarUrl must be a valid URL',
+  'validation.avatar_icon': 'avatarIcon must be one of the available profile icons',
 
   'notfound.user': 'User not found',
   'notfound.language': 'Language not found',
@@ -225,6 +227,7 @@ const es: MessageCatalog = {
   'validation.display_name': 'El nombre debe tener entre 2 y 40 caracteres',
   'validation.cover_color': 'coverColor debe ser un valor hexadecimal (#RRGGBB)',
   'validation.avatar_url': 'avatarUrl debe ser una URL válida',
+  'validation.avatar_icon': 'avatarIcon debe ser uno de los iconos de perfil disponibles',
 
   'notfound.user': 'Usuario no encontrado',
   'notfound.language': 'Idioma no encontrado',
@@ -314,6 +317,7 @@ const fr: MessageCatalog = {
   'validation.display_name': 'Le nom doit contenir entre 2 et 40 caractères',
   'validation.cover_color': 'coverColor doit être une valeur hexadécimale (#RRGGBB)',
   'validation.avatar_url': 'avatarUrl doit être une URL valide',
+  'validation.avatar_icon': 'avatarIcon doit être l\'une des icônes de profil disponibles',
 
   'notfound.user': 'Utilisateur introuvable',
   'notfound.language': 'Langue introuvable',
@@ -405,6 +409,7 @@ const it: MessageCatalog = {
   'validation.display_name': 'Il nome deve avere tra 2 e 40 caratteri',
   'validation.cover_color': 'coverColor deve essere un valore esadecimale (#RRGGBB)',
   'validation.avatar_url': 'avatarUrl deve essere un URL valido',
+  'validation.avatar_icon': 'avatarIcon deve essere una delle icone profilo disponibili',
 
   'notfound.user': 'Utente non trovato',
   'notfound.language': 'Lingua non trovata',
