@@ -13,6 +13,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RootNavigator from './src/navigation/RootNavigator';
+import { warmUpApi } from './src/api/client';
 import { useAuthStore } from './src/store/auth.store';
 import { preloadImages } from './src/assets';
 import { colors } from './src/theme';
@@ -61,6 +62,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Der Weckruf geht vor der Sitzungsprüfung hinaus und wartet auf nichts:
+    // Schläft der Server, läuft sein Start parallel zu Schriften, Bildern und
+    // den ersten Eingaben des Nutzers (siehe `warmUpApi`).
+    warmUpApi();
     void bootstrap();
   }, [bootstrap]);
 

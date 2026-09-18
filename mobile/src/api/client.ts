@@ -52,11 +52,39 @@ export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler;
 }
 
+/**
+ * Großzügig bemessen, weil die erste Anfrage nach einer Ruhephase nicht nur
+ * beantwortet, sondern der Server erst hochgefahren werden muss (siehe
+ * `warmUpApi`). Mit den ursprünglichen 20 Sekunden brach genau dieser Fall ab:
+ * Das Anlegen eines Profils endete in einer Zeitüberschreitung, obwohl nichts
+ * kaputt war – der Server war nur noch nicht wach.
+ */
+const REQUEST_TIMEOUT = 45_000;
+
 export const api: AxiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: 20_000,
+  timeout: REQUEST_TIMEOUT,
   headers: { 'Content-Type': 'application/json' },
 });
+
+/**
+ * Weckt den Server, ohne auf ihn zu warten.
+ *
+ * Der Dienst läuft auf einem Tarif, der die Instanz nach einiger Zeit ohne
+ * Anfragen anhält. Die nächste Anfrage startet sie wieder und wartet dabei auf
+ * Containerstart, Migrationslauf und Datenbankverbindung – zusammen ein
+ * Vielfaches einer gewöhnlichen Antwort. Träfe das den ersten echten Aufruf
+ * der App, stünde der Lernende vor einem Fehler, bevor er irgendetwas getan
+ * hat.
+ *
+ * Deshalb geht dieser Weckruf schon beim Start hinaus: Der Server wacht auf,
+ * während Schriften und Bilder laden und der Lernende seinen Namen eintippt.
+ * Eigene axios-Instanz und verschlucktes Ergebnis – der Aufruf braucht weder
+ * Token noch Fehlerbehandlung, es zählt allein, dass er ankommt.
+ */
+export function warmUpApi(): void {
+  void axios.get(`${API_URL}/health`, { timeout: REQUEST_TIMEOUT }).catch(() => undefined);
+}
 
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   const token = await tokenStorage.getAccessToken();
