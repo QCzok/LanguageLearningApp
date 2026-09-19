@@ -293,7 +293,7 @@ export interface LibraryContentDto {
   type: LibraryType;
   title: string;
   summary: string;
-  /** Erste ~50 Zeichen des Fließtexts, für Kacheln in der Übersicht. */
+  /** Die ersten ein bis zwei Sätze des Fließtexts, als Leseprobe auf den Karten der Übersicht. */
   excerpt: string;
   author: string | null;
   imageUrl: string | null;
