@@ -21,7 +21,7 @@ import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
-import { AiCover, LibraryShelfCover, MediaCover, NotebookCover, VocabCover } from './HomeCovers';
+import { AiCover, LibraryShelfCover, NotebookCover, VideoCover, VocabCover } from './HomeCovers';
 import type { MainTabParamList } from '../../navigation/types';
 
 /** Sonntag zuerst – `Date.getUTCDay()` zählt so. */
@@ -97,16 +97,16 @@ export default function HomeScreen() {
       onPress: () => navigation.navigate('Library', { screen: 'LibraryList' }),
     },
     {
-      key: 'media',
-      Cover: MediaCover,
-      label: t('homeTileMedia'),
-      subtitle: t('homeTileMediaSubtitle'),
+      key: 'videos',
+      Cover: VideoCover,
+      label: t('homeTileVideos'),
+      subtitle: t('homeTileVideosSubtitle'),
       accent: colors.info,
-      onPress: () => navigation.navigate('Media', { screen: 'MediaList' }),
+      onPress: () => navigation.navigate('Videos', { screen: 'VideoList' }),
     },
   ];
 
-  const hasResume = Boolean(data.continueReading || data.continueListening);
+  const hasResume = Boolean(data.continueReading || data.continueWatching);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top']}>
@@ -193,21 +193,21 @@ export default function HomeScreen() {
                   }
                 />
               ) : null}
-              {data.continueListening ? (
+              {data.continueWatching ? (
                 <ResumeRow
-                  label={t('homeResumeListening')}
-                  title={data.continueListening.title}
+                  label={t('homeResumeWatching')}
+                  title={data.continueWatching.title}
                   progress={
-                    data.continueListening.durationSec
-                      ? ((data.continueListening.userProgress?.positionSec ?? 0) /
-                          data.continueListening.durationSec) *
+                    data.continueWatching.durationSec
+                      ? ((data.continueWatching.userProgress?.positionSec ?? 0) /
+                          data.continueWatching.durationSec) *
                         100
                       : 0
                   }
                   onPress={() =>
-                    navigation.navigate('Media', {
-                      screen: 'Player',
-                      params: { mediaId: data.continueListening!.id, title: data.continueListening!.title },
+                    navigation.navigate('Videos', {
+                      screen: 'VideoPlayer',
+                      params: { videoId: data.continueWatching!.id, title: data.continueWatching!.title },
                     })
                   }
                 />

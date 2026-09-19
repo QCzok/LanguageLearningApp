@@ -1,5 +1,4 @@
 import { registerAs } from '@nestjs/config';
-import { isAbsolute, resolve } from 'node:path';
 
 export const appConfig = registerAs('app', () => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -9,27 +8,7 @@ export const appConfig = registerAs('app', () => ({
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
-  /**
-   * Vorsatz für Medien-URLs.
-   *
-   * Standard ist ein *relativer* Pfad. Vorher stand hier
-   * `http://localhost:3000/static` – dieser Wert landete beim Seed fest in der
-   * Datenbank, und „localhost" ist aus Sicht eines Android-Geräts das Gerät
-   * selbst, nicht der Entwicklungsrechner. Die Mediathek konnte auf dem Handy
-   * deshalb gar nicht funktionieren, auch wenn die Dateien vorhanden gewesen
-   * wären. Relativ gespeichert löst die App die Adresse gegen die Server-URL
-   * auf, die sie ohnehin kennt (siehe `resolveMediaUrl` in der App). Für
-   * Produktion kann hier weiterhin eine absolute CDN-Adresse stehen.
-   */
-  mediaBaseUrl: process.env.MEDIA_BASE_URL ?? '/static',
-  /** Verzeichnis, aus dem `/static` ausgeliefert wird. */
-  staticDir: resolveStaticDir(process.env.STATIC_DIR),
 }));
-
-function resolveStaticDir(value: string | undefined): string {
-  const dir = value ?? 'static';
-  return isAbsolute(dir) ? dir : resolve(process.cwd(), dir);
-}
 
 /**
  * Die TTL-Werte werden als `ms`-Zeitspanne (z. B. "15m", "30d") an @nestjs/jwt

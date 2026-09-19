@@ -63,7 +63,7 @@ describe('AppModule', () => {
     '/vocabulary/stats',
     '/notebooks',
     '/library',
-    '/media',
+    '/videos',
     '/ai/quota',
     '/progress/dashboard',
     '/subscription/status',

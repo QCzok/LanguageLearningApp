@@ -4,7 +4,7 @@ import { addUtcDays, startOfUtcDay, toDateKey } from '../../common/utils/date.ut
 import { excerptOf, plainTextOf } from '../../common/utils/text.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { toLanguageDto } from '../languages/languages.service';
-import { MediaService } from '../media/media.service';
+import { VideosService } from '../videos/videos.service';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class ProgressService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
-    private readonly media: MediaService,
+    private readonly videos: VideosService,
   ) {}
 
   /**
@@ -28,7 +28,7 @@ export class ProgressService {
     const today = startOfUtcDay();
     const weekStart = addUtcDays(today, -6);
 
-    const [user, dueCards, activities, reading, listening] = await Promise.all([
+    const [user, dueCards, activities, reading, watching] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({
         where: { id: userId },
         select: { displayName: true, xp: true, streakDays: true, plan: true },
@@ -47,7 +47,7 @@ export class ProgressService {
         orderBy: { date: 'asc' },
       }),
       profile ? this.continueReading(userId, profile.languageId) : Promise.resolve(null),
-      profile ? this.media.continueListening(userId, profile.languageId) : Promise.resolve(null),
+      profile ? this.videos.continueWatching(userId, profile.languageId) : Promise.resolve(null),
     ]);
 
     // Lücken auffüllen, damit die App eine durchgehende Wochenkurve zeichnen kann.
@@ -66,7 +66,7 @@ export class ProgressService {
       dailyGoalMinutes: profile?.dailyGoalMinutes ?? 15,
       weeklyActivity,
       continueReading: reading,
-      continueListening: listening,
+      continueWatching: watching,
     };
   }
 

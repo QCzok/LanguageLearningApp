@@ -132,13 +132,20 @@ bzw. über die KI ausgewertet. Ab 95 % gilt ein Text als gelesen.
 
 ## Mediathek
 
-| Methode | Pfad                    | Beschreibung |
-| ------- | ----------------------- | ------------ |
-| GET     | `/media`                | Filter wie in der Bibliothek |
-| GET     | `/media/:id`            | Details inkl. Audio-URL und Transkript |
-| PUT     | `/media/:id/progress`   | Abspielposition sichern |
+Eine kuratierte Auswahl fremder YouTube-Videos. Die API liefert nur die
+Auswahl – Bild und Ton holt die App beim Abspielen direkt von YouTube, gebildet
+aus `youtubeId`.
 
-Ab 90 % der Laufzeit gilt eine Folge als gehört; XP gibt es nur beim ersten Mal.
+| Methode | Pfad                     | Beschreibung |
+| ------- | ------------------------ | ------------ |
+| GET     | `/videos`                | Filter: `level`, `topic`, `slowSpeech`, `tag`, `search` |
+| GET     | `/videos/:id`            | Details inkl. `youtubeId`, Kanal und Sehfortschritt |
+| PUT     | `/videos/:id/progress`   | Abspielposition sichern |
+
+`topic` ist eines von `EVERYDAY`, `STREET_INTERVIEW`, `GRAMMAR`, `VOCABULARY`,
+`CULTURE`. Ohne `languageId` gilt die Lernsprache des aktiven Profils.
+
+Ab 90 % der Laufzeit gilt ein Video als gesehen; XP gibt es nur beim ersten Mal.
 
 ## KI
 

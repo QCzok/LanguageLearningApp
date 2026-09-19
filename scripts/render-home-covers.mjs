@@ -654,21 +654,47 @@ function renderLibraryShelf(WIDTH, HEIGHT) {
 
 // ------------------------------------------------------- Szene: Mediathek
 
-/** Kopfhörer mit Klangwellen – vierte Fassung der Home-Kachel. */
+/**
+ * Bildschirm mit Abspielzeichen und Untertitelzeile – vierte Fassung der
+ * Home-Kachel.
+ *
+ * Vorher standen hier Kopfhörer: Die Mediathek bestand aus Hörfolgen. Sie
+ * besteht jetzt aus Videos, und ein Kopfhörer führte an der Kachel in die
+ * Irre. Geblieben ist das Blaugrün der alten Fassung, damit die Kachelreihe
+ * ihre Farbfolge behält. Der Untertitelbalken ist kein Beiwerk: Er ist der
+ * Grund, warum man diese Videos zum Lernen ansieht.
+ */
 function renderMedia(WIDTH, HEIGHT) {
   const canvas = new Canvas(WIDTH, HEIGHT);
   const S = HEIGHT;
   const aa = 1.1;
 
-  const CUP = [8, 133, 165];
-  const CUP_DARK = [6, 98, 124];
+  const SCREEN = [8, 133, 165];
+  const SCREEN_DARK = [6, 98, 124];
+  const GLASS = [231, 249, 252];
 
-  const bandCx = 0.47 * WIDTH;
-  const bandCy = 0.5 * HEIGHT;
-  const bandR = 0.185 * S;
-  const bandT = 0.05 * S;
-  const cupW = 0.09 * S;
-  const cupH = 0.165 * S;
+  const cx = 0.47 * WIDTH;
+  const cy = 0.45 * HEIGHT;
+  const halfW = 0.3 * S;
+  const halfH = 0.19 * S;
+  const bezel = 0.022 * S;
+
+  // Das Abspieldreieck – leicht nach rechts versetzt, sonst wirkt es zu
+  // links stehend: Der Schwerpunkt eines Dreiecks liegt nicht in der Mitte
+  // seiner Grundlinie.
+  const playR = 0.072 * S;
+  const playCx = cx + playR * 0.14;
+  const playCy = cy - halfH * 0.16;
+  const play = [
+    [playCx - playR * 0.78, playCy - playR],
+    [playCx - playR * 0.78, playCy + playR],
+    [playCx + playR * 0.86, playCy],
+  ];
+
+  // Zwei Untertitelbalken am unteren Rand der Scheibe.
+  const subW = [0.34, 0.22];
+  const subH = 0.016 * S;
+  const subTop = cy + halfH - bezel - 0.075 * S;
 
   for (let y = 0; y < HEIGHT; y += 1) {
     for (let x = 0; x < WIDTH; x += 1) {
@@ -678,47 +704,52 @@ function renderMedia(WIDTH, HEIGHT) {
 
       let col = paintBackdrop(nx, ny, [219, 243, 246], [161, 220, 229], 0.28, 0.16, 0.26);
 
-      const pool = Math.exp(-(((nx - bandCx / WIDTH) ** 2) / 0.09 + ((ny - bandCy / HEIGHT) ** 2) / 0.12));
+      const pool = Math.exp(-(((nx - cx / WIDTH) ** 2) / 0.09 + ((ny - cy / HEIGHT) ** 2) / 0.12));
       col = mixColor(col, [255, 255, 255], pool * 0.3);
 
-      // Schlagschatten des ganzen Kopfhörers.
-      const distShadow = Math.hypot(x - bandCx - 0.01 * S, y - bandCy - 0.03 * S) - bandR;
-      const inShadowBand = y - 0.03 * S <= bandCy ? Math.abs(distShadow) - bandT / 2 : Math.min(
-        Math.hypot(x - (bandCx - bandR) - 0.01 * S, y - bandCy - 0.03 * S),
-        Math.hypot(x - (bandCx + bandR) - 0.01 * S, y - bandCy - 0.03 * S),
-      ) - bandT / 2;
-      col = mixColor(col, [30, 74, 92], smoothstep(0.05 * S, -0.01 * S, inShadowBand) * 0.22);
+      // Fuß: eine kurze Säule und ein flacher Teller darunter.
+      const stemD = sdRoundRect(x - cx, y - (cy + halfH + 0.045 * S), 0.028 * S, 0.045 * S, 0.008 * S);
+      const baseD = sdRoundRect(x - cx, y - (cy + halfH + 0.095 * S), 0.115 * S, 0.016 * S, 0.014 * S);
+      const footD = Math.min(stemD, baseD);
 
-      // Bügel: nur die obere Hälfte des Rings, der Rest steckt in den Muscheln.
-      const distToCenter = Math.hypot(x - bandCx, y - bandCy);
-      const ringD = Math.abs(distToCenter - bandR) - bandT / 2;
-      const onRing = y <= bandCy ? smoothstep(aa, -aa, ringD) : 0;
-      const ringLight = clamp((x - bandCx) / bandR, -1, 1);
-      const ringCol = mixColor(mixColor(CUP, [255, 255, 255], 0.25), CUP_DARK, smoothstep(-0.6, 1, ringLight));
-      col = mixColor(col, ringCol, onRing);
+      // Schlagschatten des ganzen Geräts.
+      const shadowD = Math.min(
+        sdRoundRect(x - cx - 0.012 * S, y - cy - 0.03 * S, halfW, halfH, 0.05 * S),
+        footD,
+      );
+      col = mixColor(col, [30, 74, 92], smoothstep(0.05 * S, -0.01 * S, shadowD) * 0.22);
 
-      // Ohrmuscheln an beiden Enden des Bügels.
-      for (const side of [-1, 1]) {
-        const cx = bandCx + side * bandR;
-        const cy = bandCy;
-        const d = sdRoundRect(x - cx, y - (cy + cupH * 0.32), cupW / 2, cupH / 2, cupW * 0.4);
-        const cov = smoothstep(aa, -aa, d);
-        if (cov <= 0) continue;
-        const lightT = clamp((x - cx) / cupW + 0.5, 0, 1);
-        const cupCol = mixColor(mixColor(CUP, [255, 255, 255], 0.3), CUP_DARK, lightT);
-        col = mixColor(col, cupCol, cov);
+      col = mixColor(col, mixColor(SCREEN, SCREEN_DARK, 0.55), smoothstep(aa, -aa, footD));
+
+      // Gehäuse: von oben links hell nach unten rechts dunkel.
+      const caseD = sdRoundRect(x - cx, y - cy, halfW, halfH, 0.05 * S);
+      const caseCov = smoothstep(aa, -aa, caseD);
+      if (caseCov > 0) {
+        const lightT = clamp(((x - cx) / halfW + (y - cy) / halfH) * 0.35 + 0.5, 0, 1);
+        const caseCol = mixColor(mixColor(SCREEN, [255, 255, 255], 0.28), SCREEN_DARK, lightT);
+        col = mixColor(col, caseCol, caseCov);
       }
 
-      // Klangwellen rechts der rechten Muschel.
-      const waveCx = bandCx + bandR + cupW * 0.5;
-      for (const [r, t, alpha] of [
-        [0.05 * S, 0.009 * S, 0.6],
-        [0.09 * S, 0.008 * S, 0.4],
-        [0.13 * S, 0.007 * S, 0.25],
-      ]) {
-        const dw = Math.hypot(x - waveCx, y - bandCy) - r;
-        const onArc = x >= waveCx ? smoothstep(aa, -aa, Math.abs(dw) - t / 2) : 0;
-        col = mixColor(col, CUP, onArc * alpha);
+      // Scheibe.
+      const glassD = sdRoundRect(x - cx, y - cy, halfW - bezel, halfH - bezel, 0.032 * S);
+      const glassCov = smoothstep(aa, -aa, glassD);
+      if (glassCov > 0) {
+        const glassCol = mixColor(GLASS, [255, 255, 255], smoothstep(1, -0.2, (y - cy) / halfH));
+        col = mixColor(col, glassCol, glassCov);
+
+        const playD = sdTriangle(x, y, play[0], play[1], play[2]);
+        col = mixColor(col, SCREEN, smoothstep(aa, -aa, playD) * glassCov);
+
+        for (let row = 0; row < subW.length; row += 1) {
+          const barCy = subTop + row * (subH * 2.6);
+          const barD = sdRoundRect(x - cx, y - barCy, subW[row] * halfW, subH, subH);
+          col = mixColor(col, SCREEN_DARK, smoothstep(aa, -aa, barD) * glassCov * 0.55);
+        }
+
+        // Schräglicht auf der Scheibe – ein Bildschirm ohne Spiegelung sieht
+        // aus wie ein Loch.
+        const sheen = smoothstep(0.04 * S, -0.04 * S, (x - cx) * 0.55 + (y - cy) * 1.4 + 0.11 * S);
+        col = mixColor(col, [255, 255, 255], sheen * glassCov * 0.22);
       }
 
       for (const [bx, by, br, ba] of [
@@ -2397,7 +2428,7 @@ const COVERS = [
   { file: 'mobile/assets/covers/vocabulary.png', width: 768, height: 432, render: renderVocabulary },
   { file: 'mobile/assets/covers/notebook.png', width: 768, height: 432, render: renderNotebook },
   { file: 'mobile/assets/covers/library-shelf.png', width: 768, height: 432, render: renderLibraryShelf },
-  { file: 'mobile/assets/covers/media.png', width: 768, height: 432, render: renderMedia },
+  { file: 'mobile/assets/covers/video.png', width: 768, height: 432, render: renderMedia },
   { file: 'mobile/assets/covers/ai.png', width: 768, height: 432, render: renderAi },
   // Buchdeckel im Regal: 3:4, 62 pt breit – 384 px reichen auch auf 3x-Geräten.
   { file: 'mobile/assets/covers/book-beginner.png', width: 384, height: 512, render: renderBeginnerBook },

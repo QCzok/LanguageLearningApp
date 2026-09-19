@@ -10,7 +10,7 @@
 import vocabularyCover from '../assets/covers/vocabulary.png';
 import notebookCover from '../assets/covers/notebook.png';
 import libraryShelfCover from '../assets/covers/library-shelf.png';
-import mediaCover from '../assets/covers/media.png';
+import videoCover from '../assets/covers/video.png';
 import aiCover from '../assets/covers/ai.png';
 import beginnerBookCover from '../assets/covers/book-beginner.png';
 import intermediateBookCover from '../assets/covers/book-intermediate.png';
@@ -40,7 +40,7 @@ export {
   vocabularyCover,
   notebookCover,
   libraryShelfCover,
-  mediaCover,
+  videoCover,
   aiCover,
   beginnerBookCover,
   intermediateBookCover,
@@ -79,7 +79,7 @@ export const preloadImages = [
   vocabularyCover,
   notebookCover,
   libraryShelfCover,
-  mediaCover,
+  videoCover,
   aiCover,
   beginnerBookCover,
   intermediateBookCover,

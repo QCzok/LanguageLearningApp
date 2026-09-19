@@ -5,16 +5,11 @@
  * Schlüssel). Inhalte sind bewusst klein gehalten – sie zeigen die Struktur, die
  * produktive Redaktion füllt später über das Editor-Backend nach.
  */
-import { CefrLevel, MediaType, Prisma, PrismaClient } from '@prisma/client';
+import { CefrLevel, Prisma, PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
 import type { LibrarySection } from '@lingua/shared';
 import { seedWorkbook } from './seed/workbook';
-import {
-  MEDIA_SCRIPT_BY_TITLE,
-  estimatedDurationSec,
-  mediaSlug,
-  transcriptOf,
-} from './seed/media-scripts';
+import { seedVideos } from './seed/videos';
 import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, LIBRARY_SEEDS_ES, type LibraryContentSeed } from './seed/library';
 import { PLACEMENT_SEEDS_DE, PLACEMENT_SEEDS_EN, PLACEMENT_SEEDS_ES } from './seed/placement';
 import { GERMAN_VOCAB_A1 } from './seed/german-vocab-a1';
@@ -340,148 +335,10 @@ async function main(): Promise<void> {
   await seedLibraryContent(es, LIBRARY_SEEDS_ES);
 
   // ------------------------------------------------------------ Mediathek
-  const mediaSeeds = [
-    {
-      type: MediaType.DIALOGUE,
-      level: CefrLevel.A1,
-      title: 'At the Bakery',
-      description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
-      tags: ['dialog', 'alltag'],
-    },
-    {
-      type: MediaType.AUDIO_LESSON,
-      level: CefrLevel.A2,
-      title: 'Talking About Your Weekend',
-      description: 'Redemittel und Übungen zum Past Simple im Gespräch.',
-      tags: ['grammatik', 'past simple'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B1,
-      title: 'Slow News: Working From Anywhere',
-      description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
-      tags: ['podcast', 'arbeit'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B2,
-      title: 'The Language Lab: How Accents Change',
-      description: 'Interviewfolge über Sprachwandel und regionale Aussprache.',
-      tags: ['podcast', 'linguistik'],
-    },
-  ];
-
-  /**
-   * Dasselbe Problem wie bei den Vokabeldecks: Ohne deutschsprachige Einträge
-   * ist die Mediathek für ein aktives Deutsch-Profil leer. Gleiche vier
-   * Formate und Niveaus wie beim Englisch-Set, nur inhaltlich auf Deutsch.
-   */
-  const mediaSeedsDe = [
-    {
-      type: MediaType.DIALOGUE,
-      level: CefrLevel.A1,
-      title: 'Beim Bäcker',
-      description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
-      tags: ['dialog', 'alltag'],
-    },
-    {
-      type: MediaType.AUDIO_LESSON,
-      level: CefrLevel.A2,
-      title: 'Vom Wochenende erzählen',
-      description: 'Redemittel und Übungen zum Perfekt im Gespräch.',
-      tags: ['grammatik', 'perfekt'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B1,
-      title: 'Langsame Nachrichten: Von überall arbeiten',
-      description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
-      tags: ['podcast', 'arbeit'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B2,
-      title: 'Das Sprachlabor: Wie sich Akzente verändern',
-      description: 'Interviewfolge über Sprachwandel und regionale Aussprache.',
-      tags: ['podcast', 'linguistik'],
-    },
-  ];
-
-  const mediaBase = process.env.MEDIA_BASE_URL ?? '/static';
-  async function seedMediaItems(languageId: string, seeds: typeof mediaSeeds): Promise<void> {
-    for (const seed of seeds) {
-      const existing = await prisma.mediaItem.findFirst({
-        where: { languageId, title: seed.title },
-      });
-      const slug = mediaSlug(seed.title);
-      /*
-        Transkript und Spieldauer stammen aus dem Sprechtext (siehe
-        media-scripts.ts) – derselben Quelle, aus der `npm run media:tts` die
-        Aufnahme erzeugt. Vorher standen hier frei gewählte Zahlen: Ein
-        Eintrag behauptete 21 Minuten Spielzeit, während es überhaupt keine
-        Datei gab. Die Dauer ist zunächst aus der Textlänge geschätzt; der
-        Generator ersetzt sie durch die gemessene, sobald die MP3 existiert.
-      */
-      const script = MEDIA_SCRIPT_BY_TITLE.get(seed.title);
-      const data = {
-        languageId,
-        level: seed.level,
-        type: seed.type,
-        title: seed.title,
-        description: seed.description,
-        durationSec: script ? estimatedDurationSec(script) : 0,
-        tags: seed.tags,
-        transcript: script ? transcriptOf(script) : null,
-        audioUrl: `${mediaBase}/audio/${slug}.mp3`,
-      };
-
-      if (existing) {
-        // Die Dauer wird hier bewusst auf die Schätzung zurückgesetzt. Den
-        // genauen Wert trägt `npm run media:tts` nach – das Skript misst ihn
-        // auch dann, wenn die Datei schon vorhanden ist und nicht neu
-        // synthetisiert wird. Ein Sonderfall, der gemessene Werte im Seed
-        // verteidigt, hätte hier nur die alten Fantasiezahlen konserviert.
-        await prisma.mediaItem.update({ where: { id: existing.id }, data });
-      } else {
-        await prisma.mediaItem.create({ data });
-      }
-    }
-  }
-
-  const mediaSeedsEs = [
-    {
-      type: MediaType.DIALOGUE,
-      level: CefrLevel.A1,
-      title: 'En la panadería',
-      description: 'Ein kurzer Dialog: Brot kaufen, bezahlen, sich verabschieden.',
-      tags: ['dialog', 'alltag'],
-    },
-    {
-      type: MediaType.AUDIO_LESSON,
-      level: CefrLevel.A2,
-      title: 'Contar el fin de semana',
-      description: 'Redemittel und Übungen zum Indefinido im Gespräch.',
-      tags: ['grammatik', 'indefinido'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B1,
-      title: 'Noticias lentas: trabajar desde cualquier lugar',
-      description: 'Langsam gesprochene Nachrichtenfolge über ortsunabhängiges Arbeiten.',
-      tags: ['podcast', 'arbeit'],
-    },
-    {
-      type: MediaType.PODCAST,
-      level: CefrLevel.B2,
-      title: 'El laboratorio de lenguas: cómo cambian los acentos',
-      description: 'Interviewfolge über Sprachwandel und die Varietäten des Spanischen.',
-      tags: ['podcast', 'linguistik'],
-    },
-  ];
-
-  await seedMediaItems(en, mediaSeeds);
-  await seedMediaItems(de, mediaSeedsDe);
-  await seedMediaItems(es, mediaSeedsEs);
+  // Der Katalog ist erzeugt (`npm run videos:refresh`) und steht in
+  // seed/video-catalog.ts. Das Schreiben liegt in seed/videos.ts, weil es auch
+  // allein gebraucht wird – beim Ausrollen (siehe `npm run videos:seed`).
+  await seedVideos(prisma);
 
   // ------------------------------------------------------------ Lehrplan
   await seedWorkbook(prisma);

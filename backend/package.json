@@ -15,7 +15,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "ts-node --transpile-only prisma/seed.ts",
-    "media:tts": "ts-node scripts/generate-media-audio.ts"
+    "videos:refresh": "ts-node --transpile-only scripts/refresh-video-catalog.ts",
+    "videos:seed": "ts-node --transpile-only scripts/seed-videos.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"

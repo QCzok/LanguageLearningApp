@@ -28,8 +28,8 @@ import NotebookEditorScreen from '../features/notebook/NotebookEditorScreen';
 import LibraryListScreen from '../features/library/LibraryListScreen';
 import ReaderScreen from '../features/library/ReaderScreen';
 import ExercisesScreen from '../features/library/ExercisesScreen';
-import MediaListScreen from '../features/media/MediaListScreen';
-import PlayerScreen from '../features/media/PlayerScreen';
+import VideoListScreen from '../features/videos/VideoListScreen';
+import VideoPlayerScreen from '../features/videos/VideoPlayerScreen';
 import AiHubScreen from '../features/ai/AiHubScreen';
 import AiChatScreen from '../features/ai/AiChatScreen';
 import RecommendationsScreen from '../features/ai/RecommendationsScreen';
@@ -39,7 +39,7 @@ import type {
   AiStackParamList,
   LibraryStackParamList,
   MainTabParamList,
-  MediaStackParamList,
+  VideoStackParamList,
   NotebookStackParamList,
   OnboardingStackParamList,
   RootStackParamList,
@@ -203,22 +203,22 @@ function LibraryNavigator() {
   );
 }
 
-const MediaStack = createNativeStackNavigator<MediaStackParamList>();
-function MediaNavigator() {
+const VideoStack = createNativeStackNavigator<VideoStackParamList>();
+function VideoNavigator() {
   const { t } = useTranslation();
   return (
-    <MediaStack.Navigator screenOptions={defaultStackOptions}>
-      <MediaStack.Screen
-        name="MediaList"
-        component={MediaListScreen}
-        options={{ title: t('mediaList') }}
+    <VideoStack.Navigator screenOptions={defaultStackOptions}>
+      <VideoStack.Screen
+        name="VideoList"
+        component={VideoListScreen}
+        options={{ title: t('videoList') }}
       />
-      <MediaStack.Screen
-        name="Player"
-        component={PlayerScreen}
+      <VideoStack.Screen
+        name="VideoPlayer"
+        component={VideoPlayerScreen}
         options={({ route }) => ({ title: route.params.title })}
       />
-    </MediaStack.Navigator>
+    </VideoStack.Navigator>
   );
 }
 
@@ -252,7 +252,7 @@ const tabIcons: Record<keyof MainTabParamList, string> = {
   Vocabulary: '🗂️',
   Notebook: '📓',
   Library: '📚',
-  Media: '🎧',
+  Videos: '📺',
   Assistant: '✨',
   Profile: '👤',
 };
@@ -276,7 +276,7 @@ function MainNavigator() {
       <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: t('tabVocabulary') }} />
       <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: t('tabNotebook') }} />
       <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: t('tabLibrary') }} />
-      <Tabs.Screen name="Media" component={MediaNavigator} options={{ title: t('tabMedia') }} />
+      <Tabs.Screen name="Videos" component={VideoNavigator} options={{ title: t('tabVideos') }} />
       <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: t('tabAssistant') }} />
       <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabProfile') }} />
     </Tabs.Navigator>

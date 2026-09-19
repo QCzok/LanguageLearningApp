@@ -71,9 +71,9 @@ export default function RecommendationsScreen() {
         } as never);
         break;
       case 'MEDIA':
-        navigation.navigate('Media', {
-          screen: action.targetId ? 'Player' : 'MediaList',
-          params: action.targetId ? { mediaId: action.targetId, title: action.title } : undefined,
+        navigation.navigate('Videos', {
+          screen: action.targetId ? 'VideoPlayer' : 'VideoList',
+          params: action.targetId ? { videoId: action.targetId, title: action.title } : undefined,
         } as never);
         break;
       case 'NOTEBOOK':

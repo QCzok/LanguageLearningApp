@@ -14,7 +14,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { LanguagesModule } from './modules/languages/languages.module';
 import { LibraryModule } from './modules/library/library.module';
-import { MediaModule } from './modules/media/media.module';
+import { VideosModule } from './modules/videos/videos.module';
 import { NotebookModule } from './modules/notebook/notebook.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { ProgressModule } from './modules/progress/progress.module';
@@ -43,7 +43,7 @@ import { WorkbookModule } from './modules/workbook/workbook.module';
     NotebookModule,
     WorkbookModule,
     LibraryModule,
-    MediaModule,
+    VideosModule,
     AiModule,
     ProgressModule,
     SubscriptionModule,

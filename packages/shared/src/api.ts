@@ -5,9 +5,9 @@ import type {
   CardStatus,
   ExerciseType,
   LibraryType,
-  MediaType,
   Plan,
   UserRole,
+  VideoTopic,
   VocabMode,
 } from './enums';
 import type { NotebookPageContent, PageBackground } from './notebook';
@@ -340,20 +340,26 @@ export interface ExerciseResultDto {
 
 // ------------------------------------------------------------------ Mediathek
 
-export interface MediaItemDto {
+/**
+ * Ein kuratiertes YouTube-Video. Die App bettet es ein, statt es
+ * auszuliefern: Aus `youtubeId` bildet der Client Vorschaubild und
+ * Einbettungsadresse selbst (siehe `youtubeThumbnailUrl` / `youtubeEmbedUrl`),
+ * damit hier keine Adresse gespeichert werden muss, die YouTube jederzeit
+ * ändern kann.
+ */
+export interface VideoItemDto {
   id: string;
-  type: MediaType;
+  youtubeId: string;
   title: string;
-  description: string;
-  audioUrl: string;
-  coverUrl: string | null;
+  channelName: string;
+  channelUrl: string;
   durationSec: number;
   level: CefrLevel;
+  topic: VideoTopic;
+  slowSpeech: boolean;
   language: LanguageDto;
   tags: string[];
-  hasTranscript: boolean;
   publishedAt: string;
-  transcript?: string;
   userProgress?: { positionSec: number; completed: boolean };
 }
 
@@ -444,5 +450,5 @@ export interface DashboardDto {
   dailyGoalMinutes: number;
   weeklyActivity: Array<{ date: string; minutes: number; xp: number }>;
   continueReading: LibraryContentDto | null;
-  continueListening: MediaItemDto | null;
+  continueWatching: VideoItemDto | null;
 }

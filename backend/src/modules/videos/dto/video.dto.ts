@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CefrLevel, MediaType } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { CefrLevel, VideoTopic } from '@prisma/client';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { PaginationQueryDto } from '../../../common/dto/pagination.dto';
 
-export class ListMediaQueryDto extends PaginationQueryDto {
+export class ListVideosQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -15,10 +15,21 @@ export class ListMediaQueryDto extends PaginationQueryDto {
   @IsEnum(CefrLevel)
   level?: CefrLevel;
 
-  @ApiPropertyOptional({ enum: MediaType })
+  @ApiPropertyOptional({ enum: VideoTopic })
   @IsOptional()
-  @IsEnum(MediaType)
-  type?: MediaType;
+  @IsEnum(VideoTopic)
+  topic?: VideoTopic;
+
+  /*
+    Nicht `@Type(() => Boolean)`: In einer Abfragezeichenfolge kommt der Wert
+    als Text an, und `Boolean('false')` ist `true`. Der Filter würde also
+    genau dann falsch greifen, wenn jemand ihn ausdrücklich abschaltet.
+  */
+  @ApiPropertyOptional({ description: 'Nur langsam gesprochene Videos' })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
+  @IsBoolean()
+  slowSpeech?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -32,14 +43,14 @@ export class ListMediaQueryDto extends PaginationQueryDto {
   search?: string;
 }
 
-export class UpdateMediaProgressDto {
+export class UpdateVideoProgressDto {
   @ApiProperty({ description: 'Abspielposition in Sekunden' })
   @Type(() => Number)
   @IsInt()
   @Min(0)
   positionSec!: number;
 
-  @ApiPropertyOptional({ description: 'Erzwingt den Status „gehört"' })
+  @ApiPropertyOptional({ description: 'Erzwingt den Status „gesehen“' })
   @IsOptional()
   @IsBoolean()
   completed?: boolean;
@@ -50,5 +61,5 @@ export class UpdateMediaProgressDto {
   @IsInt()
   @Min(0)
   @Max(600)
-  minutesListened?: number;
+  minutesWatched?: number;
 }

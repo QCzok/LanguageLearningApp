@@ -48,8 +48,14 @@ export type LibraryType = (typeof LIBRARY_TYPES)[number];
 export const EXERCISE_TYPES = ['MULTIPLE_CHOICE', 'TRUE_FALSE', 'OPEN'] as const;
 export type ExerciseType = (typeof EXERCISE_TYPES)[number];
 
-export const MEDIA_TYPES = ['PODCAST', 'AUDIO_LESSON', 'DIALOGUE'] as const;
-export type MediaType = (typeof MEDIA_TYPES)[number];
+export const VIDEO_TOPICS = [
+  'EVERYDAY',
+  'STREET_INTERVIEW',
+  'GRAMMAR',
+  'VOCABULARY',
+  'CULTURE',
+] as const;
+export type VideoTopic = (typeof VIDEO_TOPICS)[number];
 
 export const AI_MODES = ['CHAT', 'DISCUSSION', 'GRAMMAR', 'CORRECTION'] as const;
 export type AiMode = (typeof AI_MODES)[number];

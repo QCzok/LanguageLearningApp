@@ -55,9 +55,10 @@ export type LibraryStackParamList = {
   Exercises: { contentId: string; title: string };
 };
 
-export type MediaStackParamList = {
-  MediaList: undefined;
-  Player: { mediaId: string; title: string };
+/** Die Mediathek: eine Auswahl fremder YouTube-Videos zur Lernsprache. */
+export type VideoStackParamList = {
+  VideoList: undefined;
+  VideoPlayer: { videoId: string; title: string };
 };
 
 export type AiStackParamList = {
@@ -71,7 +72,7 @@ export type MainTabParamList = {
   Vocabulary: NavigatorScreenParams<VocabularyStackParamList>;
   Notebook: NavigatorScreenParams<NotebookStackParamList>;
   Library: NavigatorScreenParams<LibraryStackParamList>;
-  Media: NavigatorScreenParams<MediaStackParamList>;
+  Videos: NavigatorScreenParams<VideoStackParamList>;
   Assistant: NavigatorScreenParams<AiStackParamList>;
   Profile: undefined;
 };

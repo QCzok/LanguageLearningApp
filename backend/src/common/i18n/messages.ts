@@ -46,7 +46,7 @@ const de = {
   'notfound.card': 'Karte nicht gefunden',
   'notfound.vocab_item': 'Vokabel nicht gefunden',
   'notfound.content': 'Inhalt nicht gefunden',
-  'notfound.media': 'Medieninhalt nicht gefunden',
+  'notfound.video': 'Video nicht gefunden',
   'notfound.notebook': 'Heft nicht gefunden',
   'notfound.page': 'Seite nicht gefunden',
   'notfound.unit': 'Lerneinheit nicht gefunden',
@@ -65,7 +65,7 @@ const de = {
   // ------------------------------------------------------------------ Premium
   'premium.required': 'Diese Funktion ist Teil von Lingua Premium.',
   'premium.content': 'Dieser Inhalt ist Teil von Lingua Premium',
-  'premium.media': 'Diese Folge ist Teil von Lingua Premium',
+  'premium.video': 'Dieses Video ist Teil von Lingua Premium',
 
   // ----------------------------------------------------------------------- KI
   'ai.unavailable': 'Die KI-Funktionen sind derzeit nicht verfügbar',
@@ -147,7 +147,7 @@ const en: MessageCatalog = {
   'notfound.card': 'Card not found',
   'notfound.vocab_item': 'Word not found',
   'notfound.content': 'Content not found',
-  'notfound.media': 'Media item not found',
+  'notfound.video': 'Video not found',
   'notfound.notebook': 'Notebook not found',
   'notfound.page': 'Page not found',
   'notfound.unit': 'Lesson not found',
@@ -164,7 +164,7 @@ const en: MessageCatalog = {
 
   'premium.required': 'This feature is part of Lingua Premium.',
   'premium.content': 'This content is part of Lingua Premium',
-  'premium.media': 'This episode is part of Lingua Premium',
+  'premium.video': 'This video is part of Lingua Premium',
 
   'ai.unavailable': 'The AI features are currently unavailable',
   'ai.cli_missing':
@@ -237,7 +237,7 @@ const es: MessageCatalog = {
   'notfound.card': 'Tarjeta no encontrada',
   'notfound.vocab_item': 'Palabra no encontrada',
   'notfound.content': 'Contenido no encontrado',
-  'notfound.media': 'Contenido multimedia no encontrado',
+  'notfound.video': 'Vídeo no encontrado',
   'notfound.notebook': 'Cuaderno no encontrado',
   'notfound.page': 'Página no encontrada',
   'notfound.unit': 'Lección no encontrada',
@@ -254,7 +254,7 @@ const es: MessageCatalog = {
 
   'premium.required': 'Esta función forma parte de Lingua Premium.',
   'premium.content': 'Este contenido forma parte de Lingua Premium',
-  'premium.media': 'Este episodio forma parte de Lingua Premium',
+  'premium.video': 'Este vídeo forma parte de Lingua Premium',
 
   'ai.unavailable': 'Las funciones de IA no están disponibles ahora mismo',
   'ai.cli_missing':
@@ -327,7 +327,7 @@ const fr: MessageCatalog = {
   'notfound.card': 'Carte introuvable',
   'notfound.vocab_item': 'Mot introuvable',
   'notfound.content': 'Contenu introuvable',
-  'notfound.media': 'Contenu média introuvable',
+  'notfound.video': 'Vidéo introuvable',
   'notfound.notebook': 'Cahier introuvable',
   'notfound.page': 'Page introuvable',
   'notfound.unit': 'Leçon introuvable',
@@ -344,7 +344,7 @@ const fr: MessageCatalog = {
 
   'premium.required': 'Cette fonction fait partie de Lingua Premium.',
   'premium.content': 'Ce contenu fait partie de Lingua Premium',
-  'premium.media': 'Cet épisode fait partie de Lingua Premium',
+  'premium.video': 'Cette vidéo fait partie de Lingua Premium',
 
   'ai.unavailable': 'Les fonctions IA ne sont pas disponibles pour le moment',
   'ai.cli_missing':
@@ -419,7 +419,7 @@ const it: MessageCatalog = {
   'notfound.card': 'Carta non trovata',
   'notfound.vocab_item': 'Vocabolo non trovato',
   'notfound.content': 'Contenuto non trovato',
-  'notfound.media': 'Contenuto multimediale non trovato',
+  'notfound.video': 'Video non trovato',
   'notfound.notebook': 'Quaderno non trovato',
   'notfound.page': 'Pagina non trovata',
   'notfound.unit': 'Lezione non trovata',
@@ -436,7 +436,7 @@ const it: MessageCatalog = {
 
   'premium.required': 'Questa funzione fa parte di Lingua Premium.',
   'premium.content': 'Questo contenuto fa parte di Lingua Premium',
-  'premium.media': 'Questo episodio fa parte di Lingua Premium',
+  'premium.video': 'Questo video fa parte di Lingua Premium',
 
   'ai.unavailable': 'Le funzioni IA non sono disponibili al momento',
   'ai.cli_missing':

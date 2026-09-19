@@ -130,9 +130,11 @@ und Volltextsuche. Lesefortschritt wird beim Scrollen gesichert;
 Verständnisfragen (Auswahl, Richtig/Falsch, offen) werden serverseitig
 ausgewertet – Lösungen verlassen den Server erst nach der Abgabe.
 
-**Mediathek** – Podcasts, Audiolektionen und Dialoge mit Player: Springen,
-Abspielgeschwindigkeit mit Tonhöhenkorrektur, Transkript zum Mitlesen.
-Hörposition wird laufend gesichert.
+**Mediathek** – eine kuratierte Auswahl fremder YouTube-Videos zur Lernsprache,
+gefiltert nach Niveau, Thema und danach, ob langsam gesprochen wird. Abgespielt
+wird eingebettet in der App; die Sehposition wird laufend gesichert. Der Katalog
+ist erzeugt (`npm run videos:refresh`), nicht von Hand gepflegt; `npm run
+videos:seed` schreibt ihn in eine Datenbank, ohne den übrigen Seed anzufassen.
 
 **KI (Premium)** – Gespräche und Diskussionen auf dem eigenen Niveau,
 Textkorrektur im Lernheft, Erklärungen zu Grammatik und Vokabeln sowie
@@ -219,6 +221,6 @@ einzelner Aufgaben, Abgabe einer ganzen Einheit mit XP-Vergabe nur beim ersten
 Abschluss, stabile Mischung der Reihenfolge-Aufgaben und die Notizebene.
 
 Nicht enthalten, weil bewusst offengelassen: die Anbindung an StoreKit und Google
-Play Billing (der Premium-Knopf im Profil ist ein Entwicklungsplatzhalter), echte
-Audiodateien für die Mediathek und ein Redaktions-Backend für Inhalte. Siehe
+Play Billing (der Premium-Knopf im Profil ist ein Entwicklungsplatzhalter) und ein
+Redaktions-Backend für Inhalte. Siehe
 [`docs/ROADMAP.md`](docs/ROADMAP.md).

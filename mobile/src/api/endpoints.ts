@@ -16,7 +16,6 @@ import type {
   LanguageDto,
   LearningProfileDto,
   LibraryContentDto,
-  MediaItemDto,
   NotebookAnalysisDto,
   NotebookDto,
   NotebookPageContent,
@@ -32,6 +31,8 @@ import type {
   UnitCheckResult,
   UnitDetailDto,
   UserDto,
+  VideoItemDto,
+  VideoTopic,
   VocabDeckDetailDto,
   VocabDeckDto,
   VocabMode,
@@ -190,12 +191,19 @@ export const libraryApi = {
   ) => api.post<ExerciseResultDto>(`/library/${id}/exercises/submit`, body).then((r) => r.data),
 };
 
-export const mediaApi = {
-  list: (params: { level?: CefrLevel; type?: string; search?: string; page?: number }) =>
-    api.get<Paginated<MediaItemDto>>('/media', { params }).then((r) => r.data),
-  detail: (id: string) => api.get<MediaItemDto>(`/media/${id}`).then((r) => r.data),
-  saveProgress: (id: string, body: { positionSec: number; minutesListened?: number }) =>
-    api.put(`/media/${id}/progress`, body),
+export const videosApi = {
+  list: (params: {
+    level?: CefrLevel;
+    topic?: VideoTopic;
+    slowSpeech?: true;
+    search?: string;
+    page?: number;
+  }) => api.get<Paginated<VideoItemDto>>('/videos', { params }).then((r) => r.data),
+  detail: (id: string) => api.get<VideoItemDto>(`/videos/${id}`).then((r) => r.data),
+  saveProgress: (
+    id: string,
+    body: { positionSec: number; completed?: boolean; minutesWatched?: number },
+  ) => api.put(`/videos/${id}/progress`, body),
 };
 
 export const aiApi = {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Image } from 'react-native';
 
-import { aiCover, libraryShelfCover, mediaCover, notebookCover, vocabularyCover } from '../../assets';
+import { aiCover, libraryShelfCover, notebookCover, videoCover, vocabularyCover } from '../../assets';
 
 /**
  * Kachel-Bilder der Startseite.
@@ -9,10 +9,10 @@ import { aiCover, libraryShelfCover, mediaCover, notebookCover, vocabularyCover 
  * Waren erst flache SVG-Zeichnungen, jetzt gerenderte PNGs (weiche Schatten,
  * Lichtverlauf, leichte Tiefenunschärfe) – dieselbe Technik für alle fünf:
  * Karteikarten fürs Vokabellernen, ein aufgeschlagenes Heft mit Stift fürs
- * Lehrwerk, ein Bücherregal für die Bibliothek, Kopfhörer mit Klangwellen für
- * die Mediathek, eine Sprechblase mit Funken für die KI. Erzeugt werden sie
- * von `scripts/render-home-covers.mjs`, die Dateien liegen unter
- * `mobile/assets/covers/`.
+ * Lehrwerk, ein Bücherregal für die Bibliothek, ein Bildschirm mit
+ * Abspielzeichen für die Mediathek, eine Sprechblase mit Funken für die KI.
+ * Erzeugt werden sie von `scripts/render-home-covers.mjs`, die Dateien liegen
+ * unter `mobile/assets/covers/`.
  */
 function Cover({ source }: { source: number }) {
   return (
@@ -43,9 +43,9 @@ export function LibraryShelfCover() {
   return <Cover source={libraryShelfCover} />;
 }
 
-/** Mediathek: Kopfhörer mit Klangwellen. */
-export function MediaCover() {
-  return <Cover source={mediaCover} />;
+/** Mediathek: ein Bildschirm mit Abspielzeichen und Untertitelzeile. */
+export function VideoCover() {
+  return <Cover source={videoCover} />;
 }
 
 /** KI-Tutor: Sprechblase mit Funken. */

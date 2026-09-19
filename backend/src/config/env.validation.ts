@@ -23,8 +23,6 @@ const schema = z
     AI_MODEL: z.string().default('claude-opus-5'),
     AI_FREE_MONTHLY_LIMIT: z.coerce.number().int().nonnegative().default(5),
     AI_PREMIUM_MONTHLY_LIMIT: z.coerce.number().int().nonnegative().default(1000),
-    MEDIA_BASE_URL: z.string().default('/static'),
-    STATIC_DIR: z.string().default('static'),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== 'production') return;

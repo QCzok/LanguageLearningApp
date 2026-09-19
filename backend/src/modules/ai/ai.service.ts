@@ -454,7 +454,7 @@ export class AiService {
       this.users.getActiveProfileOrThrow(userId),
     ]);
 
-    const [stats, weakCards, decks, contents, media, lastAnalysis] = await Promise.all([
+    const [stats, weakCards, decks, contents, videos, lastAnalysis] = await Promise.all([
       this.prisma.vocabProgress.groupBy({
         by: ['status'],
         where: { userId },
@@ -476,9 +476,9 @@ export class AiService {
         select: { id: true, title: true, type: true, level: true },
         take: 8,
       }),
-      this.prisma.mediaItem.findMany({
+      this.prisma.videoItem.findMany({
         where: { languageId: profile.languageId, level: profile.level },
-        select: { id: true, title: true, type: true, level: true },
+        select: { id: true, title: true, topic: true, level: true },
         take: 8,
       }),
       this.prisma.notebookAnalysis.findFirst({
@@ -511,7 +511,7 @@ export class AiService {
       katalog: {
         VOCAB_DECK: decks,
         LIBRARY: contents,
-        MEDIA: media,
+        MEDIA: videos,
       },
     };
 

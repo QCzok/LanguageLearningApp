@@ -53,30 +53,21 @@ durchgängig deutsch.
 
 Nötig für den Betrieb:
 
-- **Audiodateien.** Der offene Punkt der Mediathek: Die Sprechtexte aller zwölf
-  Folgen (je vier auf Deutsch, Englisch und Spanisch) stehen in
-  `prisma/seed/media-scripts.ts`, **die Aufnahmen selbst gibt es noch nicht**.
-  `STATIC_DIR/audio` ist leer, jeder Abruf endet mit 404, und im Player bleibt
-  der Abspielknopf ausgegraut – das ist der erwartete Zustand, kein Fehler in
-  der Auslieferung. `npm run media:tts` erzeugt die Dateien; zwei Wege stehen
-  offen (Einzelheiten in `static/README.md`):
-
-  - `--provider openai` (Vorgabe): beste Qualität, braucht `OPENAI_API_KEY`.
-  - `--provider windows`: kostenlos und offline über die installierten
-    Windows-Stimmen, aber hörbar robotischer. Braucht je Sprache eine
-    installierte Stimme und ffmpeg; `npm run media:tts -- --voices` zeigt, was
-    davon vorhanden ist. Fehlt eine Sprache, bricht das Skript ab, statt auf
-    eine Stimme der falschen Sprache auszuweichen.
-
-  Synthetische Stimmen sind in beiden Fällen ein Platzhalter für echte
-  Aufnahmen, keine Endfassung – für ein Produkt gehören Sprecherinnen und
-  Sprecher ins Studio. Für die Produktion gehören die Dateien außerdem hinter
-  ein CDN mit signierten URLs (`MEDIA_BASE_URL` auf die CDN-Adresse setzen),
-  damit Premium-Inhalte nicht frei abrufbar sind.
+- **Lizenzfrage der Mediathek.** Die Mediathek bettet fremde YouTube-Videos ein.
+  Das ist über den offiziellen Rahmen gedeckt und der Weg, den YouTube dafür
+  vorsieht – die Videos bleiben bei YouTube, samt Kanalnennung und Werbung.
+  Trotzdem hängt der Bestand an fremden Kanälen: Wird ein Video gelöscht oder
+  auf privat gestellt, bleibt im Katalog ein toter Eintrag stehen.
+  `npm run videos:refresh` prüft jede Kennung über oEmbed und zieht die
+  Auswahl neu – das gehört in einen regelmäßigen Lauf, nicht in Handarbeit.
+  Für ein Produkt wäre außerdem zu klären, ob eigene Inhalte danebentreten
+  sollen; dafür bräuchte es wieder Aufnahmen und eine Auslieferung.
 - **Hörtexte im Lehrwerk.** Die `AUDIO`- und `DIALOGUE`-Blöcke der Buchseiten
   tragen ein Feld `audioUrl`, das noch nirgends gefüllt und in der App noch
-  nicht abspielbar ist (siehe `AudioPlaceholder`). Derselbe Weg wie bei der
-  Mediathek würde sich anbieten.
+  nicht abspielbar ist (siehe `AudioPlaceholder`). Hier hilft die Mediathek
+  nicht weiter: Ihre Videos sind fremdes Material, die Hörtexte des Lehrwerks
+  gehören zu bestimmten Buchseiten und müssten selbst aufgenommen und
+  ausgeliefert werden.
 - **Redaktions-Backend.** Die Rolle `EDITOR` existiert im Datenmodell, es gibt
   aber noch keine Schreibendpunkte für Bibliothek und Mediathek. Ein CMS oder ein
   schlichtes Admin-Modul mit `@Roles('EDITOR')` würde reichen.
