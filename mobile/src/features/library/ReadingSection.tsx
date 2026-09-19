@@ -4,7 +4,8 @@ import type { LibraryGlossaryEntry, LibrarySection } from '@lingua/shared';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { asTranslatableLanguage } from '../../utils/translation';
-import { colors, fontFamily, radius, reading, readingLabel, spacing } from '../../theme';
+import { fontFamily, radius, spacing } from '../../theme';
+import { useReaderSettings } from './ReaderSettings';
 
 /** Das angetippte Wort samt Druckstelle – daraus setzt `GlossaryPopover` den Zettel. */
 export type GlossaryAnchor = {
@@ -19,7 +20,7 @@ export type GlossaryAnchor = {
 };
 
 /** Einzug der Folgeabsätze: zwei Geviertspatien, wie im Blocksatz eines Buchs. */
-const INDENT = '\u2003\u2003';
+const INDENT = '  ';
 
 /** So viele Zeichen des ersten Absatzes werden höchstens in Versalien gesetzt. */
 const SMALL_CAPS_MAX = 20;
@@ -61,15 +62,19 @@ const INFLECTABLE_MIN = 5;
  *
  * Gesetzt wie eine Buchseite, nicht wie ein Bildschirm: Blocksatz, die
  * Folgeabsätze mit Einzug statt mit Leerraum getrennt, der erste mit Initiale
- * und den ersten Wörtern in Versalien. Was den Text erklärt, drängt sich
- * nicht dazwischen, sondern hängt an ihm:
+ * und den ersten Wörtern in Versalien. Schrift, Größe, Durchschuss und Papier
+ * kommen aus den Leseeinstellungen (`useReaderSettings`) – der Absatz hat
+ * keine eigene Farbe und keine eigene Größe, weil sonst das Nachtpapier oder
+ * die Großschrift an einer Stelle der Seite nicht mitginge.
  *
- * – Schwierige Wörter stehen unterstrichen und in der Leitfarbe *im Satz*,
+ * Was den Text erklärt, drängt sich nicht dazwischen, sondern hängt an ihm:
+ *
+ * – Schwierige Wörter stehen unterstrichen und in der Akzentfarbe *im Satz*,
  *   wie ein Verweis. Ein Tippen darauf öffnet den Zettel mit der Erklärung
  *   (`GlossaryPopover`); der Absatz selbst bleibt dabei stehen, wo er ist.
  * – Die Übersetzung steht als kleiner, eingerückter Kasten unter dem Absatz,
  *   wie die Prosafassung unter dem Vers in einer zweisprachigen Ausgabe.
- *   Tippen auf den Kasten klappt ihn weg, der Lesekopf schaltet alle auf
+ *   Tippen auf den Kasten klappt ihn weg, das Einstellblatt schaltet alle auf
  *   einmal.
  *
  * Beides ist bewusst leiser gesetzt als der Absatz – getöntes Papier,
@@ -78,28 +83,25 @@ const INFLECTABLE_MIN = 5;
  */
 export function ReadingSection({
   section,
-  fontSize = reading.textSizes[1],
   dropCap = false,
-  translationsOpen = true,
   activeTermId,
   onTermPress,
 }: {
   section: LibrarySection;
-  /** Vom Lesekopf eingestellte Schriftgröße (siehe `ReaderScreen`). */
-  fontSize?: number;
   /** Nur der erste Absatz eines Texts bekommt Initiale und Versalien. */
   dropCap?: boolean;
-  /** Stand des „Übersetzung“-Schalters im Lesekopf. */
-  translationsOpen?: boolean;
   /** Welches Wort gerade erklärt wird – es bleibt so lange hervorgehoben. */
   activeTermId?: string | null;
   onTermPress?: (anchor: GlossaryAnchor) => void;
 }) {
-  const [translationOpen, setTranslationOpen] = useState(translationsOpen);
+  const settings = useReaderSettings();
+  const c = settings.colors;
+  const { fontSize, lineHeight } = settings;
+  const [translationOpen, setTranslationOpen] = useState(settings.translations);
 
-  // Der Schalter im Lesekopf setzt alle Absätze gleichzeitig; danach kann
+  // Der Schalter im Einstellblatt setzt alle Absätze gleichzeitig; danach kann
   // jeder Absatz wieder für sich auf- und zugeklappt werden.
-  useEffect(() => setTranslationOpen(translationsOpen), [translationsOpen]);
+  useEffect(() => setTranslationOpen(settings.translations), [settings.translations]);
 
   const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
@@ -107,26 +109,45 @@ export function ReadingSection({
   const languageLabel = language ? tLanguage(language) : '';
   const translation = language ? section.translations?.[language] : undefined;
 
-  const lineHeight = Math.round(fontSize * reading.lineHeightRatio);
   const { segments, unmatched } = useMemo(
     () => markTerms(section.text, section.glossary ?? [], dropCap),
     [section.text, section.glossary, dropCap],
   );
 
   function openTerm(entry: LibraryGlossaryEntry, index: number, event: GestureResponderEvent) {
+    // Der Leser schaltet auf einen Tipp seine Leisten ein und aus (siehe
+    // `ReaderScreen`). Ein Tipp auf ein erklärtes Wort ist keiner davon – ohne
+    // das hier würde mit jeder Worterklärung auch die Kopfleiste umspringen.
+    stopBubbling(event);
     const { pageX, pageY } = event.nativeEvent;
     onTermPress?.({ id: `${section.id}:${index}`, entry, x: pageX, y: pageY, lineHeight });
   }
 
   return (
     <View>
-      <Text style={[bodyText, { fontSize, lineHeight }]}>
+      <Text
+        style={[
+          bodyText,
+          {
+            fontFamily: settings.serif ? fontFamily.serif : fontFamily.regular,
+            color: c.ink,
+            fontSize,
+            lineHeight,
+          },
+        ]}
+      >
         {segments.map((segment, position) => {
           if (segment.kind === 'initial') {
             return (
               <Text
                 key={position}
-                style={[initialStyle, { fontSize: fontSize * 2.1, lineHeight: lineHeight * 1.25 }]}
+                style={{
+                  fontFamily: settings.serif ? fontFamily.serif : fontFamily.bold,
+                  fontWeight: '700',
+                  color: c.accent,
+                  fontSize: fontSize * 2.1,
+                  lineHeight: lineHeight * 1.25,
+                }}
               >
                 {segment.text}
               </Text>
@@ -135,7 +156,7 @@ export function ReadingSection({
 
           if (segment.kind === 'smallCaps') {
             return (
-              <Text key={position} style={smallCapsStyle}>
+              <Text key={position} style={[smallCapsStyle, { color: c.ink }]}>
                 {segment.text}
               </Text>
             );
@@ -150,7 +171,11 @@ export function ReadingSection({
                 accessibilityLabel={t('readingExplainWord', { word: segment.entry.term })}
                 suppressHighlighting
                 onPress={(event) => openTerm(segment.entry, segment.index, event)}
-                style={[termStyle, active && termActiveStyle]}
+                style={[
+                  termStyle,
+                  { color: c.accent, textDecorationColor: c.accent },
+                  active && { backgroundColor: c.accentSoft },
+                ]}
               >
                 {segment.text}
               </Text>
@@ -166,7 +191,7 @@ export function ReadingSection({
           kleine Marken unter dem Absatz und öffnen denselben Zettel. */}
       {unmatched.length ? (
         <View style={strayRow}>
-          <Text style={apparatusLabel}>{t('readingWordsLabel')}</Text>
+          <Text style={[apparatusLabel, { color: c.inkFaint }]}>{t('readingWordsLabel')}</Text>
           {unmatched.map(({ entry, index }) => {
             const active = activeTermId === `${section.id}:${index}`;
             return (
@@ -175,9 +200,13 @@ export function ReadingSection({
                 accessibilityRole="button"
                 accessibilityLabel={t('readingExplainWord', { word: entry.term })}
                 onPress={(event) => openTerm(entry, index, event)}
-                style={[strayChip, active && strayChipActive]}
+                style={[
+                  strayChip,
+                  { borderColor: c.accent, backgroundColor: c.accentSoft },
+                  active && { borderStyle: 'solid' },
+                ]}
               >
-                <Text style={strayChipText}>{entry.term}</Text>
+                <Text style={[strayChipText, { color: c.accent }]}>{entry.term}</Text>
               </Pressable>
             );
           })}
@@ -190,11 +219,27 @@ export function ReadingSection({
             accessibilityRole="button"
             accessibilityState={{ expanded: true }}
             accessibilityLabel={t('blockHideTranslation')}
-            onPress={() => setTranslationOpen(false)}
-            style={translationBox}
+            onPress={(event) => {
+              stopBubbling(event);
+              setTranslationOpen(false);
+            }}
+            style={[
+              translationBox,
+              { backgroundColor: c.paperDeep, borderColor: c.edge, borderLeftColor: c.accent },
+            ]}
           >
-            <Text style={translationLabel}>{languageLabel}</Text>
-            <Text style={[translationText, { fontSize: fontSize - 3, lineHeight: lineHeight - 5 }]}>
+            <Text style={[translationLabel, { color: c.accent }]}>{languageLabel}</Text>
+            <Text
+              style={[
+                translationText,
+                {
+                  fontFamily: settings.serif ? fontFamily.serif : fontFamily.regular,
+                  color: c.inkSoft,
+                  fontSize: fontSize - 3,
+                  lineHeight: lineHeight - 5,
+                },
+              ]}
+            >
               {translation}
             </Text>
           </Pressable>
@@ -202,12 +247,15 @@ export function ReadingSection({
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ expanded: false }}
-            onPress={() => setTranslationOpen(true)}
+            onPress={(event) => {
+              stopBubbling(event);
+              setTranslationOpen(true);
+            }}
             hitSlop={8}
             style={translationHandle}
           >
-            <View style={translationHandleRule} />
-            <Text style={translationHandleText}>
+            <View style={[translationHandleRule, { backgroundColor: c.rule }]} />
+            <Text style={[apparatusLabel, { color: c.inkFaint }]}>
               {t('readingReadInLanguage', { language: languageLabel })}
             </Text>
           </Pressable>
@@ -215,6 +263,18 @@ export function ReadingSection({
       ) : null}
     </View>
   );
+}
+
+/**
+ * Hält einen Tipp im Absatz, statt ihn nach oben weiterzugeben.
+ *
+ * Nötig fürs Web: Dort reicht React Native ein Ereignis an die umgebende
+ * Schaltfläche weiter (den Bildschirm, der die Leisten schaltet), auf dem Gerät
+ * fängt es der innere Knopf allein ab. Ein Aufruf, der auf beiden Seiten
+ * funktioniert, spart die Plattformabfrage.
+ */
+function stopBubbling(event: GestureResponderEvent) {
+  event.stopPropagation?.();
 }
 
 type Segment =
@@ -390,51 +450,37 @@ function pushProse(segments: Segment[], text: string, atStart: boolean, dropCap:
  * Blocksatz gibt der Spalte die geschlossene Kante, an der man eine gedruckte
  * Seite erkennt. Android setzt ihn erst ab API 26 um und fällt sonst still auf
  * Flattersatz zurück – ein Verlust an Anmutung, kein Fehler im Bild.
+ *
+ * Schrift, Größe, Durchschuss und Farbe setzt der Absatz nicht selbst: Sie
+ * kommen aus den Leseeinstellungen und werden an der Aufrufstelle beigemischt.
  */
 const bodyText = {
-  fontFamily: fontFamily.regular,
-  color: reading.ink,
   textAlign: 'justify' as const,
-};
-
-/**
- * Initiale des ersten Absatzes. Eine echte, vom Text umflossene Initiale kann
- * React Native nicht setzen – ein deutlich größerer erster Buchstabe in
- * derselben Zeile kommt dem Bild eines gedruckten Textanfangs am nächsten und
- * kostet keine Sonderbehandlung des Umbruchs.
- */
-const initialStyle = {
-  fontFamily: fontFamily.bold,
-  color: colors.primary,
 };
 
 /** Die ersten Wörter in gesperrten Versalien – der zweite Teil des Buchanfangs. */
 const smallCapsStyle = {
-  fontFamily: fontFamily.semiBold,
   letterSpacing: 0.8,
-  color: reading.ink,
+  fontWeight: '600' as const,
 };
 
 /**
- * Der Verweis im Satz: Leitfarbe und Unterstreichung, sonst nichts. Kein
+ * Der Verweis im Satz: Akzentfarbe und Unterstreichung, sonst nichts. Kein
  * eigener Schnitt und keine Fläche – das Wort soll seine Zeile nicht
- * auseinanderziehen, sondern nur als anklickbar zu erkennen sein.
+ * auseinanderziehen, sondern nur als anklickbar zu erkennen sein. Solange der
+ * Zettel offen ist, bleibt es zusätzlich als getönte Stelle sichtbar.
  */
 const termStyle = {
-  color: colors.primary,
   textDecorationLine: 'underline' as const,
-  textDecorationColor: colors.primary,
 };
 
-/** Solange der Zettel offen ist, bleibt das Wort als getönte Stelle sichtbar. */
-const termActiveStyle = {
-  backgroundColor: colors.primarySoft,
-  color: colors.primaryDark,
-};
-
+/** Etikett des Apparats: gesperrte Versalien, wie im Druck. */
 const apparatusLabel = {
-  ...readingLabel,
-  color: reading.inkFaint,
+  fontFamily: fontFamily.semiBold,
+  fontSize: 11,
+  fontWeight: '700' as const,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
   marginRight: spacing.xs,
 };
 
@@ -452,49 +498,40 @@ const strayChip = {
   borderRadius: radius.full,
   borderWidth: 1,
   borderStyle: 'dashed' as const,
-  borderColor: colors.primary,
-  backgroundColor: colors.primarySoft,
-};
-
-const strayChipActive = {
-  borderStyle: 'solid' as const,
 };
 
 const strayChipText = {
   fontFamily: fontFamily.semiBold,
   fontSize: 12,
   fontWeight: '600' as const,
-  color: colors.primary,
 };
 
 /**
- * Der Übersetzungskasten. Eingerückt und getönt, mit Rücken in der Leitfarbe –
+ * Der Übersetzungskasten. Eingerückt und getönt, mit Rücken in der Akzentfarbe –
  * er soll unter dem Absatz hängen wie eine Fußnote, nicht neben ihm stehen
  * wie ein zweiter Absatz.
  */
 const translationBox = {
   marginTop: spacing.sm,
   marginLeft: spacing.lg,
-  backgroundColor: reading.paperDeep,
   borderRadius: radius.md,
   borderWidth: 1,
-  borderColor: reading.edge,
   borderLeftWidth: 3,
-  borderLeftColor: colors.primary,
   paddingVertical: spacing.sm,
   paddingHorizontal: spacing.md,
   gap: 2,
 };
 
 const translationLabel = {
-  ...readingLabel,
-  color: colors.primary,
+  fontFamily: fontFamily.semiBold,
+  fontSize: 11,
+  fontWeight: '700' as const,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
 };
 
 const translationText = {
-  fontFamily: fontFamily.regular,
   fontStyle: 'italic' as const,
-  color: reading.inkSoft,
 };
 
 /** Ist der Kasten zugeklappt, bleibt nur ein Haken am linken Rand zurück. */
@@ -509,10 +546,4 @@ const translationHandle = {
 const translationHandleRule = {
   width: 14,
   height: 1,
-  backgroundColor: reading.rule,
-};
-
-const translationHandleText = {
-  ...readingLabel,
-  color: reading.inkFaint,
 };

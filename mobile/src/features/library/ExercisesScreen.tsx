@@ -119,7 +119,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
           {textVisible ? (
             <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
               {data.body.map((section) => (
-                <ReadingSection key={section.id} section={section} fontSize={16} />
+                <ReadingSection key={section.id} section={section} />
               ))}
             </View>
           ) : null}

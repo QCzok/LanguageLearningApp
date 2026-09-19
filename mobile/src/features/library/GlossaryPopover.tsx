@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from '../../i18n';
-import { colors, fontFamily, radius, reading, readingLabel, shadow, spacing } from '../../theme';
+import { fontFamily, radius, shadow, spacing } from '../../theme';
 import type { GlossaryAnchor } from './ReadingSection';
+import { useReaderColors } from './ReaderSettings';
 
 /** Abstand zwischen Wort und Zettel, und die Kantenlänge der Spitze. */
 const GAP = 8;
@@ -31,6 +32,7 @@ export function GlossaryPopover({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const c = useReaderColors();
   const window = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [height, setHeight] = useState(0);
@@ -78,27 +80,38 @@ export function GlossaryPopover({
         accessibilityRole="button"
         accessibilityLabel={t('readingCloseExplanation')}
         onPress={onClose}
-        style={backdrop}
+        style={[backdrop, { backgroundColor: c.scrim }]}
       >
         <View
           onLayout={(event) => setHeight(event.nativeEvent.layout.height)}
           // Vor der Messung unsichtbar, aber schon im Layout – siehe oben.
-          style={[card, { width, top, left, opacity: height > 0 ? 1 : 0 }]}
+          style={[
+            card,
+            {
+              width,
+              top,
+              left,
+              opacity: height > 0 ? 1 : 0,
+              backgroundColor: c.paper,
+              borderColor: c.edge,
+              borderLeftColor: c.accent,
+            },
+          ]}
         >
           {pointing ? (
             <View
               style={[
                 arrow,
                 above ? arrowDown : arrowUp,
-                { left: arrowLeft },
+                { left: arrowLeft, backgroundColor: c.paper, borderColor: c.edge },
               ]}
             />
           ) : null}
 
-          <Text style={popoverLabel}>{t('readingExplanationLabel')}</Text>
-          <Text style={popoverTerm}>{anchor.entry.term}</Text>
-          <View style={popoverRule} />
-          <Text style={popoverText}>{anchor.entry.explanation}</Text>
+          <Text style={[popoverLabel, { color: c.accent }]}>{t('readingExplanationLabel')}</Text>
+          <Text style={[popoverTerm, { color: c.ink }]}>{anchor.entry.term}</Text>
+          <View style={[popoverRule, { backgroundColor: c.rule }]} />
+          <Text style={[popoverText, { color: c.inkSoft }]}>{anchor.entry.explanation}</Text>
         </View>
       </Pressable>
     </Modal>
@@ -112,23 +125,21 @@ function clamp(value: number, min: number, max: number) {
 /**
  * Der Hintergrund dunkelt kaum ab – gerade genug, dass der Zettel vom Papier
  * abhebt, aber nicht so viel, dass der Absatz darunter unlesbar würde. Man
- * soll den Satz weiterlesen können, in dem das Wort steht.
+ * soll den Satz weiterlesen können, in dem das Wort steht. Wie stark, sagt das
+ * gewählte Papier (`scrim` in `readerThemes`): über Sepia genügt ein Hauch,
+ * über Nachtpapier braucht es mehr.
  */
 const backdrop = {
   flex: 1,
-  backgroundColor: 'rgba(13, 13, 13, 0.14)',
 };
 
 const card = {
   position: 'absolute' as const,
-  backgroundColor: reading.paper,
   borderRadius: radius.md,
   borderWidth: 1,
-  borderColor: reading.edge,
-  // Rücken in der Leitfarbe, wie Vorspann und Kästen der Lesestrecke – die
-  // Spitze sitzt oben oder unten und käme einer farbigen Kante dort ins Gehege.
+  // Rücken in der Akzentfarbe, wie die Kästen der Lesestrecke – die Spitze
+  // sitzt oben oder unten und käme einer farbigen Kante dort ins Gehege.
   borderLeftWidth: 3,
-  borderLeftColor: colors.primary,
   paddingVertical: spacing.md,
   paddingHorizontal: spacing.md,
   gap: 3,
@@ -146,8 +157,6 @@ const arrow = {
   position: 'absolute' as const,
   width: ARROW * 2,
   height: ARROW * 2,
-  backgroundColor: reading.paper,
-  borderColor: reading.edge,
   transform: [{ rotate: '45deg' }],
 };
 
@@ -166,26 +175,28 @@ const arrowUp = {
 };
 
 const popoverLabel = {
-  ...readingLabel,
-  color: colors.primary,
+  fontFamily: fontFamily.semiBold,
+  fontSize: 11,
+  fontWeight: '700' as const,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase' as const,
 };
 
+/** Stichwort und Erklärung in der Lese-Antiqua – der Zettel gehört zum Buch. */
 const popoverTerm = {
-  fontFamily: fontFamily.bold,
+  fontFamily: fontFamily.serif,
   fontSize: 18,
   lineHeight: 24,
-  color: reading.ink,
+  fontWeight: '700' as const,
 };
 
 const popoverRule = {
   height: 1,
-  backgroundColor: reading.rule,
   marginVertical: spacing.sm,
 };
 
 const popoverText = {
-  fontFamily: fontFamily.regular,
-  fontSize: 14,
+  fontFamily: fontFamily.serif,
+  fontSize: 14.5,
   lineHeight: 22,
-  color: reading.inkSoft,
 };

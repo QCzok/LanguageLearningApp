@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, StyleSheet } from 'react-native';
+import type { ImageSourcePropType } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { LibraryContentDto } from '@lingua/shared';
 import {
@@ -49,22 +50,67 @@ const COVERS_BY_TAG: Record<string, number> = {
   technologie: phoneLibraryCover,
 };
 
-/** Wählt die passende Illustration – ein echtes Foto hat immer Vorrang. */
+/**
+ * Das Bild eines Texts als Quelle – ein echtes Foto hat immer Vorrang.
+ *
+ * Getrennt von der Komponente, weil dasselbe Motiv an zwei Stellen in
+ * unterschiedlichen Rahmen sitzt: als Deckel im Regal (`LibraryListScreen`) und
+ * als kleiner Deckel auf der Titelseite des Lesers (`ReaderScreen`).
+ */
+export function libraryCoverSource(
+  content: Pick<LibraryContentDto, 'imageUrl' | 'tags'>,
+): ImageSourcePropType {
+  if (content.imageUrl) return { uri: content.imageUrl };
+  return content.tags.map((tag) => COVERS_BY_TAG[tag]).find(Boolean) ?? genericLibraryCover;
+}
+
+/** Das Titelbild, formatfüllend im umgebenden Rahmen. */
 export function LibraryCoverArt({ content }: { content: LibraryContentDto }) {
-  if (content.imageUrl) {
-    return <Image source={{ uri: content.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />;
-  }
-  const source = content.tags.map((tag) => COVERS_BY_TAG[tag]).find(Boolean) ?? genericLibraryCover;
-  return <Image source={source} style={{ width: '100%', height: '100%' }} resizeMode="cover" fadeDuration={0} accessibilityIgnoresInvertColors />;
+  return (
+    <Image
+      source={libraryCoverSource(content)}
+      style={{ width: '100%', height: '100%' }}
+      resizeMode="cover"
+      fadeDuration={0}
+      accessibilityIgnoresInvertColors
+    />
+  );
+}
+
+/**
+ * Der Buchrücken auf dem Deckel: eine dunkle Kante links, daneben ein heller
+ * Falz.
+ *
+ * Das ist der Unterschied zwischen einem Bild und einem Buch. Ein Deckel ist
+ * nie flach – am Rücken steht er im Schatten, direkt daneben fängt das Licht
+ * den Falz. Zwei Verläufe über dem Motiv genügen, damit die Kachel als Band im
+ * Regal gelesen wird und nicht als Foto.
+ */
+export function CoverSpine() {
+  return (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+      <Defs>
+        <LinearGradient id="coverSpine" x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#0D0D0D" stopOpacity={0.55} />
+          <Stop offset="0.035" stopColor="#0D0D0D" stopOpacity={0.3} />
+          <Stop offset="0.07" stopColor="#FFFFFF" stopOpacity={0.22} />
+          <Stop offset="0.12" stopColor="#0D0D0D" stopOpacity={0} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#coverSpine)" />
+    </Svg>
+  );
 }
 
 /**
  * Abdunkelung, die über ein Titelbild gelegt wird, damit weißer Text darauf
  * lesbar bleibt.
  *
- * Bleibt eine SVG: der Verlauf muss sich nach der tatsächlichen Höhe des
- * jeweiligen Bildes richten (schmales Band im Lesekopf, hohe Kachel in der
- * Liste), das lässt sich mit einer festen Bilddatei nicht abbilden.
+ * Gebraucht wird sie auf dem Deckel im Regal: Weil die Motive keine gedruckte
+ * Titelei mitbringen, steht der Titel dort über dem Bild – und das geht nur,
+ * wenn der untere Teil des Deckels abgedunkelt ist. Bleibt eine SVG, weil der
+ * Verlauf sich nach der tatsächlichen Höhe des jeweiligen Deckels richtet, was
+ * eine feste Bilddatei nicht kann.
  */
 export function CoverScrim() {
   return (

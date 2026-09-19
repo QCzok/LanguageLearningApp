@@ -189,10 +189,14 @@ function LibraryNavigator() {
         component={LibraryListScreen}
         options={{ title: t('libraryList') }}
       />
+      {/* Der Leser bringt seine eigene Kopfleiste mit (siehe `ReaderChrome`):
+          Sie trägt die Farbe des gewählten Papiers und verschwindet beim Lesen.
+          Eine zweite, weiße Navigationsleiste darüber wäre genau das Stück
+          App-Oberfläche, das ein E-Book-Leser nicht hat. */}
       <LibraryStack.Screen
         name="Reader"
         component={ReaderScreen}
-        options={({ route }) => ({ title: route.params.title })}
+        options={{ headerShown: false }}
       />
       <LibraryStack.Screen
         name="Exercises"

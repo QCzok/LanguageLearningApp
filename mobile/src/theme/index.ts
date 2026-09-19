@@ -73,6 +73,23 @@ export const fontFamily = {
   medium: Platform.select({ web: "'Montserrat', sans-serif", default: 'Montserrat_500Medium' }),
   semiBold: Platform.select({ web: "'Montserrat', sans-serif", default: 'Montserrat_600SemiBold' }),
   bold: Platform.select({ web: "'Montserrat', sans-serif", default: 'Montserrat_700Bold' }),
+
+  /**
+   * Die Lese-Antiqua – die einzige Ausnahme von der Montserrat-Regel, und nur
+   * im Leser der Bibliothek (siehe `readerThemes`).
+   *
+   * Ein E-Book-Leser liest sich falsch in einer Grotesk: gedruckte Bücher sind
+   * in einer Antiqua gesetzt, und genau diese Anmutung soll der Lesebereich
+   * haben. Bewusst eine Systemschrift statt einer nachgeladenen Datei – jedes
+   * Zielsystem bringt eine brauchbare Antiqua mit (Georgia auf iOS und im
+   * Browser, Noto Serif hinter Androids „serif“), und eine weitere
+   * Schriftdatei würde den App-Start verlängern, um eine Seite zu bedienen.
+   */
+  serif: Platform.select({
+    web: "Georgia, 'Iowan Old Style', 'Times New Roman', serif",
+    ios: 'Georgia',
+    default: 'serif',
+  }),
 } as const;
 
 export const typography = {
@@ -263,12 +280,24 @@ export const reading = {
   inkFaint: '#968F86',
 
   /**
-   * Vier Stufen für die Schriftgröße des Fließtexts (A−/A+ im Lesekopf).
-   * Der Zeilenabstand folgt daraus, statt eigene Werte zu führen – so bleibt
-   * das Verhältnis von Größe zu Durchschuss auf jeder Stufe dasselbe.
+   * Stufen für die Schriftgröße des Fließtexts (A−/A+ im Leser).
+   *
+   * Sieben statt vier, weil das die Spanne ist, die ein E-Book-Leser abdecken
+   * muss: von „viel Text auf einmal“ bis zur Großschrift, die ohne Brille
+   * lesbar bleibt.
    */
-  textSizes: [16, 17.5, 19, 21] as const,
+  textSizes: [15, 16.5, 18, 19.5, 21, 23, 25.5] as const,
+  /** Voreinstellung – die dritte Stufe, wie im Buchdruck eine ruhige Werkgröße. */
+  defaultSizeStep: 2,
+  /**
+   * Drei Durchschüsse, aus denen der Lesende wählt (eng/normal/weit). Der
+   * Zeilenabstand bleibt ein Verhältnis zur Schriftgröße, statt eigene Werte
+   * zu führen – so stimmt das Bild auf jeder Größenstufe.
+   */
+  lineHeights: [1.42, 1.62, 1.9] as const,
   lineHeightRatio: 1.62,
+  /** Seitenrand in drei Stufen (schmal/normal/breit), zusätzlich zum Grundrand. */
+  margins: [0, 16, 34] as const,
 
   /**
    * Maximale Zeilenbreite. Auf dem Telefon greift sie nie, auf dem Web-Layout
@@ -285,3 +314,126 @@ export const readingLabel = {
   letterSpacing: 1.4,
   textTransform: 'uppercase' as const,
 } as const;
+
+// --------------------------------------------------------- Leser (Kindle-Art)
+
+export type ReaderThemeName = 'paper' | 'sepia' | 'green' | 'night';
+
+/**
+ * Ein Farbschema des Lesers.
+ *
+ * Gemeint ist genau das, was ein E-Book-Leser unter „Farbe“ anbietet: nicht
+ * ein Akzent, der ausgetauscht wird, sondern ein komplettes Papier samt Tinte.
+ * Deshalb trägt jedes Schema seinen ganzen Satz an Flächen und Tönen – die
+ * Lesestrecke greift im Betrieb auf kein anderes Farbtoken mehr zu.
+ */
+export type ReaderTheme = {
+  name: ReaderThemeName;
+  /** Das Papier, auf dem der Text steht – die Fläche des ganzen Bildschirms. */
+  paper: string;
+  /** Eine Spur abgesetzt: Übersetzungskästen, Worterklärung, Bedienleisten. */
+  paperDeep: string;
+  /** Rahmenlinie eines Kastens. */
+  edge: string;
+  /** Haarlinie zwischen zwei Blöcken – blasser als `edge`. */
+  rule: string;
+  ink: string;
+  inkSoft: string;
+  inkFaint: string;
+  /** Die Farbe für Verweise (erklärte Wörter), Initiale und Fortschritt. */
+  accent: string;
+  /** Hinterlegung des gerade erklärten Worts. */
+  accentSoft: string;
+  /** Schrift auf der Akzentfläche. */
+  accentInk: string;
+  /** Hinterlegung der ein-/ausblendbaren Leisten – leicht vom Papier abgesetzt. */
+  chrome: string;
+  /** Wie die Statusleiste des Systems über diesem Papier zu zeichnen ist. */
+  statusBar: 'dark' | 'light';
+  /** Abdunkelung hinter der Worterklärung und dem Einstellblatt. */
+  scrim: string;
+};
+
+/**
+ * Die vier Papiere des Lesers – dieselbe Auswahl, die ein Kindle anbietet:
+ * Weiß, Sepia, Grün und Nacht.
+ *
+ * Sie sind keine vier Geschmacksrichtungen, sondern vier Lesesituationen:
+ * Weiß am Tag, Sepia für lange Strecken (warmes Papier ermüdet weniger),
+ * Grün als der ruhigste Kontrast bei Kunstlicht, Nacht im Dunkeln, wo jede
+ * helle Fläche blendet. Deshalb ist auch die Tinte nie reines Schwarz auf
+ * reinem Weiß: gedruckte Bücher sind es auch nicht, und der weichere Kontrast
+ * ist genau das, was die Seite ruhig macht.
+ *
+ * Die Leitfarbe der App (`colors.primary`) trägt jedes Schema in der Tiefe
+ * mit, die sein Papier verlangt – auf dem Nachtpapier wäre das Weinrot der
+ * App ein schwarzer Fleck, dort steht dieselbe Farbe aufgehellt.
+ */
+export const readerThemes: Record<ReaderThemeName, ReaderTheme> = {
+  paper: {
+    name: 'paper',
+    paper: '#FCFBF9',
+    paperDeep: '#F3F1EC',
+    edge: '#E4E0D8',
+    rule: '#E7E3DB',
+    ink: '#191715',
+    inkSoft: '#5E5A54',
+    inkFaint: '#968F86',
+    accent: colors.primary,
+    accentSoft: '#F3D9DB',
+    accentInk: '#FFFFFF',
+    chrome: '#FFFFFF',
+    statusBar: 'dark',
+    scrim: 'rgba(13, 13, 13, 0.14)',
+  },
+  sepia: {
+    name: 'sepia',
+    paper: '#F4EBD8',
+    paperDeep: '#EDE2CA',
+    edge: '#DDCFB2',
+    rule: '#E1D4B9',
+    ink: '#33291C',
+    inkSoft: '#6A5B44',
+    inkFaint: '#9C8C70',
+    accent: '#8A2B18',
+    accentSoft: '#E6D0B8',
+    accentInk: '#F8F2E4',
+    chrome: '#F9F2E3',
+    statusBar: 'dark',
+    scrim: 'rgba(51, 41, 28, 0.16)',
+  },
+  green: {
+    name: 'green',
+    paper: '#E3EDDF',
+    paperDeep: '#D8E5D3',
+    edge: '#C2D3BC',
+    rule: '#CBD9C5',
+    ink: '#23301F',
+    inkSoft: '#4E6148',
+    inkFaint: '#7E9176',
+    accent: '#7A2A22',
+    accentSoft: '#CEDEC8',
+    accentInk: '#F2F7F0',
+    chrome: '#EBF3E8',
+    statusBar: 'dark',
+    scrim: 'rgba(35, 48, 31, 0.16)',
+  },
+  night: {
+    name: 'night',
+    paper: '#121315',
+    paperDeep: '#1C1E21',
+    edge: '#33373C',
+    rule: '#2B2F33',
+    ink: '#D5D1CA',
+    inkSoft: '#9C978F',
+    inkFaint: '#6E6A65',
+    accent: '#D98D86',
+    accentSoft: '#33272A',
+    accentInk: '#17100F',
+    chrome: '#1C1E21',
+    statusBar: 'light',
+    scrim: 'rgba(0, 0, 0, 0.45)',
+  },
+};
+
+export const READER_THEME_NAMES = Object.keys(readerThemes) as ReaderThemeName[];
