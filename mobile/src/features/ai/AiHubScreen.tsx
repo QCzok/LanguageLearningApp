@@ -11,7 +11,6 @@ import {
   Heading,
   Input,
   Loading,
-  PremiumBadge,
   ProgressBar,
   Row,
   Screen,
@@ -20,7 +19,6 @@ import {
 import { aiApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
-import { useIsPremium } from '../../store/auth.store';
 import { colors, radius, spacing } from '../../theme';
 import type { AiStackParamList } from '../../navigation/types';
 
@@ -38,7 +36,6 @@ const TOPIC_SUGGESTIONS: TranslationKey[] = [
 export default function AiHubScreen({ navigation }: Props) {
   const { t, formatDate } = useTranslation();
   const queryClient = useQueryClient();
-  const isPremium = useIsPremium();
 
   const [showStarter, setShowStarter] = useState(false);
   const [topic, setTopic] = useState('');
@@ -48,7 +45,6 @@ export default function AiHubScreen({ navigation }: Props) {
   const conversations = useQuery({
     queryKey: ['ai-conversations'],
     queryFn: aiApi.conversations,
-    enabled: isPremium,
   });
 
   const start = useMutation({
@@ -69,7 +65,10 @@ export default function AiHubScreen({ navigation }: Props) {
     },
   });
 
-  if (!isPremium) return <PremiumTeaser quota={quota.data} />;
+  // Hier stand die Bezahlschranke: Ohne Premium endete der Bildschirm an einer
+  // Werbetafel ohne einen einzigen anklickbaren Knopf – und versprach dabei
+  // „5 von 5 freien KI-Anfragen“, die sich von dort aus nicht einlösen ließen.
+  // Die KI gehört jetzt zur App wie alles andere auch.
   if (conversations.isLoading) return <Loading />;
 
   return (
@@ -86,7 +85,7 @@ export default function AiHubScreen({ navigation }: Props) {
             </Row>
             <ProgressBar
               value={(quota.data.used / Math.max(1, quota.data.limit)) * 100}
-              color={colors.premium}
+              color={colors.primary}
               height={6}
             />
             <Caption>{t('aiQuotaResets', { date: formatDate(quota.data.resetsAt) })}</Caption>
@@ -101,7 +100,7 @@ export default function AiHubScreen({ navigation }: Props) {
 
         <Button
           label={t('aiStartConversation')}
-          variant="premium"
+          variant="primary"
           loading={start.isPending && !showStarter}
           onPress={() => start.mutate({})}
         />
@@ -183,7 +182,7 @@ export default function AiHubScreen({ navigation }: Props) {
 
             <Button
               label={t('aiStart')}
-              variant="premium"
+              variant="primary"
               loading={start.isPending}
               onPress={() => start.mutate({ topic: topic.trim() || undefined })}
             />
@@ -195,56 +194,6 @@ export default function AiHubScreen({ navigation }: Props) {
   );
 }
 
-function PremiumTeaser({ quota }: { quota?: { used: number; limit: number } }) {
-  const { t } = useTranslation();
-
-  return (
-    <Screen scroll>
-      <View style={{ alignItems: 'center', gap: spacing.md, paddingVertical: spacing.xl }}>
-        <Text style={{ fontSize: 60 }}>✨</Text>
-        <PremiumBadge />
-        <Title>{t('aiTeaserTitle')}</Title>
-        <Body muted>{t('aiTeaserBody')}</Body>
-      </View>
-
-      {[
-        {
-          icon: '🎙️',
-          title: t('aiTeaserFeature1Title'),
-          text: t('aiTeaserFeature1Text'),
-        },
-        {
-          icon: '📝',
-          title: t('aiTeaserFeature2Title'),
-          text: t('aiTeaserFeature2Text'),
-        },
-      ].map((feature) => (
-        <Card key={feature.title}>
-          <Row gap={spacing.md}>
-            <Text style={{ fontSize: 26 }}>{feature.icon}</Text>
-            <View style={{ flex: 1 }}>
-              <Heading>{feature.title}</Heading>
-              <Caption>{feature.text}</Caption>
-            </View>
-          </Row>
-        </Card>
-      ))}
-
-      {quota ? (
-        <Card>
-          <Caption>
-            {t('aiTeaserQuota', {
-              left: Math.max(0, quota.limit - quota.used),
-              limit: quota.limit,
-            })}
-          </Caption>
-        </Card>
-      ) : null}
-
-      <Caption>{t('aiTeaserActivate')}</Caption>
-    </Screen>
-  );
-}
 
 const sheetBackdrop = {
   flex: 1,

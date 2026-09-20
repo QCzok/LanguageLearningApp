@@ -235,14 +235,6 @@ export function ProgressBar({
   );
 }
 
-export function PremiumBadge() {
-  return (
-    <View style={[styles.badge, { backgroundColor: colors.premium }]}>
-      <Text style={[typography.label, { color: colors.textInverse }]}>PREMIUM</Text>
-    </View>
-  );
-}
-
 export function EmptyState({
   emoji,
   title,

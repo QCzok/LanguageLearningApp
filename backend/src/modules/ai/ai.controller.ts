@@ -19,7 +19,6 @@ import { memoryStorage } from 'multer';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequestLanguage } from '../../common/decorators/request-language.decorator';
 import type { MessageLanguage } from '../../common/i18n/messages';
-import { RequiresPremium } from '../../common/decorators/premium.decorator';
 import { AiService } from './ai.service';
 import {
   CreateConversationDto,
@@ -41,14 +40,12 @@ export class AiController {
 
   // ------------------------------------------------------------------ Chat
 
-  @RequiresPremium()
   @Get('conversations')
   @ApiOperation({ summary: 'Premium: bisherige Gespräche' })
   conversations(@CurrentUser('id') userId: string) {
     return this.ai.listConversations(userId);
   }
 
-  @RequiresPremium()
   @Post('conversations')
   @ApiOperation({ summary: 'Premium: neues Gespräch oder neue Diskussion starten' })
   createConversation(
@@ -59,14 +56,12 @@ export class AiController {
     return this.ai.createConversation(userId, dto, language);
   }
 
-  @RequiresPremium()
   @Get('conversations/:id/messages')
   @ApiOperation({ summary: 'Premium: Verlauf eines Gesprächs' })
   messages(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.ai.getMessages(userId, id);
   }
 
-  @RequiresPremium()
   @Delete('conversations/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Premium: Gespräch löschen' })
@@ -74,7 +69,6 @@ export class AiController {
     return this.ai.deleteConversation(userId, id);
   }
 
-  @RequiresPremium()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('conversations/:id/messages')
   @ApiOperation({ summary: 'Premium: Nachricht senden und Antwort erhalten' })
@@ -90,7 +84,6 @@ export class AiController {
    * Streaming-Variante als Server-Sent Events. Die App zeigt die Antwort damit
    * tippend an, statt auf die komplette Nachricht zu warten.
    */
-  @RequiresPremium()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('conversations/:id/messages/stream')
   @ApiOperation({ summary: 'Premium: Nachricht senden, Antwort als SSE-Stream' })
@@ -118,7 +111,6 @@ export class AiController {
   }
 
   /** Sprachaufnahme in Text umwandeln – Alternative zum Tippen im Chat. */
-  @RequiresPremium()
   @Throttle({ default: { limit: 15, ttl: 60_000 } })
   @Post('transcribe')
   @ApiConsumes('multipart/form-data')
@@ -135,7 +127,6 @@ export class AiController {
 
   // ---------------------------------------------------- Weitere Funktionen
 
-  @RequiresPremium()
   @Throttle({ default: { limit: 15, ttl: 60_000 } })
   @Post('grammar')
   @ApiOperation({ summary: 'Premium: Grammatik, Vokabeln oder Fehler erklären lassen' })
@@ -143,7 +134,6 @@ export class AiController {
     return this.ai.explainGrammar(userId, dto);
   }
 
-  @RequiresPremium()
   @Throttle({ default: { limit: 10, ttl: 300_000 } })
   @Get('recommendations')
   @ApiOperation({ summary: 'Premium: personalisierte Lernempfehlungen' })
@@ -151,7 +141,6 @@ export class AiController {
     return this.ai.getRecommendations(userId);
   }
 
-  @RequiresPremium()
   @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @Post('vocab-decks')
   @ApiOperation({ summary: 'Premium: eigenes Vokabeldeck mit 30 Vokabeln zu einem Thema generieren' })

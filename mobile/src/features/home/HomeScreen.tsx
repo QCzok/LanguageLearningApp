@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { AVATAR_ICONS } from '@lingua/shared';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import {
   Title,
 } from '../../components';
 import { progressApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
@@ -54,7 +56,7 @@ export default function HomeScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: progressApi.dashboard,
-    staleTime: 30_000,
+    staleTime: CACHE.PROGRESS,
   });
 
   if (isLoading) return <Loading />;
@@ -114,17 +116,35 @@ export default function HomeScreen() {
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
+        {/* Rechts oben steht, wer gerade lernt – Sprache, Niveau und das eigene
+            Tierbild. Das war vorher reine Anzeige, und das Profil hing als
+            siebter Reiter unten in der Leiste. Jetzt ist die ganze Gruppe der
+            Weg dorthin: Sie zeigt ohnehin nichts anderes als Profildaten, und
+            oben rechts ist die Stelle, an der man ein Konto sucht. */}
         <Row>
           <View style={{ flex: 1 }}>
             <Caption>{t(greetingKey())}</Caption>
             <Title>{user?.displayName ?? t('homeWelcomeFallback')}</Title>
           </View>
-          {data.activeProfile ? (
-            <Row gap={spacing.xs}>
-              <Text style={{ fontSize: 24 }}>{data.activeProfile.language.flagEmoji}</Text>
-              <LevelBadge level={data.activeProfile.level} />
-            </Row>
-          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('homeOpenProfile')}
+            onPress={() => navigation.navigate('Profile')}
+            hitSlop={8}
+            style={({ pressed }) => [profileButton, pressed && { opacity: 0.7 }]}
+          >
+            {data.activeProfile ? (
+              <>
+                <Text style={{ fontSize: 22 }}>{data.activeProfile.language.flagEmoji}</Text>
+                <LevelBadge level={data.activeProfile.level} />
+              </>
+            ) : null}
+            <View style={avatarBubble}>
+              <Text style={{ fontSize: 20 }}>
+                {AVATAR_ICONS.find((icon) => icon.id === user?.avatarIcon)?.emoji ?? '👤'}
+              </Text>
+            </View>
+          </Pressable>
         </Row>
 
         {/* Eine schlanke Statuszeile statt drei einzelner Karten: Streak, XP
@@ -329,6 +349,22 @@ function greetingKey(): TranslationKey {
 }
 
 // ------------------------------------------------------------------ Styles
+
+/** Sprache, Niveau und Tierbild als eine Schaltfläche – der Weg ins Profil. */
+const profileButton = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.xs,
+};
+
+const avatarBubble = {
+  width: 36,
+  height: 36,
+  borderRadius: radius.full,
+  backgroundColor: colors.primarySoft,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
+};
 
 const tileGrid = {
   flexDirection: 'row' as const,

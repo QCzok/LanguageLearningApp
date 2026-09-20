@@ -121,7 +121,7 @@ api.interceptors.response.use(
 
 export interface ApiError extends Error {
   status: number;
-  /** 'PremiumRequired' | 'AiQuotaExceeded' | … – steuert gezielte UI-Reaktionen. */
+  /** 'AiQuotaExceeded' | 'ValidationError' | … – steuert gezielte UI-Reaktionen. */
   code?: string;
   fieldErrors?: string[];
 }

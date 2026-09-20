@@ -1,12 +1,12 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ChapterDetailDto, UnitSummaryDto } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { ChevronRightIcon, LockMark } from './BookIcons';
@@ -36,15 +36,12 @@ export default function BookContentsScreen({ route, navigation }: Props) {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['workbook-book', bookId],
     queryFn: () => workbookApi.bookContents(bookId),
+    staleTime: CACHE.PROGRESS,
   });
 
-  // Zurück von einer Seite: Der Stand im Verzeichnis muss stimmen.
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
+  // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
+  // Zurückkommen erneut drei bis fünf Sekunden auf den Server zu warten.
 
   if (isLoading) return <Loading />;
   if (isError || !data) {

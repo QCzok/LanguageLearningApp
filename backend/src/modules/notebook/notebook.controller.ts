@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { RequiresPremium } from '../../common/decorators/premium.decorator';
 import { AiService } from '../ai/ai.service';
 import {
   CreateNotebookDto,
@@ -110,14 +109,12 @@ export class NotebookController {
 
   // ------------------------------------------------------------- Premium
 
-  @RequiresPremium()
   @Post('pages/:pageId/analyze')
   @ApiOperation({ summary: 'Premium: KI korrigiert den geschriebenen Text der Seite' })
   analyze(@CurrentUser('id') userId: string, @Param('pageId') pageId: string) {
     return this.ai.analyzeNotebookPage(userId, pageId);
   }
 
-  @RequiresPremium()
   @Get('pages/:pageId/analyses')
   @ApiOperation({ summary: 'Premium: frühere Korrekturen einer Seite' })
   analyses(@CurrentUser('id') userId: string, @Param('pageId') pageId: string) {

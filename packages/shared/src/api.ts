@@ -433,8 +433,13 @@ export interface RecommendationDto {
   }>;
 }
 
+/**
+ * Das monatliche KI-Kontingent – ohne Plan, weil es keinen mehr gibt.
+ *
+ * Die Grenze ist ein Missbrauchsschutz und für alle gleich; sie sagt nichts
+ * darüber aus, was jemand bezahlt hat (siehe `AiService.getQuota`).
+ */
 export interface AiQuotaDto {
-  plan: Plan;
   used: number;
   limit: number;
   resetsAt: string;

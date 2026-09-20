@@ -61,10 +61,13 @@ weiterhin da, `npm run db:up` startet den Container stattdessen.
 
 **Demo-Konten nach dem Seed**
 
-| Konto                 | Passwort      | Plan    |
-| --------------------- | ------------- | ------- |
-| `demo@lingua.app`     | `Passwort123` | Free    |
-| `premium@lingua.app`  | `Passwort123` | Premium |
+| Konto                 | Passwort      |
+| --------------------- | ------------- |
+| `demo@lingua.app`     | `Passwort123` |
+| `premium@lingua.app`  | `Passwort123` |
+
+Beide Konten können alles – es gibt keine Stufen mehr. Das zweite heißt noch so,
+weil der Seed es so anlegt.
 
 **Swagger:** http://localhost:3000/api/v1/docs (nur außerhalb von Produktion)
 
@@ -123,7 +126,7 @@ gespeichert. Daneben bleiben freie Notizhefte erhalten.
 
 Die Aufgaben sind blockbasiert und einzeln prüfbar: Lückentext mit Wortkasten,
 Einfach- und Mehrfachauswahl, Zuordnung, Reihenfolge und freie Schreibaufgaben.
-Premium: Die KI korrigiert geschriebene Texte und erklärt jeden Fehler.
+Die KI korrigiert geschriebene Texte und erklärt jeden Fehler.
 
 **Bibliothek** – Artikel und Kurzgeschichten mit Filter nach Sprache, Niveau, Typ
 und Volltextsuche. Lesefortschritt wird beim Scrollen gesichert;
@@ -136,7 +139,7 @@ wird eingebettet in der App; die Sehposition wird laufend gesichert. Der Katalog
 ist erzeugt (`npm run videos:refresh`), nicht von Hand gepflegt; `npm run
 videos:seed` schreibt ihn in eine Datenbank, ohne den übrigen Seed anzufassen.
 
-**KI (Premium)** – Gespräche und Diskussionen auf dem eigenen Niveau,
+**KI** – Gespräche und Diskussionen auf dem eigenen Niveau,
 Textkorrektur im Lernheft, Erklärungen zu Grammatik und Vokabeln sowie
 Empfehlungen, die aus dem echten Lernstand berechnet werden.
 
@@ -166,9 +169,11 @@ die Antwort ist. Gemischt wird deterministisch aus der Block-ID – die Reihenfo
 bleibt über Requests stabil, sonst würden gespeicherte Antworten nicht mehr
 passen. Erst eine Prüfung liefert Lösung und Erklärung zurück.
 
-**Premium als Guard, nicht als Sonderfall.** `@RequiresPremium()` antwortet mit
-`402 Payment Required` statt `403`, damit die App gezielt den Upgrade-Screen
-öffnen kann statt einer generischen Fehlermeldung.
+**Eine Stufe für alle.** Die App kennt keine Bezahlstufe: kein Premium-Guard,
+kein Abo-Modul, kein Upgrade-Knopf. Die KI ist so erreichbar wie das Lehrwerk.
+Begrenzt wird allein die Menge – `AI_MONTHLY_LIMIT` deckelt die Anfragen pro
+Konto und Monat, für alle gleich und als Missbrauchsschutz, nicht als
+Verkaufsschranke.
 
 **Prompt-Caching als Strukturvorgabe.** Der Tutor-Systemprompt ist unveränderlich
 und steht immer zuerst mit einem Cache-Breakpoint; alles Variable (Niveau,
@@ -215,12 +220,12 @@ Gegen eine echte PostgreSQL-Instanz durchgespielt: Migration, Seed, Registrierun
 inklusive Fehlerfällen, Login, Token-Guard, Einstufungstest mit korrekter
 stufenweiser Auswertung, SRS-Bewertung in beide Richtungen, Übungsauswertung,
 Lesefortschritt, Speichern und Zurücklesen einer Lehrwerksseite mit Strichen,
-Marker und Text, Premium-Sperre (402) und das Verhalten ohne KI-Schlüssel (503).
+Marker und Text sowie das Verhalten ohne KI-Schlüssel (503).
 Für das Lehrwerk zusätzlich: Auslieferung ohne Lösungslecks, Zwischenprüfung
 einzelner Aufgaben, Abgabe einer ganzen Einheit mit XP-Vergabe nur beim ersten
 Abschluss, stabile Mischung der Reihenfolge-Aufgaben und die Notizebene.
 
-Nicht enthalten, weil bewusst offengelassen: die Anbindung an StoreKit und Google
-Play Billing (der Premium-Knopf im Profil ist ein Entwicklungsplatzhalter) und ein
-Redaktions-Backend für Inhalte. Siehe
+Nicht enthalten, weil bewusst offengelassen: ein Redaktions-Backend für Inhalte.
+Eine Store-Anbindung ist ausdrücklich nicht vorgesehen – die App ist kostenlos.
+Siehe
 [`docs/ROADMAP.md`](docs/ROADMAP.md).

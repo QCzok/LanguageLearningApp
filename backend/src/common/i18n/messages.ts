@@ -63,9 +63,6 @@ const de = {
   'forbidden.vocab_readonly': 'Diese Vokabel kann nicht gelöscht werden',
 
   // ------------------------------------------------------------------ Premium
-  'premium.required': 'Diese Funktion ist Teil von Lingua Premium.',
-  'premium.content': 'Dieser Inhalt ist Teil von Lingua Premium',
-  'premium.video': 'Dieses Video ist Teil von Lingua Premium',
 
   // ----------------------------------------------------------------------- KI
   'ai.unavailable': 'Die KI-Funktionen sind derzeit nicht verfügbar',
@@ -76,8 +73,7 @@ const de = {
   'ai.timeout': 'Die KI-Antwort hat zu lange gedauert',
   'ai.no_audio': 'Keine Audiodatei erhalten.',
   'ai.speech_unavailable': 'Spracherkennung ist derzeit nicht verfügbar.',
-  'ai.quota_premium': 'Das monatliche KI-Kontingent ist aufgebraucht.',
-  'ai.quota_free': 'Dein kostenloses KI-Kontingent ist aufgebraucht. Mit Premium geht es weiter.',
+  'ai.quota': 'Das monatliche KI-Kontingent ist aufgebraucht.',
   'ai.text_too_short':
     'Auf dieser Seite steht noch zu wenig Text. Schreibe mit dem Textwerkzeug ein paar Sätze.',
   'ai.new_conversation': 'Neues Gespräch',
@@ -162,9 +158,6 @@ const en: MessageCatalog = {
   'forbidden.deck_readonly': 'This deck cannot be edited',
   'forbidden.vocab_readonly': 'This word cannot be deleted',
 
-  'premium.required': 'This feature is part of Lingua Premium.',
-  'premium.content': 'This content is part of Lingua Premium',
-  'premium.video': 'This video is part of Lingua Premium',
 
   'ai.unavailable': 'The AI features are currently unavailable',
   'ai.cli_missing':
@@ -174,8 +167,7 @@ const en: MessageCatalog = {
   'ai.timeout': 'The AI response took too long',
   'ai.no_audio': 'No audio file received.',
   'ai.speech_unavailable': 'Speech recognition is currently unavailable.',
-  'ai.quota_premium': 'Your monthly AI quota is used up.',
-  'ai.quota_free': 'Your free AI quota is used up. Premium lets you carry on.',
+  'ai.quota': 'Your monthly AI quota is used up.',
   'ai.text_too_short':
     'There is not enough text on this page yet. Write a few sentences with the text tool.',
   'ai.new_conversation': 'New conversation',
@@ -252,9 +244,6 @@ const es: MessageCatalog = {
   'forbidden.deck_readonly': 'Este mazo no se puede editar',
   'forbidden.vocab_readonly': 'Esta palabra no se puede eliminar',
 
-  'premium.required': 'Esta función forma parte de Lingua Premium.',
-  'premium.content': 'Este contenido forma parte de Lingua Premium',
-  'premium.video': 'Este vídeo forma parte de Lingua Premium',
 
   'ai.unavailable': 'Las funciones de IA no están disponibles ahora mismo',
   'ai.cli_missing':
@@ -264,8 +253,7 @@ const es: MessageCatalog = {
   'ai.timeout': 'La respuesta de la IA ha tardado demasiado',
   'ai.no_audio': 'No se ha recibido ningún archivo de audio.',
   'ai.speech_unavailable': 'El reconocimiento de voz no está disponible ahora mismo.',
-  'ai.quota_premium': 'Has agotado tu cuota mensual de IA.',
-  'ai.quota_free': 'Has agotado tu cuota gratuita de IA. Con Premium puedes continuar.',
+  'ai.quota': 'Has agotado tu cuota mensual de IA.',
   'ai.text_too_short':
     'En esta página todavía hay poco texto. Escribe unas frases con la herramienta de texto.',
   'ai.new_conversation': 'Conversación nueva',
@@ -342,9 +330,6 @@ const fr: MessageCatalog = {
   'forbidden.deck_readonly': 'Ce paquet ne peut pas être modifié',
   'forbidden.vocab_readonly': 'Ce mot ne peut pas être supprimé',
 
-  'premium.required': 'Cette fonction fait partie de Lingua Premium.',
-  'premium.content': 'Ce contenu fait partie de Lingua Premium',
-  'premium.video': 'Cette vidéo fait partie de Lingua Premium',
 
   'ai.unavailable': 'Les fonctions IA ne sont pas disponibles pour le moment',
   'ai.cli_missing':
@@ -354,8 +339,7 @@ const fr: MessageCatalog = {
   'ai.timeout': 'La réponse de l’IA a pris trop de temps',
   'ai.no_audio': 'Aucun fichier audio reçu.',
   'ai.speech_unavailable': 'La reconnaissance vocale n’est pas disponible pour le moment.',
-  'ai.quota_premium': 'Ton quota IA mensuel est épuisé.',
-  'ai.quota_free': 'Ton quota IA gratuit est épuisé. Premium te permet de continuer.',
+  'ai.quota': 'Ton quota IA mensuel est épuisé.',
   'ai.text_too_short':
     'Il n’y a pas encore assez de texte sur cette page. Écris quelques phrases avec l’outil texte.',
   'ai.new_conversation': 'Nouvelle conversation',
@@ -434,9 +418,6 @@ const it: MessageCatalog = {
   'forbidden.deck_readonly': 'Questo mazzo non può essere modificato',
   'forbidden.vocab_readonly': 'Questo vocabolo non può essere eliminato',
 
-  'premium.required': 'Questa funzione fa parte di Lingua Premium.',
-  'premium.content': 'Questo contenuto fa parte di Lingua Premium',
-  'premium.video': 'Questo video fa parte di Lingua Premium',
 
   'ai.unavailable': 'Le funzioni IA non sono disponibili al momento',
   'ai.cli_missing':
@@ -446,8 +427,7 @@ const it: MessageCatalog = {
   'ai.timeout': 'La risposta dell’IA ha impiegato troppo tempo',
   'ai.no_audio': 'Nessun file audio ricevuto.',
   'ai.speech_unavailable': 'Il riconoscimento vocale non è disponibile al momento.',
-  'ai.quota_premium': 'La tua quota IA mensile è esaurita.',
-  'ai.quota_free': 'La tua quota IA gratuita è esaurita. Con Premium puoi continuare.',
+  'ai.quota': 'La tua quota IA mensile è esaurita.',
   'ai.text_too_short':
     'Su questa pagina c’è ancora troppo poco testo. Scrivi qualche frase con lo strumento testo.',
   'ai.new_conversation': 'Nuova conversazione',

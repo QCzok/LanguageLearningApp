@@ -1,13 +1,13 @@
 import React from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BOOK_LABELS } from '@lingua/shared';
 import type { BookSummaryDto } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
@@ -42,15 +42,14 @@ export default function BookshelfScreen({ navigation }: Props) {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['workbook-books'],
     queryFn: () => workbookApi.books(),
+    staleTime: CACHE.PROGRESS,
   });
 
-  // Nach dem Bearbeiten einer Seite muss der Stand hier stimmen.
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  // Früher stand hier ein `refetch` bei jedem Fokus, damit der Stand nach dem
+  // Bearbeiten einer Seite stimmt. Das lud das Regal aber auch dann neu, wenn
+  // sich nichts geändert hatte – bei drei bis fünf Sekunden Antwortzeit jedes
+  // Mal ein Spinner. `UnitScreen` entwertet `workbook-books` ohnehin gezielt,
+  // sobald eine Seite geprüft oder abgegeben wurde; das genügt.
 
   if (isLoading) return <Loading />;
   if (isError || !data) {

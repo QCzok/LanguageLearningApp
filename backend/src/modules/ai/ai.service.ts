@@ -92,26 +92,22 @@ export class AiService {
   // ------------------------------------------------------------ Kontingent
 
   /**
-   * Kontingent pro Kalendermonat. Der Free-Plan bekommt ein kleines Guthaben,
-   * damit die KI-Funktionen ausprobiert werden können; Premium hat ein hohes
-   * Limit rein als Missbrauchsschutz.
+   * Kontingent pro Kalendermonat – dasselbe für jeden.
+   *
+   * Der Plan des Nutzers spielt hier keine Rolle mehr: Es gibt keine
+   * Bezahlstufe, die KI steht allen offen. Die Obergrenze bleibt als
+   * Missbrauchsschutz (siehe `aiConfig.monthlyLimit`), nicht als Anreiz,
+   * irgendetwas zu kaufen.
    */
   async getQuota(userId: string): Promise<AiQuotaDto> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { plan: true },
-    });
-
     const { start, next } = this.currentMonthRange();
     const used = await this.prisma.aiUsage.count({
       where: { userId, createdAt: { gte: start, lt: next } },
     });
 
     return {
-      plan: user.plan,
       used,
-      limit:
-        user.plan === 'PREMIUM' ? this.config.premiumMonthlyLimit : this.config.freeMonthlyLimit,
+      limit: this.config.monthlyLimit,
       resetsAt: next.toISOString(),
     };
   }
@@ -123,10 +119,7 @@ export class AiService {
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           error: 'AiQuotaExceeded',
-          message:
-            quota.plan === 'PREMIUM'
-              ? ERR['ai.quota_premium']
-              : ERR['ai.quota_free'],
+          message: ERR['ai.quota'],
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );

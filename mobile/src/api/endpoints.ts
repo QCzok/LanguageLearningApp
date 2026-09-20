@@ -233,15 +233,4 @@ export const progressApi = {
       .then((r) => r.data),
 };
 
-export const subscriptionApi = {
-  status: () =>
-    api
-      .get<{ plan: 'FREE' | 'PREMIUM'; active: boolean; premiumUntil: string | null }>(
-        '/subscription/status',
-      )
-      .then((r) => r.data),
-  activate: () =>
-    api
-      .post<{ plan: string; premiumUntil: string }>('/subscription/activate', { source: 'DEV' })
-      .then((r) => r.data),
-};
+

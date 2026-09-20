@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ErrorState, Loading } from '../../components';
 import { libraryApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { asTranslatableLanguage } from '../../utils/translation';
@@ -85,18 +86,54 @@ function Reader({ route, navigation }: Props) {
   // zurück) und verschwindet, sobald gelesen wird.
   const [chromeVisible, setChromeVisible] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const queryClient = useQueryClient();
   const lastSaved = useRef(0);
   const startedAt = useRef(Date.now());
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['library', contentId],
+    staleTime: CACHE.CONTENT,
     queryFn: () => libraryApi.detail(contentId),
   });
 
   const saveProgress = useMutation({
     mutationFn: (payload: { progressPercent: number; minutesRead?: number }) =>
       libraryApi.saveProgress(contentId, payload),
+    onSuccess: () => {
+      // Die Übersicht sortiert nach Lesestand („Weiterlesen“ ganz oben) und
+      // holt ihn nicht mehr bei jedem Fokus nach. Entwertet wird nur die
+      // *Liste*: Ihr Schlüssel trägt an zweiter Stelle das Filterobjekt, der
+      // des Textes die ID. Ohne diese Unterscheidung lüde sich der Text, den
+      // der Lernende gerade vor sich hat, mitten im Lesen neu.
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'library' && typeof query.queryKey[1] === 'object',
+      });
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
+
+  /**
+   * Den gespeicherten Lesestand übernehmen, sobald der Text da ist.
+   *
+   * Vorher begann die Anzeige immer bei null: Ein Text, den die Übersicht als
+   * „41 % gelesen“ führte und sogar als „gelesen“ markierte, schlug mit 0 %
+   * auf. Die Zahl unten stand damit für die Scrollposition dieses Aufschlagens
+   * statt für den Lesestand – zwei verschiedene Dinge unter einer Beschriftung.
+   *
+   * `lastSaved` wird mitgesetzt, sonst schickte das erste Scrollen denselben
+   * Stand sofort wieder an den Server.
+   */
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current || !data) return;
+    seeded.current = true;
+    const saved = data.userProgress?.progressPercent ?? 0;
+    if (saved > 0) {
+      setProgress(saved);
+      lastSaved.current = saved;
+    }
+  }, [data]);
 
   /**
    * Lesefortschritt aus der Scrollposition. Gespeichert wird in Zehnerschritten,
@@ -105,21 +142,27 @@ function Reader({ route, navigation }: Props) {
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const scrollable = Math.max(1, contentSize.height - layoutMeasurement.height);
-      const percent = Math.min(100, Math.round((contentOffset.y / scrollable) * 100));
+      // Solange der Text kürzer ist als der Bildschirm, gibt es keine
+      // Scrollstrecke, aus der sich ein Prozentsatz ableiten ließe. Während
+      // Schriften und Bilder noch einlaufen, meldet die Liste genau das – und
+      // ein Teiler nahe null ließ die Anzeige ohne jede Bewegung springen.
+      const scrollable = contentSize.height - layoutMeasurement.height;
+      if (scrollable > 8) {
+        const percent = Math.min(100, Math.round((contentOffset.y / scrollable) * 100));
+        setProgress((previous) => Math.max(previous, percent));
 
-      setProgress((previous) => Math.max(previous, percent));
+        if (percent - lastSaved.current >= PROGRESS_STEP) {
+          lastSaved.current = percent;
+          saveProgress.mutate({ progressPercent: percent });
+        }
+      }
+
       // Wer liest, blättert – und braucht die Leiste nicht. Sie kommt auf einen
       // Tipp zurück; genau so verhält sich ein E-Book-Leser.
       if (contentOffset.y > 24) setChromeVisible(false);
       // Der Zettel klebt an einer Bildschirmstelle, nicht am Wort – sobald die
       // Seite sich bewegt, zeigt er ins Leere und wird geschlossen.
       setAnchor((current) => (current ? null : current));
-
-      if (percent - lastSaved.current >= PROGRESS_STEP) {
-        lastSaved.current = percent;
-        saveProgress.mutate({ progressPercent: percent });
-      }
     },
     [saveProgress],
   );

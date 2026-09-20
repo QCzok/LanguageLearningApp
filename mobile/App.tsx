@@ -11,24 +11,14 @@ import {
 } from '@expo-google-fonts/montserrat';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import RootNavigator from './src/navigation/RootNavigator';
 import { warmUpApi } from './src/api/client';
+import { persistOptions, queryClient } from './src/api/query-client';
 import { useAuthStore } from './src/store/auth.store';
 import { preloadImages } from './src/assets';
 import { colors } from './src/theme';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Mobil zählt jeder Request: lieber kurz cachen als bei jedem Fokus neu laden.
-      staleTime: 60_000,
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 export default function App() {
   const bootstrap = useAuthStore((state) => state.bootstrap);
@@ -76,12 +66,12 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <StatusBar style="dark" />
           <ErrorBoundary>
             <RootNavigator />
           </ErrorBoundary>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { Paginated, VideoItemDto } from '@lingua/shared';
 import { paginate } from '../../common/dto/pagination.dto';
@@ -83,11 +83,8 @@ export class VideosService {
     const item = await this.prisma.videoItem.findUnique({ where: { id }, include: videoInclude });
     if (!item) throw new NotFoundException(ERR['notfound.video']);
 
-    const premiumActive =
-      user.plan === 'PREMIUM' && (!user.premiumUntil || user.premiumUntil.getTime() > Date.now());
-    if (item.isPremium && !premiumActive) {
-      throw new ForbiddenException(ERR['premium.video']);
-    }
+    // Siehe LibraryService: `isPremium` sperrt nichts mehr, seit es keine
+    // Bezahlstufe gibt.
 
     const progress = await this.prisma.videoProgress.findUnique({
       where: { userId_videoItemId: { userId: user.id, videoItemId: id } },

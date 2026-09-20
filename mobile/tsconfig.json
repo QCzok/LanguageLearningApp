@@ -2,6 +2,11 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // `baseUrl` ist ab TypeScript 6 als überholt markiert und liesse den
+    // Typcheck mit TS5101 abbrechen, bevor er eine einzige Datei ansieht.
+    // Expo setzt den Pfadalias unten weiterhin darüber; bis das aufgelöst ist,
+    // wird die Warnung ausdrücklich angenommen statt den Check zu verlieren.
+    "ignoreDeprecations": "6.0",
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {

@@ -11,6 +11,7 @@ import {
   EmptyState,
   ErrorState,
   Loading,
+  ProgressBar,
   Row,
   Screen,
 } from '../../components';
@@ -139,8 +140,12 @@ export default function ReviewScreen({ route, navigation }: Props) {
     setSession((prev) => ({ ...prev, queue: nextQueue }));
 
     if (nextQueue.length === 0) {
-      // Sitzung fertig – Decks, Statistik und Dashboard neu laden.
+      // Sitzung fertig – Decks, der geöffnete Stapel, Statistik und Dashboard
+      // neu laden. `deck` muss mit: Der Detailbildschirm holt seinen Stand
+      // nicht mehr bei jedem Fokus nach, sondern verlässt sich auf genau diese
+      // Entwertung.
       void queryClient.invalidateQueries({ queryKey: ['decks'] });
+      void queryClient.invalidateQueries({ queryKey: ['deck'] });
       void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
@@ -218,12 +223,23 @@ export default function ReviewScreen({ route, navigation }: Props) {
   // kein Zähler: jede Karte steht für sich, keine feste Gesamtzahl.
   const remaining = queue.length - 1;
 
+  // Wie weit die Sitzung ist. Der Stapel kann während des Lernens wachsen
+  // (falsch beantwortete Karten wandern nach hinten), deshalb zählt die
+  // Gesamtzahl mit statt fest zu stehen – der Balken springt dann eher zurück,
+  // als dass er lügt.
+  const done = summary.reviewed;
+  const total = done + queue.length;
+
   return (
     <Screen style={{ flex: 1 }}>
       <Row>
+        {/* Ohne diese Zeile lief die Sitzung ins Nichts: fünfzig neue Wörter
+            ohne jeden Hinweis darauf, wie viele noch kommen. */}
+        <Caption>{t('reviewProgress', { done, total })}</Caption>
         <View style={{ flex: 1 }} />
         <Caption>{tVocabMode(card.mode)}</Caption>
       </Row>
+      <ProgressBar value={total ? (done / total) * 100 : 0} height={4} />
 
       {card.mode === 'FLASHCARD' ? (
         <FlashcardMode
@@ -374,13 +390,15 @@ function ChoiceMode({
 
   return (
     <View style={{ flex: 1, gap: spacing.md }}>
+      {/* Der Balken bleibt sichtbar: Auf einem kurzen Bildschirm stand die
+          fünfte Bedeutung unter dem Rand, ohne dass irgendetwas darauf
+          hinwies – und genau sie war zweimal hintereinander die richtige. */}
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ gap: spacing.md, paddingBottom: spacing.md }}
       >
         <Flashcard stackSize={remaining}>
-          <View style={{ minHeight: 120, justifyContent: 'center' }}>
+          <View style={{ minHeight: 96, justifyContent: 'center' }}>
             {card.mode === 'LISTENING' ? (
               <Text style={{ fontSize: 34, textAlign: 'center', marginBottom: spacing.xs }}>🔊</Text>
             ) : null}

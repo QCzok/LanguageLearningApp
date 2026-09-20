@@ -5,6 +5,7 @@ import { authApi, usersApi } from '../api/endpoints';
 import * as deviceProfiles from '../api/device-profiles';
 import type { DeviceProfile } from '../api/device-profiles';
 import { tokenStorage } from '../api/token-storage';
+import { resetQueryCache } from '../api/query-client';
 import { deviceLocale, resolveLocale, translate } from '../i18n/translations';
 
 /**
@@ -162,6 +163,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Der Server-Aufruf darf scheitern (offline) – lokal wird trotzdem beendet.
     if (refreshToken) await authApi.logout(refreshToken).catch(() => undefined);
     await tokenStorage.clear();
+    // Der gespeicherte Cache gehört zu diesem Konto. Bliebe er liegen, stünde
+    // der Lernstand des einen Profils im Bildschirm des nächsten, bevor
+    // nachgeladen ist.
+    await resetQueryCache();
     set({ user: null, error: null, profiles: await deviceProfiles.listProfiles() });
   },
 
@@ -174,6 +179,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await usersApi.deleteAccount();
       await deviceProfiles.removeProfile(user.id);
       await tokenStorage.clear();
+      await resetQueryCache();
       set({
         user: null,
         error: null,
@@ -217,18 +223,11 @@ function toMessage(error: unknown): string {
 /** Läuft die Sitzung serverseitig ab, fällt die App zurück auf die Profilauswahl. */
 setUnauthorizedHandler(() => {
   void tokenStorage.clear();
+  void resetQueryCache();
   useAuthStore.setState({ user: null });
 });
 
 /** Bequemer Zugriff auf das aktive Lernprofil. */
 export function useActiveProfile(): LearningProfileDto | null {
   return useAuthStore((state) => state.user?.profiles.find((p) => p.isActive) ?? null);
-}
-
-export function useIsPremium(): boolean {
-  return useAuthStore((state) => {
-    const user = state.user;
-    if (!user || user.plan !== 'PREMIUM') return false;
-    return !user.premiumUntil || new Date(user.premiumUntil).getTime() > Date.now();
-  });
 }

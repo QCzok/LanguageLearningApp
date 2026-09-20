@@ -12,6 +12,7 @@ import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { book, bookLabel, bookSans, radius, shadow } from '../../theme';
 import {
+  CloseIcon,
   EraserIcon,
   HighlighterIcon,
   PencilIcon,
@@ -31,8 +32,13 @@ import {
  *
  * Was ein Werkzeug an Einstellungen hat – Farbe, Stärke, Schriftgröße – steht
  * auf einem schmalen Streifen darüber, und zwar nur, solange es tatsächlich in
- * der Hand liegt. Zusammen mit Rückgängig und Löschen ist das alles, was der
- * Kasten vorher enthielt; im Ruhezustand bleiben die drei Knöpfe übrig.
+ * der Hand liegt.
+ *
+ * Im Ruhezustand liegt nur *ein* Knopf da, nicht drei. Die drei standen sonst
+ * dauerhaft über dem Satzspiegel: Auf einer Lehrwerksseite verdeckten sie
+ * regelmäßig eine Antwortmöglichkeit, den Übersetzungslink oder die Hälfte
+ * einer Erklärung – und das bei jeder Seite, auch wenn nie jemand zum Stift
+ * griff. Ein Tipp fächert die Stifte auf, ein Tipp daneben legt sie zurück.
  */
 export type ToolMode = 'EDIT' | 'DRAW';
 
@@ -103,6 +109,13 @@ export function ToolDock({
   const clearAccessibilityLabel = clearLabel ?? t('pageClearNotes');
 
   /*
+    Liegen die Stifte offen da? Solange eines in der Hand ist, immer – sonst
+    könnte man es nicht weglegen. Sonst entscheidet der Nutzer.
+  */
+  const [open, setOpen] = React.useState(false);
+  const expanded = open || isDrawing;
+
+  /*
     Was an einem Werkzeug eingestellt war, bleibt daran hängen: Wer mit dem
     roten Stift schreibt, kurz zum Marker wechselt und zurückkommt, hat wieder
     Rot in der Hand – nicht das Schwarz der Voreinstellung.
@@ -116,6 +129,9 @@ export function ToolDock({
     // zurück blieben im Lehrwerk die Aufgabenfelder gesperrt.
     if (isDrawing && tool.kind === kind) {
       onChange({ ...tool, mode: 'EDIT' });
+      // Weggelegt heißt auch: wieder aus dem Weg. Sonst bliebe die Reihe über
+      // dem Text stehen, obwohl gar nicht mehr gezeichnet wird.
+      setOpen(false);
       return;
     }
     memory.current[tool.kind] = { color: tool.color, width: tool.width, fontSize: tool.fontSize };
@@ -213,7 +229,19 @@ export function ToolDock({
         </View>
       ) : null}
 
-      <View style={row}>
+      {!expanded ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('toolOpenDock')}
+          accessibilityState={{ expanded: false }}
+          onPress={() => setOpen(true)}
+          style={({ pressed }) => [toolButton, dockHandle, pressed && { opacity: 0.85 }]}
+        >
+          <PencilIcon color={book.inkSoft} size={20} />
+        </Pressable>
+      ) : null}
+
+      <View style={[row, !expanded && hidden]} pointerEvents={expanded ? 'auto' : 'none'}>
         {tools.map((kind) => {
           const { Icon, label: labelKey } = TOOLS[kind];
           const label = t(labelKey);
@@ -238,6 +266,20 @@ export function ToolDock({
             </Pressable>
           );
         })}
+
+        {/* Zurücklegen, ohne vorher ein Werkzeug in die Hand genommen zu haben.
+            Beim Zeichnen fehlt der Knopf: Dort legt man das Werkzeug weg,
+            indem man es ein zweites Mal antippt – das schließt die Reihe mit. */}
+        {!isDrawing ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('toolCloseDock')}
+            onPress={() => setOpen(false)}
+            style={({ pressed }) => [toolButton, dockHandle, pressed && { opacity: 0.85 }]}
+          >
+            <CloseIcon color={book.inkSoft} size={18} />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -259,6 +301,19 @@ const row = {
   alignItems: 'center' as const,
   gap: 10,
 };
+
+/**
+ * Der eingeklappte Griff und das Zurücklegen: kleiner und zurückhaltender als
+ * ein Werkzeug, damit auf der Seite ein Knopf liegt und keine Leiste steht.
+ */
+const dockHandle = {
+  width: 42,
+  height: 42,
+  opacity: 0.92,
+};
+
+/** Eingeklappt bleibt die Reihe montiert, damit der Zustand der Stifte hält. */
+const hidden = { display: 'none' as const };
 
 const toolButton = {
   width: 50,

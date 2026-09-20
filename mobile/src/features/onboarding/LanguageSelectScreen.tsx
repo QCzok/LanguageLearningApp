@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Body, Card, ErrorState, Heading, Loading, Row, Screen, Title } from '../../components';
 import { languagesApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { colors, spacing, typography } from '../../theme';
 import { StepIndicator } from './StepIndicator';
@@ -16,7 +17,7 @@ export default function LanguageSelectScreen({ navigation }: Props) {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['languages'],
     queryFn: languagesApi.list,
-    staleTime: 60 * 60 * 1000, // Sprachliste ändert sich praktisch nie
+    staleTime: CACHE.STATIC, // Sprachliste ändert sich praktisch nie
   });
 
   if (isLoading) return <Loading label={t('onboardingLanguagesLoading')} />;

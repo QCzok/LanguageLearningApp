@@ -18,7 +18,6 @@ import { VideosModule } from './modules/videos/videos.module';
 import { NotebookModule } from './modules/notebook/notebook.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { ProgressModule } from './modules/progress/progress.module';
-import { SubscriptionModule } from './modules/subscription/subscription.module';
 import { UsersModule } from './modules/users/users.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { WorkbookModule } from './modules/workbook/workbook.module';
@@ -46,7 +45,6 @@ import { WorkbookModule } from './modules/workbook/workbook.module';
     VideosModule,
     AiModule,
     ProgressModule,
-    SubscriptionModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -36,6 +36,15 @@ const STROKE = {
   strokeLinejoin: 'round' as const,
 };
 
+/** Zurücklegen – dasselbe Kreuz wie überall, in der Strichstärke des Hefts. */
+export function CloseIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Path d="M6.5 6.5 L17.5 17.5 M17.5 6.5 L6.5 17.5" stroke={color} {...STROKE} />
+    </Frame>
+  );
+}
+
 export function PencilIcon({ color, size }: IconProps) {
   return (
     <Frame size={size}>

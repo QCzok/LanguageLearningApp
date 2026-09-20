@@ -13,6 +13,7 @@ import {
   Title,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { colors, radius, spacing, typography } from '../../theme';
@@ -32,6 +33,7 @@ export default function VocabStatsScreen() {
   const { t } = useTranslation();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['vocab-stats'],
+    staleTime: CACHE.PROGRESS,
     queryFn: vocabularyApi.stats,
   });
 

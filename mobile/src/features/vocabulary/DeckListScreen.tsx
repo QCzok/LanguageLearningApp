@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CefrLevel, VocabDeckDto } from '@lingua/shared';
@@ -18,10 +17,10 @@ import {
   Title,
 } from '../../components';
 import { aiApi, vocabularyApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
-import { useActiveProfile, useIsPremium } from '../../store/auth.store';
-import { alert } from '../../utils/alert';
+import { useActiveProfile } from '../../store/auth.store';
 import {
   colors,
   flashcard,
@@ -55,9 +54,12 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
 export default function DeckListScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const profile = useActiveProfile();
-  const isPremium = useIsPremium();
   const queryClient = useQueryClient();
-  const decks = useQuery({ queryKey: ['decks'], queryFn: () => vocabularyApi.decks() });
+  const decks = useQuery({
+    queryKey: ['decks'],
+    queryFn: () => vocabularyApi.decks(),
+    staleTime: CACHE.PROGRESS,
+  });
   const [showGenerate, setShowGenerate] = useState(false);
   const [topic, setTopic] = useState('');
 
@@ -73,10 +75,8 @@ export default function DeckListScreen({ navigation }: Props) {
   });
 
   function openGenerator() {
-    if (!isPremium) {
-      alert(t('vocabPremiumTitle'), t('vocabPremiumBody'));
-      return;
-    }
+    // Ohne Bezahlstufe führt die Kachel direkt in den Themen-Dialog, statt
+    // erst auf einen Hinweis, dass man sie nicht benutzen darf.
     setShowGenerate(true);
   }
 
@@ -87,16 +87,9 @@ export default function DeckListScreen({ navigation }: Props) {
     generateDeck.reset();
   }
 
-  // Nach einer (auch abgebrochenen) Lernsitzung müssen die Stapel hier aktuell
-  // sein – nicht erst nach Ablauf der 60s-Cachezeit. Bewusst ohne `refetch` in
-  // den Abhängigkeiten (siehe ChapterScreen): sonst löst der neue `refetch`
-  // bei jedem Aufruf den Effekt erneut aus.
-  useFocusEffect(
-    React.useCallback(() => {
-      void decks.refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
+  // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
+  // Zurückkommen erneut drei bis fünf Sekunden auf den Server zu warten.
 
   if (decks.isLoading) return <Loading />;
   if (decks.isError || !decks.data) {
@@ -201,7 +194,7 @@ export default function DeckListScreen({ navigation }: Props) {
             {ownDecks.map((deck) => (
               <DeckTile key={deck.id} deck={deck} onPress={() => openDeck(deck)} />
             ))}
-            <NewDeckTile isPremium={isPremium} onPress={openGenerator} />
+            <NewDeckTile onPress={openGenerator} />
           </View>
         </View>
       </ScrollView>
@@ -222,7 +215,7 @@ export default function DeckListScreen({ navigation }: Props) {
 
             <Button
               label={t('vocabGenerate')}
-              variant="premium"
+              variant="primary"
               loading={generateDeck.isPending}
               disabled={topic.trim().length < 2}
               onPress={() => generateDeck.mutate(topic.trim())}
@@ -405,10 +398,10 @@ function DeckTile({ deck, onPress }: { deck: VocabDeckDto; onPress: () => void }
 
 /**
  * Das leere Fach am Ende des eigenen Regals: gestrichelter Rand, weil dort
- * noch nichts liegt. Ohne Premium führt der Tipp auf den Hinweis statt auf
- * den Themen-Dialog (siehe `openGenerator`).
+ * noch nichts liegt. Ein Tipp öffnet den Themen-Dialog (siehe
+ * `openGenerator`).
  */
-function NewDeckTile({ isPremium, onPress }: { isPremium: boolean; onPress: () => void }) {
+function NewDeckTile({ onPress }: { onPress: () => void }) {
   const { t } = useTranslation();
 
   return (
@@ -421,10 +414,10 @@ function NewDeckTile({ isPremium, onPress }: { isPremium: boolean; onPress: () =
       <Text style={tileTitle} numberOfLines={2}>
         {t('vocabAiDeckTitle')}
       </Text>
-      <Text style={tileMeta}>{isPremium ? t('vocabAiDeckPremium') : t('vocabAiDeckFree')}</Text>
+      <Text style={tileMeta}>{t('vocabAiDeckMeta')}</Text>
       <View style={{ flex: 1 }} />
-      <Text style={[tileState, { color: colors.premium }]}>
-        {isPremium ? `${t('vocabChooseTopic')} →` : `${t('vocabViewPremium')} →`}
+      <Text style={[tileState, { color: colors.primary }]}>
+        {`${t('vocabChooseTopic')} →`}
       </Text>
     </Pressable>
   );

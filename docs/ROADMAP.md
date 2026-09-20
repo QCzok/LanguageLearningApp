@@ -4,17 +4,16 @@ Was hier steht, fehlt nicht aus Versehen. Es sind Punkte, die entweder eine
 Entscheidung von außen brauchen (Zahlungsanbieter, Inhalte) oder erst mit echten
 Nutzerzahlen sinnvoll zu bauen sind.
 
-## Bezahlung
+## Bezahlung – entfallen
 
-`SubscriptionService` kapselt die Plan-Logik bereits vollständig, aber es gibt
-keine Belegprüfung. `POST /subscription/activate` mit `source: "DEV"` schaltet
-Premium frei und ist außerhalb der Entwicklung gesperrt.
+Hier stand einmal die Store-Anbindung. Sie wird nicht gebaut: Die App ist
+kostenlos, und die KI gehört dazu wie das Lehrwerk auch. `SubscriptionModule`,
+`PremiumGuard` und der Knopf „Premium aktivieren“ sind entfernt.
 
-Zu ergänzen: StoreKit- und Play-Billing-Belege serverseitig verifizieren,
-Server-to-Server-Benachrichtigungen für Verlängerung und Kündigung entgegennehmen,
-und `premiumUntil` daraus fortschreiben. Die Aufrufstelle dafür ist
-`SubscriptionService.activatePremium(userId, until, source)` – mehr muss sich
-nicht ändern.
+Was von der Mechanik übrig ist, ist eine Mengenbegrenzung: `AI_MONTHLY_LIMIT`
+deckelt die KI-Anfragen pro Konto und Monat, für alle gleich und ausschließlich
+als Missbrauchsschutz. Die Spalten `plan` und `premiumUntil` stehen noch im
+Schema – ohne Wirkung, aber auch ohne Migration, die sie entfernt.
 
 ## Inhalte
 

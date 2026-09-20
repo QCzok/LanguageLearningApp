@@ -26,8 +26,22 @@ export const authConfig = registerAs('auth', () => ({
 export const aiConfig = registerAs('ai', () => ({
   apiKey: process.env.ANTHROPIC_API_KEY ?? '',
   model: process.env.AI_MODEL ?? 'claude-opus-5',
-  freeMonthlyLimit: parseInt(process.env.AI_FREE_MONTHLY_LIMIT ?? '5', 10),
-  premiumMonthlyLimit: parseInt(process.env.AI_PREMIUM_MONTHLY_LIMIT ?? '1000', 10),
+  /**
+   * Ein Kontingent für alle.
+   *
+   * Vorher gab es zwei: fünf Anfragen im Monat ohne Premium, tausend mit. Die
+   * App hat keine Bezahlstufe mehr – die KI gehört allen, die sie öffnen.
+   * Geblieben ist die Obergrenze selbst, und zwar als das, was die hohe schon
+   * immer war: ein Missbrauchsschutz, keine Verkaufsschranke. Wer sie anders
+   * setzen will, setzt `AI_MONTHLY_LIMIT`.
+   *
+   * Die alten Namen werden noch gelesen, damit eine bestehende Umgebung nicht
+   * still auf den Standardwert zurückfällt.
+   */
+  monthlyLimit: parseInt(
+    process.env.AI_MONTHLY_LIMIT ?? process.env.AI_PREMIUM_MONTHLY_LIMIT ?? '1000',
+    10,
+  ),
   /**
    * "subscription" läuft über die lokal installierte `claude`-CLI (Claude-
    * Abo) statt über einen Anthropic-API-Key – siehe ClaudeCliClient für den

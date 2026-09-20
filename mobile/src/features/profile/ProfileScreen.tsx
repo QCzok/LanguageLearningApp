@@ -11,18 +11,18 @@ import {
   Card,
   Heading,
   LevelBadge,
-  PremiumBadge,
   Row,
   Screen,
   Title,
 } from '../../components';
-import { languagesApi, subscriptionApi, usersApi } from '../../api/endpoints';
+import { languagesApi, usersApi } from '../../api/endpoints';
+import { CACHE, resetQueryCache } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
-import { useAuthStore, useIsPremium } from '../../store/auth.store';
+import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, spacing, typography } from '../../theme';
 
 export default function ProfileScreen() {
-  const { t, formatDate } = useTranslation();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
@@ -31,11 +31,13 @@ export default function ProfileScreen() {
     (state) => state.profiles.some((profile) => profile.userId !== state.user?.id),
   );
   const refreshUser = useAuthStore((state) => state.refreshUser);
-  const isPremium = useIsPremium();
   const [pickingAvatar, setPickingAvatar] = useState(false);
 
-  const subscription = useQuery({ queryKey: ['subscription'], queryFn: subscriptionApi.status });
-  const languages = useQuery({ queryKey: ['languages'], queryFn: languagesApi.list });
+  const languages = useQuery({
+    queryKey: ['languages'],
+    queryFn: languagesApi.list,
+    staleTime: CACHE.STATIC,
+  });
 
   const setNativeLanguage = useMutation({
     mutationFn: (nativeLanguage: string) => usersApi.update({ nativeLanguage }),
@@ -56,22 +58,14 @@ export default function ProfileScreen() {
     },
   });
 
-  const activatePremium = useMutation({
-    mutationFn: subscriptionApi.activate,
-    onSuccess: async () => {
-      await refreshUser();
-      await queryClient.invalidateQueries({ queryKey: ['subscription'] });
-      await queryClient.invalidateQueries({ queryKey: ['ai-quota'] });
-      alert(t('profilePremiumActivatedTitle'), t('profilePremiumActivatedBody'));
-    },
-  });
-
   const switchProfile = useMutation({
     mutationFn: (profileId: string) => usersApi.activateProfile(profileId),
     onSuccess: async () => {
       await refreshUser();
-      // Alles Sprachabhängige neu laden.
-      await queryClient.invalidateQueries();
+      // Ein anderes Profil heisst anderer Lernstand und oft andere Sprache.
+      // Entwerten allein genügt hier nicht – die alten Daten blieben sichtbar,
+      // bis nachgeladen ist. Der Cache wird verworfen, auch der gespeicherte.
+      await resetQueryCache();
     },
   });
 
@@ -117,7 +111,6 @@ export default function ProfileScreen() {
           </View>
         ) : null}
         <Title>{user.displayName}</Title>
-        {isPremium ? <PremiumBadge /> : null}
       </Card>
 
       <Row gap={spacing.md}>
@@ -179,37 +172,6 @@ export default function ProfileScreen() {
         </Row>
       </Card>
 
-      <Card style={{ borderColor: isPremium ? colors.premium : colors.border }}>
-        <Row gap={spacing.sm}>
-          <Text style={{ fontSize: 24 }}>✨</Text>
-          <View style={{ flex: 1 }}>
-            <Heading>{t('profilePremiumTitle')}</Heading>
-            <Caption>
-              {isPremium
-                ? subscription.data?.premiumUntil
-                  ? t('profilePremiumActiveUntil', {
-                      date: formatDate(subscription.data.premiumUntil),
-                    })
-                  : t('profilePremiumActive')
-                : t('profilePremiumFeatures')}
-            </Caption>
-          </View>
-        </Row>
-        {!isPremium ? (
-          <>
-            <Button
-              label={t('profileActivatePremium')}
-              variant="premium"
-              loading={activatePremium.isPending}
-              onPress={() => activatePremium.mutate()}
-            />
-            {/* Entwicklungsstand: Die Store-Anbindung (StoreKit / Play Billing)
-                ersetzt diesen Knopf später durch den echten Kaufvorgang. */}
-            <Caption>{t('profileTestMode')}</Caption>
-          </>
-        ) : null}
-      </Card>
-
       {/* Kein Abmelden, sondern ein Wechsel: Das Profil bleibt auf dem Gerät
           und steht beim nächsten Start wieder in der Auswahl. Wirklich
           verschwinden soll es nur über den zweiten, ausdrücklichen Weg –
@@ -220,20 +182,28 @@ export default function ProfileScreen() {
         onPress={() => void signOut()}
       />
 
-      <Button
-        label={t('profileDeleteProfile')}
-        variant="ghost"
-        onPress={() =>
-          alert(t('profileDeleteTitle'), t('profileDeleteBody', { name: user.displayName }), [
-            { text: t('commonCancel'), style: 'cancel' },
-            {
-              text: t('commonDelete'),
-              style: 'destructive',
-              onPress: () => void deleteProfile().catch(() => undefined),
-            },
-          ])
-        }
-      />
+      {/* Das Löschen stand vorher als nackter roter Text unter dem letzten
+          Kasten – die folgenreichste Handlung des Bildschirms mit der
+          geringsten Fassung darum. Jetzt sitzt sie in einem eigenen Kasten mit
+          rotem Rand, der vorher sagt, was verschwindet. Die Rückfrage darunter
+          bleibt, wie sie war. */}
+      <Card style={{ borderColor: colors.danger, gap: spacing.sm }}>
+        <Caption>{t('profileDeleteExplainer')}</Caption>
+        <Button
+          label={t('profileDeleteProfile')}
+          variant="ghost"
+          onPress={() =>
+            alert(t('profileDeleteTitle'), t('profileDeleteBody', { name: user.displayName }), [
+              { text: t('commonCancel'), style: 'cancel' },
+              {
+                text: t('commonDelete'),
+                style: 'destructive',
+                onPress: () => void deleteProfile().catch(() => undefined),
+              },
+            ])
+          }
+        />
+      </Card>
     </Screen>
   );
 }
@@ -254,7 +224,6 @@ function LanguageProfileCard({
   onSwitch: () => void;
 }) {
   const { t, tLanguage, tLevelShort } = useTranslation();
-  const queryClient = useQueryClient();
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [editingLevel, setEditingLevel] = useState(false);
 
@@ -271,8 +240,8 @@ function LanguageProfileCard({
       setEditingLevel(false);
       await refreshUser();
       // Sprachabhängige Inhalte (Lehrwerk, Bibliothek, Vokabeln …) richten
-      // sich nach dem Niveau – ohne Neuladen zeigten sie noch die alte Stufe.
-      await queryClient.invalidateQueries();
+      // sich nach dem Niveau – der alte Stand darf nicht stehen bleiben.
+      await resetQueryCache();
     },
   });
 

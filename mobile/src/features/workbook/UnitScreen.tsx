@@ -16,6 +16,7 @@ import type {
 } from '@lingua/shared';
 import { ErrorState, Loading } from '../../components';
 import { workbookApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { book, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import Canvas from '../notebook/Canvas';
@@ -87,6 +88,7 @@ export default function UnitScreen({ route, navigation }: Props) {
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['workbook-unit', unitId],
+    staleTime: CACHE.PROGRESS,
     queryFn: () => workbookApi.unit(unitId),
     gcTime: 0,
   });
@@ -100,6 +102,7 @@ export default function UnitScreen({ route, navigation }: Props) {
   const chapterId = data?.chapterId;
   const { data: chapter } = useQuery({
     queryKey: ['workbook-chapter', chapterId],
+    staleTime: CACHE.CONTENT,
     queryFn: () => workbookApi.chapter(chapterId!),
     enabled: Boolean(chapterId),
   });

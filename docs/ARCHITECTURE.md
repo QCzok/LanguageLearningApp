@@ -69,13 +69,15 @@ Global registriert, in dieser Reihenfolge:
 2. `JwtAuthGuard` – alles ist geschützt, `@Public()` hebt das punktuell auf.
 3. `RolesGuard` – wertet `@Roles(...)` aus.
 
-`@RequiresPremium()` kommt als Decorator pro Route dazu. Er antwortet mit **402**
-statt 403, weil die App darauf gezielt den Upgrade-Screen öffnet – ein 403 würde
-in derselben generischen Fehlermeldung landen wie eine fehlende Berechtigung.
+Einen Premium-Guard gibt es nicht mehr: Die App hat keine Bezahlstufe, die KI
+steht jedem offen, der sie öffnet. Begrenzt wird nur die Nutzungsmenge, und zwar
+für alle gleich (`AI_MONTHLY_LIMIT`, siehe `AiService.getQuota`) – als
+Missbrauchsschutz, nicht als Verkaufsschranke. Die Spalten `plan` und
+`premiumUntil` stehen noch im Schema, steuern aber nichts mehr.
 
-Der `JwtStrategy` lädt Rolle und Plan bei jedem Request frisch aus der Datenbank,
-statt sie im Token zu führen. Ein abgelaufenes Abo oder eine entzogene Rolle greift
-so sofort und nicht erst beim nächsten Token-Refresh.
+Der `JwtStrategy` lädt die Rolle bei jedem Request frisch aus der Datenbank,
+statt sie im Token zu führen. Eine entzogene Rolle greift so sofort und nicht
+erst beim nächsten Token-Refresh.
 
 ### Authentifizierung
 
@@ -117,7 +119,7 @@ Kontolöschung ist ein einzelner `DELETE`.
 ## KI-Anbindung
 
 ```
-AiController  ▸ Premium-Guard, Rate-Limit, SSE
+AiController  ▸ Rate-Limit, SSE
 AiService     ▸ Kontingent, Prompts, Persistenz, Verbrauchsbuchung
 AnthropicClient ▸ Modellwahl, Fehlerübersetzung, Token-Zählung
 ```

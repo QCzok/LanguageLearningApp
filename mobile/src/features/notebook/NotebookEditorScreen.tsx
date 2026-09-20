@@ -9,7 +9,6 @@ import { extractPlainText } from '@lingua/shared';
 import { Body, Button, Caption, Card, ErrorState, Heading, Loading, Row, Title } from '../../components';
 import { notebookApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
-import { useIsPremium } from '../../store/auth.store';
 import { book, bookFont, bookLabel, bookSans, colors, spacing, typography } from '../../theme';
 import {
   ChevronLeftIcon,
@@ -46,7 +45,6 @@ export default function NotebookEditorScreen({ route }: Props) {
   const { notebookId } = route.params;
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const isPremium = useIsPremium();
 
   const [pageIndex, setPageIndex] = useState(0);
   const [content, setContent] = useState<NotebookPageContent | null>(null);
@@ -174,10 +172,9 @@ export default function NotebookEditorScreen({ route }: Props) {
   }
 
   function handleAnalyze(): void {
-    if (!isPremium) {
-      alert(t('editorPremiumTitle'), t('editorPremiumBody'));
-      return;
-    }
+    // Vorher hing hier eine Bezahlschranke davor. Die Korrektur steht jetzt
+    // jedem offen; was bleibt, ist die eine sachliche Bedingung – es muss
+    // genug geschrieben sein, damit es etwas zu korrigieren gibt.
     flushSave();
     if (currentPage) analyze.mutate(currentPage.id);
   }
@@ -277,11 +274,11 @@ export default function NotebookEditorScreen({ route }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('editorAiCorrection')}
-          disabled={isPremium && !canAnalyze}
+          disabled={!canAnalyze}
           onPress={handleAnalyze}
           style={({ pressed }) => [
             analyzeRow,
-            (isPremium && !canAnalyze) && { opacity: 0.45 },
+            !canAnalyze && { opacity: 0.45 },
             pressed && { backgroundColor: colors.premiumSoft },
           ]}
         >
@@ -291,11 +288,7 @@ export default function NotebookEditorScreen({ route }: Props) {
               {analyze.isPending ? t('editorAiChecking') : t('editorAiCorrection')}
             </Text>
             <Text style={analyzeHint}>
-              {isPremium
-                ? canAnalyze
-                  ? t('editorAiHintReady')
-                  : t('editorAiHintTooShort')
-                : t('editorAiHintPremium')}
+              {canAnalyze ? t('editorAiHintReady') : t('editorAiHintTooShort')}
             </Text>
           </View>
         </Pressable>

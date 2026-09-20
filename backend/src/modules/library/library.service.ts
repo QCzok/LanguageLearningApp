@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ExerciseType, Prisma } from '@prisma/client';
 import type {
   ExerciseResultDto,
@@ -97,9 +97,9 @@ export class LibraryService {
     });
     if (!content) throw new NotFoundException(ERR['notfound.content']);
 
-    if (content.isPremium && !this.hasPremium(user)) {
-      throw new ForbiddenException(ERR['premium.content']);
-    }
+    // Kein Premium mehr, also auch keine gesperrten Texte: Das Feld
+    // `isPremium` steht noch im Schema, sperrt aber nichts. Bliebe die Prüfung
+    // stehen, wären so markierte Texte für *niemanden* mehr erreichbar.
 
     const [progress, bestAttempt] = await Promise.all([
       this.prisma.readingProgress.findUnique({
@@ -230,10 +230,6 @@ export class LibraryService {
       scorePercent: attempt.scorePercent,
       createdAt: attempt.createdAt.toISOString(),
     }));
-  }
-
-  private hasPremium(user: AuthenticatedUser): boolean {
-    return user.plan === 'PREMIUM' && (!user.premiumUntil || user.premiumUntil.getTime() > Date.now());
   }
 
   private toContentDto(content: ContentRow): LibraryContentDto {

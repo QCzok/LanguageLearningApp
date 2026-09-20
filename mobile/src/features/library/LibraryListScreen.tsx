@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CEFR_LEVELS } from '@lingua/shared';
 import type { CefrLevel, LibraryContentDto } from '@lingua/shared';
 import { EmptyState, ErrorState, Loading } from '../../components';
 import { libraryApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
@@ -198,18 +198,12 @@ export default function LibraryListScreen({ navigation }: Props) {
     // einen Ladekreis zu tauschen: Sonst springt der Bildschirm bei jedem
     // Buchstaben, und man sieht nie, was der eigene Filter eigentlich bewirkt.
     placeholderData: keepPreviousData,
+    staleTime: CACHE.PROGRESS,
   });
 
-  // Wer aus einem Text zurückkommt, hat ihn gerade weitergelesen – und will
-  // ihn oben als „Weiterlesen“ wiederfinden, nicht den Stand von vorhin.
-  // Bewusst ohne `refetch` in den Abhängigkeiten (wie in `DeckListScreen`):
-  // Sonst löst die bei jedem Aufruf neue Funktion den Effekt erneut aus.
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
+  // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
+  // Zurückkommen erneut drei bis fünf Sekunden auf den Server zu warten.
 
   const all = useMemo(() => data?.items ?? [], [data]);
 

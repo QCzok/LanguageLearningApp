@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardStatus, DeckItemDto } from '@lingua/shared';
 import { Caption, ErrorState, LevelBadge, Loading, ProgressBar, Row } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import {
@@ -47,16 +47,12 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['deck', deckId],
     queryFn: () => vocabularyApi.deck(deckId),
+    staleTime: CACHE.PROGRESS,
   });
 
-  // Nach einer Sitzung soll der Lernstand hier sofort stimmen – wie in der
-  // Übersicht, nicht erst nach Ablauf der Cachezeit.
-  useFocusEffect(
-    React.useCallback(() => {
-      void refetch();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []),
-  );
+  // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
+  // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
+  // Zurückkommen erneut drei bis fünf Sekunden auf den Server zu warten.
 
   if (isLoading) return <Loading />;
   if (isError || !data) return <ErrorState message={t('deckError')} onRetry={refetch} />;

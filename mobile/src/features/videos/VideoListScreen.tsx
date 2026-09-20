@@ -20,6 +20,7 @@ import {
 } from '../../components';
 import { FilterChip } from '../library/LibraryListScreen';
 import { videosApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { colors, radius, spacing, typography } from '../../theme';
@@ -45,6 +46,7 @@ export default function VideoListScreen({ navigation }: Props) {
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['videos', { topic, level, slowOnly, search }],
+    staleTime: CACHE.CONTENT,
     queryFn: () =>
       videosApi.list({
         topic,

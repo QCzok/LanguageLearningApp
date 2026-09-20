@@ -66,7 +66,6 @@ describe('AppModule', () => {
     '/videos',
     '/ai/quota',
     '/progress/dashboard',
-    '/subscription/status',
   ])('schützt %s', async (path) => {
     await request(app.getHttpServer()).get(path).expect(401);
   });

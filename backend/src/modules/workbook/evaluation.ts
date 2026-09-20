@@ -97,11 +97,32 @@ function evaluateMatching(block: MatchingBlock, answer: BlockAnswer | undefined)
     (answer?.type === 'MATCHING' ? answer.pairs : []).map((pair) => [pair.leftId, pair.rightId]),
   );
 
+  /**
+   * Verglichen wird die Beschriftung, nicht die ID.
+   *
+   * Eine Zuordnungsaufgabe darf rechts dieselbe Antwort mehrfach anbieten – bei
+   * Artikeln ist das sogar der Normalfall: „Stuhl, Tür, Fenster, Tisch“ gegen
+   * „der, die, das, der“. Auf dem Bildschirm sind die beiden „der“ nicht zu
+   * unterscheiden, in den Daten schon. Wer „Stuhl“ auf das zweite „der“ zog,
+   * bekam die Aufgabe als falsch zurück – für eine Antwort, die niemand von der
+   * richtigen unterscheiden kann.
+   *
+   * Über die Beschriftung zu vergleichen macht gleich beschriftete Karten
+   * austauschbar, genau wie sie aussehen. IDs ohne Karte (fehlerhafte Daten)
+   * fallen auf sich selbst zurück, damit der Vergleich nicht still zu „beide
+   * undefined, also richtig“ wird.
+   */
+  const labelOf = new Map(block.right.map((item) => [item.id, item.text]));
+  const label = (rightId: string | undefined): string | undefined =>
+    rightId === undefined ? undefined : (labelOf.get(rightId) ?? rightId);
+
   const details: Record<string, boolean> = {};
   let correctCount = 0;
 
   for (const item of block.left) {
-    const isCorrect = expected.get(item.id) === given.get(item.id);
+    const expectedLabel = label(expected.get(item.id));
+    const givenLabel = label(given.get(item.id));
+    const isCorrect = expectedLabel !== undefined && expectedLabel === givenLabel;
     details[item.id] = isCorrect;
     if (isCorrect) correctCount += 1;
   }

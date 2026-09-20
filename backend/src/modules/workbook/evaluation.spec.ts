@@ -142,6 +142,48 @@ describe('evaluateBlock', () => {
       expect(result.details).toEqual({ l1: true, l2: false });
       expect(result.scorePercent).toBe(50);
     });
+
+    /**
+     * Gleich beschriftete Karten sind austauschbar – auf dem Bildschirm sind
+     * sie es ohnehin. Sonst hinge die Bewertung daran, welches der beiden
+     * „der“ der Lernende zufällig getroffen hat.
+     */
+    it('behandelt gleich beschriftete Karten rechts als gleichwertig', () => {
+      const articles: MatchingBlock = {
+        id: 'm2',
+        type: 'MATCHING',
+        instruction: 'Ordnen Sie jedem Nomen seinen Artikel zu.',
+        left: [
+          { id: 'l1', text: 'Stuhl' },
+          { id: 'l2', text: 'Tisch' },
+        ],
+        right: [
+          { id: 'r1', text: 'der' },
+          { id: 'r2', text: 'der' },
+        ],
+        solution: [
+          { leftId: 'l1', rightId: 'r1' },
+          { leftId: 'l2', rightId: 'r2' },
+        ],
+      };
+
+      const swapped = evaluateBlock(articles, {
+        type: 'MATCHING',
+        pairs: [
+          { leftId: 'l1', rightId: 'r2' },
+          { leftId: 'l2', rightId: 'r1' },
+        ],
+      });
+
+      expect(swapped.details).toEqual({ l1: true, l2: true });
+      expect(swapped.correct).toBe(true);
+    });
+
+    it('wertet eine fehlende Zuordnung nicht als richtig', () => {
+      const result = evaluateBlock(block, { type: 'MATCHING', pairs: [] });
+      expect(result.details).toEqual({ l1: false, l2: false });
+      expect(result.scorePercent).toBe(0);
+    });
   });
 
   describe('ORDERING', () => {

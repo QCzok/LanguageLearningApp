@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Loading } from '../components';
@@ -192,7 +192,11 @@ function LibraryNavigator() {
       {/* Der Leser bringt seine eigene Kopfleiste mit (siehe `ReaderChrome`):
           Sie trägt die Farbe des gewählten Papiers und verschwindet beim Lesen.
           Eine zweite, weiße Navigationsleiste darüber wäre genau das Stück
-          App-Oberfläche, das ein E-Book-Leser nicht hat. */}
+          App-Oberfläche, das ein E-Book-Leser nicht hat.
+
+          Aus demselben Grund geht auch die Reiterleiste unten weg – die legt
+          allerdings der Tab-Navigator, nicht dieser Stack (siehe
+          `hideTabBarOn` weiter unten). */}
       <LibraryStack.Screen
         name="Reader"
         component={ReaderScreen}
@@ -256,10 +260,28 @@ const tabIcons: Record<keyof MainTabParamList, string> = {
   Vocabulary: '🗂️',
   Notebook: '📓',
   Library: '📚',
-  Videos: '📺',
+  Videos: '🎧',
   Assistant: '✨',
   Profile: '👤',
 };
+
+/**
+ * Bildschirme, auf denen die Reiterleiste unten stört statt zu helfen.
+ *
+ * Der Leser ist ein E-Book-Leser: Papierfarbe bis an den Rand, Leisten, die
+ * beim Lesen verschwinden. Eine weiße Reiterleiste darunter nahm dem
+ * Satzspiegel eine Zeile und bot mitten im Text sieben Absprünge an.
+ *
+ * Gelöst über den Tab-Navigator und nicht im Stack darunter: Nur der Reiter
+ * selbst kann seine Leiste verbergen, und `getFocusedRouteNameFromRoute`
+ * nennt ihm den Bildschirm, der gerade oben liegt.
+ */
+const TAB_BAR_HIDDEN_ON = new Set(['Reader']);
+
+function hideTabBarOn(route: Parameters<typeof getFocusedRouteNameFromRoute>[0]) {
+  const focused = getFocusedRouteNameFromRoute(route);
+  return focused && TAB_BAR_HIDDEN_ON.has(focused) ? { display: 'none' as const } : undefined;
+}
 
 function MainNavigator() {
   const { t } = useTranslation();
@@ -269,20 +291,47 @@ function MainNavigator() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontSize: 11 },
+        tabBarStyle: [
+          { backgroundColor: colors.surface, borderTopColor: colors.border },
+          hideTabBarOn(route),
+        ],
+        // Die Beschriftungen wurden unten abgeschnitten, weil die Standardhöhe
+        // die Textzeile nicht mitrechnet. Feste Zeilenhöhe und Luft darunter;
+        // bei fünf Spalten reicht die normale Schriftgröße wieder.
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 14, paddingBottom: 3 },
+        tabBarItemStyle: { paddingTop: 4 },
+        tabBarAllowFontScaling: false,
         tabBarIcon: ({ focused }) => (
           <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>{tabIcons[route.name]}</Text>
         ),
       })}
     >
+      {/* Fünf Reiter, benannt nach dem, was man tut: Start, Vokabeln, Lesen,
+          Hören, KI. Vorher waren es sieben, und sie wiederholten genau das
+          Kachelraster der Startseite – bei sieben Spalten blieb pro Wort kaum
+          Platz, und die Leiste beantwortete keine Frage, die die Startseite
+          nicht schon beantwortet hätte. */}
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabHome') }} />
       <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: t('tabVocabulary') }} />
-      <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: t('tabNotebook') }} />
       <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: t('tabLibrary') }} />
       <Tabs.Screen name="Videos" component={VideoNavigator} options={{ title: t('tabVideos') }} />
       <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: t('tabAssistant') }} />
-      <Tabs.Screen name="Profile" component={ProfileScreen} options={{ title: t('tabProfile') }} />
+
+      {/* Weiterhin eigene Reiter, nur ohne Knopf in der Leiste: Das Lehrwerk
+          erreicht man über die Kachel auf der Startseite, das Profil über den
+          Kopf rechts oben. Als Reiter registriert bleiben sie, weil beide
+          einen eigenen Verlauf führen sollen – wer aus Kapitel 3 zurückkommt,
+          landet im Inhaltsverzeichnis und nicht auf der Startseite. */}
+      <Tabs.Screen
+        name="Notebook"
+        component={NotebookNavigator}
+        options={{ title: t('tabNotebook'), tabBarButton: () => null }}
+      />
+      <Tabs.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ title: t('tabProfile'), tabBarButton: () => null }}
+      />
     </Tabs.Navigator>
   );
 }

@@ -13,8 +13,8 @@ Jeder Fehler kommt in derselben Form:
 ```json
 {
   "statusCode": 402,
-  "error": "PremiumRequired",
-  "message": "Diese Funktion ist Teil von Lingua Premium.",
+  "error": "AiQuotaExceeded",
+  "message": "Das monatliche KI-Kontingent ist aufgebraucht.",
   "path": "/api/v1/ai/grammar",
   "timestamp": "2025-09-08T12:00:00.000Z"
 }
@@ -24,7 +24,6 @@ Jeder Fehler kommt in derselben Form:
 
 | `error`            | Status | Bedeutung                                    |
 | ------------------ | ------ | -------------------------------------------- |
-| `PremiumRequired`  | 402    | Upgrade-Screen öffnen                        |
 | `AiQuotaExceeded`  | 429    | Kontingent aufgebraucht                      |
 | `Conflict`         | 409    | z. B. E-Mail bereits vergeben                |
 | `NotFound`         | 404    | Datensatz existiert nicht                    |
@@ -110,8 +109,8 @@ Fortschrittseintrag angelegt – ein Abbruch der Sitzung verliert also nichts.
 | GET     | `/notebooks/pages/:pageId`             | Seite mit Canvas-Inhalt |
 | PATCH   | `/notebooks/pages/:pageId`             | Inhalt speichern (Autosave) |
 | DELETE  | `/notebooks/pages/:pageId`             | Seite löschen |
-| POST    | `/notebooks/pages/:pageId/analyze`     | **Premium** · KI-Korrektur |
-| GET     | `/notebooks/pages/:pageId/analyses`    | **Premium** · Frühere Korrekturen |
+| POST    | `/notebooks/pages/:pageId/analyze`     | KI-Korrektur |
+| GET     | `/notebooks/pages/:pageId/analyses`    | Frühere Korrekturen |
 
 `content` folgt `NotebookPageContent` aus `@lingua/shared`. Grenzen: 5 000
 Elemente pro Seite, 10 000 Punkte pro Strich. Ein Heft behält immer mindestens
@@ -152,28 +151,25 @@ Ab 90 % der Laufzeit gilt ein Video als gesehen; XP gibt es nur beim ersten Mal.
 | Methode | Pfad                                          | Beschreibung |
 | ------- | --------------------------------------------- | ------------ |
 | GET     | `/ai/quota`                                   | Verbrauch des laufenden Monats |
-| GET     | `/ai/conversations`                           | **Premium** · Gespräche |
-| POST    | `/ai/conversations`                           | **Premium** · Gespräch oder Diskussion starten |
-| GET     | `/ai/conversations/:id/messages`              | **Premium** · Verlauf |
-| DELETE  | `/ai/conversations/:id`                       | **Premium** · Gespräch löschen |
-| POST    | `/ai/conversations/:id/messages`              | **Premium** · Nachricht senden (20/Min.) |
-| POST    | `/ai/conversations/:id/messages/stream`       | **Premium** · Antwort als SSE-Stream |
-| POST    | `/ai/grammar`                                 | **Premium** · Grammatik/Vokabeln erklären (15/Min.) |
-| GET     | `/ai/recommendations`                         | **Premium** · Lernempfehlungen (10/5 Min.) |
+| GET     | `/ai/conversations`                           | Gespräche |
+| POST    | `/ai/conversations`                           | Gespräch oder Diskussion starten |
+| GET     | `/ai/conversations/:id/messages`              | Verlauf |
+| DELETE  | `/ai/conversations/:id`                       | Gespräch löschen |
+| POST    | `/ai/conversations/:id/messages`              | Nachricht senden (20/Min.) |
+| POST    | `/ai/conversations/:id/messages/stream`       | Antwort als SSE-Stream |
+| POST    | `/ai/grammar`                                 | Grammatik/Vokabeln erklären (15/Min.) |
+| GET     | `/ai/recommendations`                         | Lernempfehlungen (10/5 Min.) |
 
 Der SSE-Stream sendet `{"type":"delta","text":"…"}` je Teilstück und zum Schluss
 `{"type":"done","message":{…}}`. Fehler kommen als `event: error`. Gespeichert
 wird erst die vollständige Antwort – ein Abbruch hinterlässt keinen Torso.
 
-## Fortschritt & Abo
+## Fortschritt
 
 | Methode | Pfad                       | Beschreibung |
 | ------- | -------------------------- | ------------ |
 | GET     | `/progress/dashboard`      | Alles für den Startbildschirm in einem Aufruf |
 | GET     | `/progress/history?days=30`| Tagesaktivität |
-| GET     | `/subscription/status`     | Plan und freigeschaltete Funktionen |
-| POST    | `/subscription/activate`   | Premium aktivieren (Store-Beleg; `DEV` nur außerhalb von Produktion) |
-| POST    | `/subscription/cancel`     | Premium beenden |
 | GET     | `/health`                  | **öffentlich** · Liveness und Datenbankcheck |
 
 ## Lehrwerk
