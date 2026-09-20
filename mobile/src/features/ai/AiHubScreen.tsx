@@ -17,6 +17,7 @@ import {
   Title,
 } from '../../components';
 import { aiApi } from '../../api/endpoints';
+import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { colors, radius, spacing } from '../../theme';
@@ -41,7 +42,13 @@ export default function AiHubScreen({ navigation }: Props) {
   const [topic, setTopic] = useState('');
   const [recentExpanded, setRecentExpanded] = useState(false);
 
-  const quota = useQuery({ queryKey: ['ai-quota'], queryFn: aiApi.quota });
+  // Ein Zählerstand, kein Inhalt: Die Standard-Cachezeit von einer Stunde
+  // liesse die Anzeige nach einem Update noch das alte Kontingent nennen.
+  const quota = useQuery({
+    queryKey: ['ai-quota'],
+    queryFn: aiApi.quota,
+    staleTime: CACHE.PROGRESS,
+  });
   const conversations = useQuery({
     queryKey: ['ai-conversations'],
     queryFn: aiApi.conversations,
