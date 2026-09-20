@@ -5,7 +5,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { youtubeWatchUrl } from '@lingua/shared';
 import {
-  Body,
   Button,
   Caption,
   Card,
@@ -127,27 +126,29 @@ export default function VideoPlayerScreen({ route }: Props) {
           </Row>
         </View>
 
-        <Card>
-          <Heading>{t('videoSource')}</Heading>
-          <Body>{data.channelName}</Body>
-          <Caption>{t('videoSourceHint')}</Caption>
-          <Row gap={spacing.sm} style={{ flexWrap: 'wrap', paddingTop: spacing.sm }}>
-            <Button
-              label={t('videoOpenOnYoutube')}
-              variant="secondary"
-              fullWidth={false}
-              onPress={() => void Linking.openURL(youtubeWatchUrl(data.youtubeId, positionSec))}
-            />
-            {data.channelUrl ? (
-              <Button
-                label={t('videoOpenChannel')}
-                variant="ghost"
-                fullWidth={false}
-                onPress={() => void Linking.openURL(data.channelUrl)}
-              />
-            ) : null}
-          </Row>
-        </Card>
+        {/*
+          Nur noch Herkunftsangabe, keine Empfehlung.
+
+          Hier stand eine Karte, die den Kanal mit Namen, Erklärtext und einem
+          eigenen Knopf „Zum Kanal“ bewarb – unter jedem Video eine Einladung,
+          die App zu verlassen und anderswo zu abonnieren. Das Video ist
+          ausgeliehen, und wem es gehört, gehört dazugesagt; werben muss die
+          App dafür nicht. Geblieben ist die Zeile, die es nennt, und der Weg
+          zu YouTube – den braucht der Fall, in dem das Einbetten gesperrt ist
+          (siehe `unplayable` oben).
+        */}
+        <Row gap={spacing.sm} style={{ flexWrap: 'wrap', alignItems: 'center' }}>
+          <Caption>
+            {t('videoSource')}: {data.channelName}
+          </Caption>
+          <View style={{ flex: 1 }} />
+          <Button
+            label={t('videoOpenOnYoutube')}
+            variant="ghost"
+            fullWidth={false}
+            onPress={() => void Linking.openURL(youtubeWatchUrl(data.youtubeId, positionSec))}
+          />
+        </Row>
 
         {data.tags.length > 0 ? (
           <Row gap={spacing.xs} style={{ flexWrap: 'wrap' }}>

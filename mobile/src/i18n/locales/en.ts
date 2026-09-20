@@ -537,10 +537,8 @@ export const en: TranslationDictionary = {
   videoTopicGrammar: 'Grammar',
   videoTopicVocabulary: 'Vocabulary',
   videoTopicCulture: 'Culture',
-  videoSource: 'Channel',
-  videoSourceHint: 'The video is hosted on YouTube – we only picked it.',
+  videoSource: 'Source',
   videoOpenOnYoutube: 'Open on YouTube',
-  videoOpenChannel: 'Go to channel',
   videoEmbedBlocked: 'This video cannot be played here. It works on YouTube.',
   videoTipsTitle: 'Get more out of it',
   videoTipsBody:

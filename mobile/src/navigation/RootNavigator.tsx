@@ -262,7 +262,6 @@ const tabIcons: Record<keyof MainTabParamList, string> = {
   Library: '📚',
   Videos: '🎧',
   Assistant: '✨',
-  Profile: '👤',
 };
 
 /**
@@ -306,32 +305,18 @@ function MainNavigator() {
         ),
       })}
     >
-      {/* Fünf Reiter, benannt nach dem, was man tut: Start, Vokabeln, Lesen,
-          Hören, KI. Vorher waren es sieben, und sie wiederholten genau das
-          Kachelraster der Startseite – bei sieben Spalten blieb pro Wort kaum
-          Platz, und die Leiste beantwortete keine Frage, die die Startseite
-          nicht schon beantwortet hätte. */}
+      {/* Sechs Reiter, benannt nach dem, was man tut. Jeder bekommt denselben
+          Anteil der Breite – dafür darf hier kein Bildschirm stehen, der
+          keinen Knopf zeigt: Ein Reiter ohne sichtbaren Knopf belegt in der
+          Leiste trotzdem seine Spalte, und die übrigen Symbole rückten
+          entsprechend nach links statt gleichmäßig zu stehen. Das Profil sitzt
+          deshalb im Root-Stack (siehe `RootNavigator`), nicht hier. */}
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabHome') }} />
       <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: t('tabVocabulary') }} />
+      <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: t('tabNotebook') }} />
       <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: t('tabLibrary') }} />
       <Tabs.Screen name="Videos" component={VideoNavigator} options={{ title: t('tabVideos') }} />
       <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: t('tabAssistant') }} />
-
-      {/* Weiterhin eigene Reiter, nur ohne Knopf in der Leiste: Das Lehrwerk
-          erreicht man über die Kachel auf der Startseite, das Profil über den
-          Kopf rechts oben. Als Reiter registriert bleiben sie, weil beide
-          einen eigenen Verlauf führen sollen – wer aus Kapitel 3 zurückkommt,
-          landet im Inhaltsverzeichnis und nicht auf der Startseite. */}
-      <Tabs.Screen
-        name="Notebook"
-        component={NotebookNavigator}
-        options={{ title: t('tabNotebook'), tabBarButton: () => null }}
-      />
-      <Tabs.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: t('tabProfile'), tabBarButton: () => null }}
-      />
     </Tabs.Navigator>
   );
 }
@@ -362,6 +347,23 @@ export default function RootNavigator() {
             <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
           )}
           {target === 'Main' && <RootStack.Screen name="Main" component={MainNavigator} />}
+          {/* Das Profil liegt über den Reitern statt zwischen ihnen: Es ist
+              kein Ort, an dem man lernt, sondern einer, den man aufschlägt und
+              wieder zuklappt. Über dem Stack bekommt es eine Kopfleiste mit
+              Zurück-Pfeil – vorher führte von dort kein Weg zurück außer einem
+              Reiter unten –, und die Leiste selbst behält sechs gleich breite
+              Spalten. */}
+          {target === 'Main' && (
+            <RootStack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{
+                headerShown: true,
+                title: t('tabProfile'),
+                ...defaultStackOptions,
+              }}
+            />
+          )}
         </RootStack.Navigator>
       </NavigationContainer>
     </WebLayout>

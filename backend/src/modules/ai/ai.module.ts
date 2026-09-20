@@ -31,6 +31,8 @@ import { AI_CLIENT } from './ai-client.interface';
       inject: [aiConfig.KEY, AnthropicClient, ClaudeCliClient],
     },
   ],
-  exports: [AiService],
+  // `AI_CLIENT` nach aussen, damit der Health-Check melden kann, ob die KI
+  // überhaupt eingerichtet ist (siehe `HealthController`).
+  exports: [AiService, AI_CLIENT],
 })
 export class AiModule {}

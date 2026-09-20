@@ -41,7 +41,12 @@ export class AnthropicClient implements AiClient {
 
   private get sdk(): Anthropic {
     if (!this.client) {
-      throw new ServiceUnavailableException(ERR['ai.unavailable']);
+      // Ausdrücklich „nicht eingerichtet“, nicht das allgemeine „nicht
+      // verfügbar“: Genau dieser Fall – ein Server ohne hinterlegten
+      // Schlüssel – sah in der App exakt so aus wie ein abgelehnter Schlüssel
+      // oder eine Störung bei Anthropic, und war deshalb von aussen nicht von
+      // ihnen zu unterscheiden.
+      throw new ServiceUnavailableException(ERR['ai.not_configured']);
     }
     return this.client;
   }
@@ -185,7 +190,7 @@ export class AnthropicClient implements AiClient {
     }
     if (error instanceof Anthropic.AuthenticationError) {
       this.logger.error('Anthropic-Authentifizierung fehlgeschlagen – API-Key prüfen');
-      return new ServiceUnavailableException(ERR['ai.unavailable']);
+      return new ServiceUnavailableException(ERR['ai.key_rejected']);
     }
     if (error instanceof Anthropic.APIError) {
       this.logger.error(`Anthropic API-Fehler ${error.status}: ${error.message}`);

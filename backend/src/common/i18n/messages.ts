@@ -66,6 +66,8 @@ const de = {
 
   // ----------------------------------------------------------------------- KI
   'ai.unavailable': 'Die KI-Funktionen sind derzeit nicht verfügbar',
+  'ai.not_configured': 'Die KI ist auf diesem Server nicht eingerichtet (ANTHROPIC_API_KEY fehlt).',
+  'ai.key_rejected': 'Der KI-Zugang wurde abgelehnt – der hinterlegte Schlüssel gilt nicht.',
   'ai.cli_missing':
     'Die claude-CLI wurde nicht gefunden. CLAUDE_CLI_PATH in .env setzen oder "npm install -g @anthropic-ai/claude-code" ausführen.',
   'ai.bad_format': 'Die KI-Antwort hatte ein unerwartetes Format',
@@ -160,6 +162,8 @@ const en: MessageCatalog = {
 
 
   'ai.unavailable': 'The AI features are currently unavailable',
+  'ai.not_configured': 'The AI is not set up on this server (ANTHROPIC_API_KEY is missing).',
+  'ai.key_rejected': 'The AI rejected our credentials – the configured key is not valid.',
   'ai.cli_missing':
     'The claude CLI was not found. Set CLAUDE_CLI_PATH in .env or run "npm install -g @anthropic-ai/claude-code".',
   'ai.bad_format': 'The AI response had an unexpected format',
@@ -246,6 +250,8 @@ const es: MessageCatalog = {
 
 
   'ai.unavailable': 'Las funciones de IA no están disponibles ahora mismo',
+  'ai.not_configured': 'La IA no está configurada en este servidor (falta ANTHROPIC_API_KEY).',
+  'ai.key_rejected': 'La IA rechazó las credenciales: la clave configurada no es válida.',
   'ai.cli_missing':
     'No se ha encontrado la CLI de claude. Define CLAUDE_CLI_PATH en .env o ejecuta "npm install -g @anthropic-ai/claude-code".',
   'ai.bad_format': 'La respuesta de la IA tenía un formato inesperado',
@@ -332,6 +338,8 @@ const fr: MessageCatalog = {
 
 
   'ai.unavailable': 'Les fonctions IA ne sont pas disponibles pour le moment',
+  'ai.not_configured': 'L’IA n’est pas configurée sur ce serveur (ANTHROPIC_API_KEY manquante).',
+  'ai.key_rejected': 'L’IA a refusé nos identifiants : la clé configurée n’est pas valide.',
   'ai.cli_missing':
     'La CLI claude est introuvable. Définis CLAUDE_CLI_PATH dans .env ou lance "npm install -g @anthropic-ai/claude-code".',
   'ai.bad_format': 'La réponse de l’IA avait un format inattendu',
@@ -420,6 +428,8 @@ const it: MessageCatalog = {
 
 
   'ai.unavailable': 'Le funzioni IA non sono disponibili al momento',
+  'ai.not_configured': 'L’IA non è configurata su questo server (manca ANTHROPIC_API_KEY).',
+  'ai.key_rejected': 'L’IA ha rifiutato le credenziali: la chiave configurata non è valida.',
   'ai.cli_missing':
     'La CLI di claude non è stata trovata. Imposta CLAUDE_CLI_PATH in .env oppure esegui "npm install -g @anthropic-ai/claude-code".',
   'ai.bad_format': 'La risposta dell’IA aveva un formato inatteso',

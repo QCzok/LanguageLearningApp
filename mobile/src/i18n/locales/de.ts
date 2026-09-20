@@ -548,10 +548,8 @@ export const de = {
   videoTopicGrammar: 'Grammatik',
   videoTopicVocabulary: 'Wortschatz',
   videoTopicCulture: 'Landeskunde',
-  videoSource: 'Kanal',
-  videoSourceHint: 'Das Video liegt bei YouTube – wir haben es nur ausgewählt.',
+  videoSource: 'Quelle',
   videoOpenOnYoutube: 'Auf YouTube öffnen',
-  videoOpenChannel: 'Zum Kanal',
   videoEmbedBlocked: 'Dieses Video lässt sich hier nicht abspielen. Auf YouTube geht es.',
   videoTipsTitle: 'So holst du mehr heraus',
   videoTipsBody:

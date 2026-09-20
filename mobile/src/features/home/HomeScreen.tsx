@@ -3,7 +3,9 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { useQuery } from '@tanstack/react-query';
 import { AVATAR_ICONS } from '@lingua/shared';
 import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Body,
@@ -24,7 +26,7 @@ import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { colors, radius, shadow, spacing, typography } from '../../theme';
 import { AiCover, LibraryShelfCover, NotebookCover, VideoCover, VocabCover } from './HomeCovers';
-import type { MainTabParamList } from '../../navigation/types';
+import type { MainTabParamList, RootStackParamList } from '../../navigation/types';
 
 /** Sonntag zuerst – `Date.getUTCDay()` zählt so. */
 const WEEKDAY_KEYS: TranslationKey[] = [
@@ -49,7 +51,18 @@ const WEEKDAY_KEYS: TranslationKey[] = [
  * Wochenübersicht bleiben als zusätzliche Information darunter, nicht davor.
  */
 export default function HomeScreen() {
-  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  /*
+    Die Startseite springt in zwei Richtungen: waagerecht zu den Reitern
+    (Kacheln) und senkrecht aus ihnen heraus zum Profil, das über dem
+    Reiter-Navigator liegt. Beides zusammen ergibt diesen Typ.
+  */
+  const navigation =
+    useNavigation<
+      CompositeNavigationProp<
+        BottomTabNavigationProp<MainTabParamList>,
+        NativeStackNavigationProp<RootStackParamList>
+      >
+    >();
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
 

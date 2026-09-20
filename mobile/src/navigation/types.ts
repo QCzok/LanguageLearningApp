@@ -74,13 +74,14 @@ export type MainTabParamList = {
   Library: NavigatorScreenParams<LibraryStackParamList>;
   Videos: NavigatorScreenParams<VideoStackParamList>;
   Assistant: NavigatorScreenParams<AiStackParamList>;
-  Profile: undefined;
 };
 
 export type RootStackParamList = {
   Welcome: NavigatorScreenParams<WelcomeStackParamList>;
   Onboarding: NavigatorScreenParams<OnboardingStackParamList>;
   Main: NavigatorScreenParams<MainTabParamList>;
+  /** Liegt über den Reitern, nicht zwischen ihnen – siehe `RootNavigator`. */
+  Profile: undefined;
 };
 
 export type LevelFilter = CefrLevel | 'ALL';
