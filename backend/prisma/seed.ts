@@ -87,18 +87,69 @@ async function seedVocabDecks(languageId: string, deckSeeds: VocabDeckSeed[]): P
           },
         });
 
-    await prisma.vocabItem.deleteMany({ where: { deckId: deck.id } });
-    await prisma.vocabItem.createMany({
-      data: seed.items.map(([term, translation, example, exampleTranslation, pos], itemIndex) => ({
-        deckId: deck.id,
-        term,
+    // Vokabeln über den Begriff abgleichen statt löschen und neu anlegen. An
+    // `VocabItem` hängen `VocabProgress` (der SRS-Zustand: Ease-Faktor,
+    // Intervall, Fälligkeit) und `ReviewLog` (die gesamte Lernhistorie), beide
+    // mit `onDelete: Cascade`. Ein Löschen setzte damit bei jedem Seed-Lauf
+    // die Wiederholungsplanung aller Nutzer auf null zurück – Monate an
+    // Lernfortschritt, die sich nicht rekonstruieren lassen. Bleibt die ID des
+    // Eintrags erhalten, bleibt auch seine Karte erhalten.
+    //
+    // Abgeglichen wird über `term`, weil `VocabItem` keinen zusammengesetzten
+    // Unique-Schlüssel hat und ein Begriff innerhalb eines Stapels nur einmal
+    // vorkommt. Ein `upsert` ist deshalb hier nicht möglich.
+    // Geschrieben wird nur, was sich wirklich unterscheidet. Ohne diesen
+    // Vergleich kostet ein Lauf pro Vokabel ein UPDATE – bei rund dreitausend
+    // Einträgen über eine entfernte Verbindung eine Viertelstunde, in der sich
+    // inhaltlich nichts ändert. Mit ihm braucht ein Lauf ohne Textänderung nur
+    // noch die eine Abfrage je Stapel.
+    const existingItems = await prisma.vocabItem.findMany({
+      where: { deckId: deck.id },
+      select: {
+        id: true,
+        term: true,
+        translation: true,
+        exampleSentence: true,
+        exampleTranslation: true,
+        partOfSpeech: true,
+        tags: true,
+        sortOrder: true,
+      },
+    });
+    const byTerm = new Map(existingItems.map((item) => [item.term, item]));
+
+    for (const [itemIndex, entry] of seed.items.entries()) {
+      const [term, translation, example, exampleTranslation, pos] = entry;
+      const data = {
         translation,
         exampleSentence: example,
         exampleTranslation,
         partOfSpeech: pos,
         tags: [seed.level],
         sortOrder: itemIndex,
-      })),
+      };
+
+      const current = byTerm.get(term);
+      if (!current) {
+        await prisma.vocabItem.create({ data: { deckId: deck.id, term, ...data } });
+        continue;
+      }
+
+      const unchanged =
+        current.translation === data.translation &&
+        current.exampleSentence === data.exampleSentence &&
+        current.exampleTranslation === data.exampleTranslation &&
+        current.partOfSpeech === data.partOfSpeech &&
+        current.sortOrder === data.sortOrder &&
+        current.tags.join('\u0000') === data.tags.join('\u0000');
+
+      if (!unchanged) await prisma.vocabItem.update({ where: { id: current.id }, data });
+    }
+
+    // Begriffe, die der Stapel nicht mehr enthält, verschwinden – ihre Karten
+    // sind gegenstandslos, weil es die Vokabel nicht mehr gibt.
+    await prisma.vocabItem.deleteMany({
+      where: { deckId: deck.id, term: { notIn: seed.items.map(([term]) => term) } },
     });
   }
 }
