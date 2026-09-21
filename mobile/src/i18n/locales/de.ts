@@ -181,6 +181,9 @@ export const de = {
   placementYourPath: 'Dein Weg durch den Test',
   placementEvaluationFailedTitle: 'Auswertung fehlgeschlagen',
   placementEvaluationFailedBody: 'Bitte prüfe deine Verbindung und versuche es erneut.',
+  placementReviewTitle: 'Deine Antworten',
+  placementYourAnswer: 'Deine Antwort: {answer}',
+  placementCorrectAnswer: 'Richtig: {answer}',
 
   // ------------------------------------------------------ Vokabeltrainer
   vocabTitle: 'Vokabeltrainer',

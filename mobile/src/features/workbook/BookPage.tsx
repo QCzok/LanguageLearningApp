@@ -146,7 +146,6 @@ export function BookPage({
             </Pressable>
 
             <View style={{ alignItems: 'center' }}>
-              <Text style={pageNumberStyle}>{pageNumber}</Text>
               <Text style={footerCounter}>
                 {t('pageOfTotal', { current: nav.index + 1, total: nav.total })}
               </Text>

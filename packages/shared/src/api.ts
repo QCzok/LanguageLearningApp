@@ -146,6 +146,20 @@ export interface PlacementResultDto {
   /** Eine Zeile je angetretener Stufe – die Leiter, wie sie gelaufen ist. */
   perLevel: Array<{ level: CefrLevel; correct: number; total: number; passed: boolean }>;
   recommendation: string;
+  /**
+   * Jede gestellte Frage mit der gegebenen und der richtigen Antwort – erst
+   * nach Testende sichtbar, weil bis dahin die Lösungen den Server nie
+   * verlassen (siehe `PlacementService.submitStage`).
+   */
+  questions: Array<{
+    questionId: string;
+    level: CefrLevel;
+    prompt: string;
+    options: string[];
+    selectedIndex: number;
+    correctIndex: number;
+    correct: boolean;
+  }>;
 }
 
 // ------------------------------------------------------------------ Vokabeln

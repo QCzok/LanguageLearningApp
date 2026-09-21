@@ -172,6 +172,9 @@ export const es: TranslationDictionary = {
   placementYourPath: 'Tu recorrido por la prueba',
   placementEvaluationFailedTitle: 'Falló la evaluación',
   placementEvaluationFailedBody: 'Comprueba tu conexión e inténtalo de nuevo.',
+  placementReviewTitle: 'Tus respuestas',
+  placementYourAnswer: 'Tu respuesta: {answer}',
+  placementCorrectAnswer: 'Correcta: {answer}',
 
   // ------------------------------------------------------------ Vocabulario
   vocabTitle: 'Entrenador de vocabulario',

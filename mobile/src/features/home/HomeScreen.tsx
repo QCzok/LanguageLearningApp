@@ -119,6 +119,14 @@ export default function HomeScreen() {
       accent: colors.info,
       onPress: () => navigation.navigate('Videos', { screen: 'VideoList' }),
     },
+    {
+      key: 'ai',
+      Cover: AiCover,
+      label: t('homeAiCardTitle'),
+      subtitle: t('homeAiCardSubtitle'),
+      accent: colors.premium,
+      onPress: () => navigation.navigate('Assistant', { screen: 'AiHub' }),
+    },
   ];
 
   const hasResume = Boolean(data.continueReading || data.continueWatching);
@@ -188,26 +196,6 @@ export default function HomeScreen() {
             <Tile key={key} {...tile} />
           ))}
         </View>
-
-        <Card
-          onPress={() => navigation.navigate('Assistant', { screen: 'AiHub' })}
-          style={{ padding: 0, overflow: 'hidden', borderColor: colors.premium }}
-        >
-          {/* Volle Kartenbreite statt der halbbreiten Kachel-Banner – die
-              Karte ist hier durchgehend breit, ein Ausschnitt aus derselben
-              Illustration wirkt entsprechend als weites Panorama. */}
-          <View style={{ width: '100%', aspectRatio: 21 / 9 }}>
-            <AiCover />
-          </View>
-          <View style={{ padding: spacing.lg, gap: 4 }}>
-            <Row>
-              <Heading>{t('homeAiCardTitle')}</Heading>
-              <View style={{ flex: 1 }} />
-              <Text style={{ fontSize: 20, color: colors.premium }}>›</Text>
-            </Row>
-            <Caption>{t('homeAiCardSubtitle')}</Caption>
-          </View>
-        </Card>
 
         {hasResume ? (
           <Card>
@@ -374,7 +362,7 @@ const avatarBubble = {
   width: 36,
   height: 36,
   borderRadius: radius.full,
-  backgroundColor: colors.primarySoft,
+  backgroundColor: colors.surface,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };
@@ -390,6 +378,7 @@ const tileGrid = {
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
+  maxWidth: '47%' as const,
   backgroundColor: colors.surface,
   borderRadius: radius.lg,
   borderWidth: 1,

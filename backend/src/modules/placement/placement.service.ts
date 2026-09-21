@@ -173,6 +173,18 @@ export class PlacementService {
         };
       }),
       recommendation: this.recommendation(resultLevel, scorePercent, language),
+      questions: evaluated.map((answer) => {
+        const question = byId.get(answer.questionId)!;
+        return {
+          questionId: question.id,
+          level: question.level as CefrLevel,
+          prompt: question.prompt,
+          options: question.options,
+          selectedIndex: answer.selectedIndex,
+          correctIndex: question.correctIndex,
+          correct: answer.correct,
+        };
+      }),
     };
   }
 

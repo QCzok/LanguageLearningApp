@@ -475,6 +475,7 @@ const tileGrid = {
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
+  maxWidth: '47%' as const,
   minHeight: 164,
   gap: spacing.xs,
   padding: spacing.md,

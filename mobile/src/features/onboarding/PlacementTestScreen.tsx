@@ -495,6 +495,38 @@ function ResultView({
             {result.recommendation}
           </Text>
         </View>
+
+        {/* Frage für Frage, ob es richtig war – die Ticks oben zeigen nur die
+            Quote je Stufe, hier steht, welche Antwort gestimmt hat und, wo
+            nicht, welche es gewesen wäre. */}
+        <View style={{ gap: spacing.sm }}>
+          <Text style={microLabel}>{t('placementReviewTitle')}</Text>
+          {result.questions.map((entry) => (
+            <View key={entry.questionId} style={reviewRow}>
+              <View
+                style={[
+                  reviewMark,
+                  { backgroundColor: entry.correct ? colors.successSoft : colors.dangerSoft },
+                ]}
+              >
+                <Text style={{ color: entry.correct ? colors.success : colors.danger, fontSize: 15 }}>
+                  {entry.correct ? '✓' : '✗'}
+                </Text>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[typography.bodyStrong, { fontSize: 14 }]}>{entry.prompt}</Text>
+                <Text style={[typography.caption, { color: entry.correct ? colors.textMuted : colors.danger }]}>
+                  {t('placementYourAnswer', { answer: entry.options[entry.selectedIndex] })}
+                </Text>
+                {!entry.correct ? (
+                  <Text style={[typography.caption, { color: colors.success }]}>
+                    {t('placementCorrectAnswer', { answer: entry.options[entry.correctIndex] })}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
 
       <SafeAreaView edges={['bottom']} style={footer}>
@@ -773,4 +805,23 @@ const recommendationBox = {
   padding: spacing.lg,
   borderRadius: radius.lg,
   backgroundColor: colors.primarySoft,
+};
+
+const reviewRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'flex-start' as const,
+  gap: spacing.sm,
+  padding: spacing.md,
+  borderRadius: radius.md,
+  backgroundColor: colors.surface,
+  borderWidth: 1,
+  borderColor: colors.border,
+};
+
+const reviewMark = {
+  width: 24,
+  height: 24,
+  borderRadius: 12,
+  alignItems: 'center' as const,
+  justifyContent: 'center' as const,
 };
