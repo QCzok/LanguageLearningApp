@@ -134,7 +134,9 @@ export default function ExercisesScreen({ route, navigation }: Props) {
           <View key={exercise.id} style={questionCard}>
             <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
               <Text style={questionNumber}>{String(index + 1).padStart(2, '0')}</Text>
-              <Text style={questionText}>{exercise.question}</Text>
+              <Text selectable style={questionText}>
+                {exercise.question}
+              </Text>
             </View>
 
             {isOpen ? (
@@ -190,7 +192,9 @@ export default function ExercisesScreen({ route, navigation }: Props) {
                 <Text style={[readingLabel, { color: reading.inkFaint }]}>
                   {t('exercisesExplanation')}
                 </Text>
-                <Text style={explanationText}>{feedback.explanation}</Text>
+                <Text selectable style={explanationText}>
+                  {feedback.explanation}
+                </Text>
               </View>
             ) : null}
           </View>

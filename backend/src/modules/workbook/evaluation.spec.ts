@@ -247,7 +247,10 @@ describe('stripSolutions', () => {
         instruction: 'Ergänzen Sie.',
         segments: [
           { kind: 'TEXT', text: 'Ich ' },
-          { kind: 'GAP', gapId: 'g', solution: ['heiße'], hint: 'Verb im Infinitiv' },
+          { kind: 'GAP', gapId: 'g1', solution: ['heiße'], hint: 'Verb im Infinitiv' },
+          { kind: 'TEXT', text: ' Mira und ' },
+          { kind: 'GAP', gapId: 'g2', solution: ['komme'] },
+          { kind: 'TEXT', text: ' aus Wien.' },
         ],
       },
       {
@@ -285,11 +288,43 @@ describe('stripSolutions', () => {
   const serialized = JSON.stringify(stripped);
 
   it('entfernt jede Lösungsangabe aus dem gesamten Inhalt', () => {
-    expect(serialized).not.toContain('heiße');
     expect(serialized).not.toContain('Weil A richtig ist');
     expect(serialized).not.toContain('Geheime Musterlösung');
     expect(serialized).not.toContain('solution');
     expect(serialized).not.toContain('sampleAnswer');
+  });
+
+  /*
+    Der Lückentext ist die eine Ausnahme: Seine Wörter stehen als Wortkasten
+    im Inhalt, weil Lücken in der App gefüllt und nicht getippt werden. Was
+    weiterhin fehlt, ist die Zuordnung – welche Karte in welche Lücke gehört,
+    steht nirgends.
+  */
+  it('baut aus den Lücken einen Wortkasten, ohne die Zuordnung zu verraten', () => {
+    const cloze = stripped.blocks.find((block) => block.id === 'c');
+    const bank = (cloze as { wordBank?: string[] }).wordBank;
+    expect([...(bank ?? [])].sort()).toEqual(['heiße', 'komme']);
+    const gaps = (cloze as { segments: Array<Record<string, unknown>> }).segments.filter(
+      (segment) => segment.kind === 'GAP',
+    );
+    expect(gaps.every((gap) => gap.solution === undefined)).toBe(true);
+  });
+
+  it('lässt einen mitgelieferten Wortkasten unangetastet', () => {
+    const withBank: UnitContent = {
+      version: 1,
+      blocks: [
+        {
+          id: 'c2',
+          type: 'CLOZE',
+          instruction: 'Ergänzen Sie.',
+          wordBank: ['heiße', 'Ablenkung'],
+          segments: [{ kind: 'GAP', gapId: 'g', solution: ['heiße'] }],
+        },
+      ],
+    };
+    const bank = (stripSolutions(withBank).blocks[0] as { wordBank?: string[] }).wordBank;
+    expect(bank).toEqual(['heiße', 'Ablenkung']);
   });
 
   it('behält Hinweise und Darstellungsblöcke unverändert', () => {

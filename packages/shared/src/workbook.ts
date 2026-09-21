@@ -154,7 +154,14 @@ export interface ClozeBlock {
   type: 'CLOZE';
   instruction: string;
   segments: ClozeSegment[];
-  /** Wortkasten zur Auswahl; ohne ihn wird frei getippt. */
+  /**
+   * Die Wortkarten, mit denen die Lücken gefüllt werden. Ein Wort darf in
+   * mehrere Lücken passen, und der Kasten darf Ablenker enthalten.
+   *
+   * Im Inhalt einer Einheit ist das Feld freiwillig – fehlt es, baut der
+   * Server beim Ausliefern einen Kasten aus den Lösungen (siehe
+   * `stripSolutions`), denn in der App werden Lücken gezogen, nicht getippt.
+   */
   wordBank?: string[];
   caseSensitive?: boolean;
 }

@@ -109,8 +109,14 @@ export function BookPage({
           <Text style={chapterLine} numberOfLines={1}>
             {chapterTitle}
           </Text>
-          <Text style={unitTitleStyle}>{unitTitle}</Text>
-          {unitSubtitle ? <Text style={unitSubtitleStyle}>{unitSubtitle}</Text> : null}
+          <Text selectable style={unitTitleStyle}>
+            {unitTitle}
+          </Text>
+          {unitSubtitle ? (
+            <Text selectable style={unitSubtitleStyle}>
+              {unitSubtitle}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -193,7 +199,9 @@ export function ExerciseNumber({
           <Text style={numberText}>{number}</Text>
         )}
       </View>
-      <Text style={instructionStyle}>{instruction}</Text>
+      <Text selectable style={instructionStyle}>
+        {instruction}
+      </Text>
     </View>
   );
 }
@@ -202,7 +210,9 @@ export function ExerciseNumber({
 export function SectionHeading({ text, accent }: { text: string; accent: string }) {
   return (
     <View style={{ gap: 7 }}>
-      <Text style={[sectionHeadingText, { color: accent }]}>{text}</Text>
+      <Text selectable style={[sectionHeadingText, { color: accent }]}>
+        {text}
+      </Text>
       <View style={{ height: 1, backgroundColor: accent, opacity: 0.45 }} />
     </View>
   );

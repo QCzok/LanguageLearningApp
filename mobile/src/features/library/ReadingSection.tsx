@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { asTranslatableLanguage } from '../../utils/translation';
 import { fontFamily, radius, spacing } from '../../theme';
+import { hasTextSelection } from '../../utils/selection';
 import { useReaderSettings } from './ReaderSettings';
 
 /** Das angetippte Wort samt Druckstelle – daraus setzt `GlossaryPopover` den Zettel. */
@@ -125,7 +126,12 @@ export function ReadingSection({
 
   return (
     <View>
+      {/* Markierbar, damit man eine Stelle herauskopieren kann – in ein
+          Wörterbuch, in die eigenen Notizen. Das `selectable` gehört an den
+          äußeren Absatz: Die Teile darin (Initiale, Versalien, die erklärten
+          Wörter) sind Teile desselben Textes und erben es. */}
       <Text
+        selectable
         style={[
           bodyText,
           {
@@ -221,6 +227,9 @@ export function ReadingSection({
             accessibilityLabel={t('blockHideTranslation')}
             onPress={(event) => {
               stopBubbling(event);
+              // Wer die Übersetzung markiert, will sie kopieren, nicht
+              // wegklappen – siehe `hasTextSelection`.
+              if (hasTextSelection()) return;
               setTranslationOpen(false);
             }}
             style={[
@@ -230,6 +239,7 @@ export function ReadingSection({
           >
             <Text style={[translationLabel, { color: c.accent }]}>{languageLabel}</Text>
             <Text
+              selectable
               style={[
                 translationText,
                 {

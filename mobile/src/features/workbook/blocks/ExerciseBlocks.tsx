@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, Text, TextInput, View } from 'react-native';
 import type {
   BlockAnswer,
@@ -31,6 +31,15 @@ import { asTranslatableLanguage } from '../../../utils/translation';
  * stehen – auf einem Telefon ging dabei ein Sechstel der Zeilenbreite
  * verloren, ausgerechnet dort, wo Lückentexte und Wortkarten am meisten Platz
  * brauchen. Die Linie trennt genauso deutlich und kostet keine Breite.
+ *
+ * **Gelöst wird mit Wortkarten, nicht mit der Tastatur.** Lückentext,
+ * Zuordnung und Reihenfolge arbeiten alle drei mit demselben Handgriff: eine
+ * Karte anfassen, an ihren Platz ziehen, loslassen – oder antippen, wenn
+ * Ziehen gerade nicht geht (siehe `DragTile`). Auf einem Telefon ist das
+ * schneller als tippen, es verdeckt nichts mit einer Tastatur, und es ist
+ * dieselbe Geste wie beim Ausschneiden und Aufkleben im gedruckten Heft.
+ * Getippt wird nur noch in der Schreibaufgabe – dort ist der eigene Text die
+ * Aufgabe.
  */
 interface BlockProps<B> {
   block: B;
@@ -94,11 +103,17 @@ function Frame({
               ? t('exerciseSolvedCorrectly')
               : t('exercisePercentCorrect', { percent: result.scorePercent })}
           </Text>
-          {result.explanation ? <Text style={hintText}>{result.explanation}</Text> : null}
+          {result.explanation ? (
+            <Text selectable style={hintText}>
+              {result.explanation}
+            </Text>
+          ) : null}
           {explanationTranslation ? (
             <>
               {translationOpen ? (
-                <Text style={[hintText, { fontStyle: 'normal' }]}>{explanationTranslation}</Text>
+                <Text selectable style={[hintText, { fontStyle: 'normal' }]}>
+                  {explanationTranslation}
+                </Text>
               ) : null}
               <Pressable onPress={() => setTranslationOpen((value) => !value)} hitSlop={8}>
                 <Text style={translationToggle}>
@@ -126,6 +141,238 @@ function Frame({
   );
 }
 
+// ------------------------------------------------------- Karten und Ablagen
+
+/** Schwelle in Bildschirmpixeln: darunter zählt eine Geste als Antippen, nicht als Ziehen. */
+const DRAG_TAP_THRESHOLD = 6;
+
+/** So weit neben eine Ablagefläche darf losgelassen werden, siehe `findAt`. */
+const SNAP_DISTANCE = 24;
+
+type ZoneRect = { id: string; x: number; y: number; width: number; height: number };
+
+/**
+ * Die Ablageflächen einer Aufgabe: die Lücken eines Lückentexts, die Zeilen
+ * einer Zuordnung, die Schreiblinie einer Reihenfolge.
+ *
+ * Jede Fläche meldet sich über `register(id)` als Ref an. Gemessen wird erst,
+ * wenn eine Karte angefasst wird (`measure`) – während einer Geste verschiebt
+ * sich keine Fläche, und bei jeder Bewegung neu zu messen wäre unnötige
+ * Arbeit. Gesucht wird dann über `findAt` in Bildschirmkoordinaten, also in
+ * derselben Einheit, in der der `PanResponder` die Fingerposition meldet.
+ */
+function useDropZones() {
+  const nodes = useRef(new Map<string, View>()).current;
+  const refCallbacks = useRef(new Map<string, (node: View | null) => void>()).current;
+  const rects = useRef<ZoneRect[]>([]);
+
+  /*
+    Je Fläche derselbe Callback über alle Renderdurchgänge hinweg: Ein bei
+    jedem Rendern neu gebauter Ref-Callback lässt React die alte Ref mit
+    `null` abmelden und die neue wieder anmelden – jedes Mal, für jede Lücke.
+  */
+  const register = useCallback(
+    (id: string) => {
+      const existing = refCallbacks.get(id);
+      if (existing) return existing;
+
+      const callback = (node: View | null) => {
+        // Bewusst als Anweisung und nicht als Ausdruck: Ein Ref-Callback, der
+        // etwas zurückgibt, gilt in React 19 als Aufräumfunktion.
+        if (node) nodes.set(id, node);
+        else nodes.delete(id);
+      };
+      refCallbacks.set(id, callback);
+      return callback;
+    },
+    [nodes, refCallbacks],
+  );
+
+  const measure = useCallback(() => {
+    rects.current = [];
+    nodes.forEach((node, id) => {
+      node.measureInWindow((x, y, width, height) => {
+        // Eine Fläche, die gerade nicht im Layout steht, meldet Nullmaße –
+        // die darf nicht mitzählen, sonst schluckt sie jede Ablage.
+        if (width > 0 && height > 0) rects.current.push({ id, x, y, width, height });
+      });
+    });
+  }, [nodes]);
+
+  /**
+   * Die Fläche unter dem Finger – oder die nächstgelegene, wenn er knapp
+   * daneben liegt.
+   *
+   * Eine Lücke im Satz ist ein kleines Ziel, und beim Ziehen liegt die Hand
+   * darüber: Ohne diesen Spielraum landet eine Karte auf dem Telefon öfter
+   * neben der Lücke als darin. Weiter als `SNAP_DISTANCE` reicht er nicht,
+   * damit bei zwei Lücken nebeneinander immer noch die gemeinte gewinnt.
+   */
+  const findAt = useCallback((x: number, y: number): string | null => {
+    let closest: { id: string; distance: number } | null = null;
+
+    for (const zone of rects.current) {
+      const dx = Math.max(zone.x - x, 0, x - (zone.x + zone.width));
+      const dy = Math.max(zone.y - y, 0, y - (zone.y + zone.height));
+      const distance = Math.hypot(dx, dy);
+      if (distance === 0) return zone.id;
+      if (!closest || distance < closest.distance) closest = { id: zone.id, distance };
+    }
+
+    return closest && closest.distance <= SNAP_DISTANCE ? closest.id : null;
+  }, []);
+
+  return useMemo(() => ({ register, measure, findAt }), [register, measure, findAt]);
+}
+
+type DropZones = ReturnType<typeof useDropZones>;
+
+/**
+ * Eine ziehbare Wortkarte.
+ *
+ * Trägt ihren eigenen `PanResponder` statt eines `Pressable` – beides auf
+ * demselben Element würde um die Touch-Antwortzuständigkeit konkurrieren
+ * (dasselbe Problem wie beim Zeichen-Canvas, siehe dort). Eine Geste ohne
+ * nennenswerte Bewegung zählt als Antippen und meldet `null` als Ziel; wer
+ * nicht ziehen kann oder will, kommt damit genauso ans Ziel, nur legt dann
+ * die Aufgabe den Platz fest. Eine Geste, die über einer Ablagefläche endet,
+ * meldet deren ID.
+ */
+function DragTile({
+  label,
+  a11yLabel,
+  disabled,
+  zones,
+  onDrop,
+  onHoverChange,
+  style,
+  textStyle,
+}: {
+  label: string;
+  a11yLabel: string;
+  disabled: boolean;
+  zones: DropZones;
+  /** `null` = angetippt statt abgelegt; die Aufgabe entscheidet dann über den Platz. */
+  onDrop: (zoneId: string | null) => void;
+  onHoverChange: (zoneId: string | null) => void;
+  style?: object;
+  textStyle?: object;
+}) {
+  const [drag, setDrag] = useState({ dx: 0, dy: 0, active: false });
+
+  const disabledRef = useRef(disabled);
+  const onDropRef = useRef(onDrop);
+  const onHoverChangeRef = useRef(onHoverChange);
+  disabledRef.current = disabled;
+  onDropRef.current = onDrop;
+  onHoverChangeRef.current = onHoverChange;
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !disabledRef.current,
+        onMoveShouldSetPanResponder: () => !disabledRef.current,
+
+        onPanResponderGrant: () => {
+          setDrag({ dx: 0, dy: 0, active: true });
+          zones.measure();
+        },
+
+        onPanResponderMove: (_event, gestureState) => {
+          setDrag({ dx: gestureState.dx, dy: gestureState.dy, active: true });
+          onHoverChangeRef.current(zones.findAt(gestureState.moveX, gestureState.moveY));
+        },
+
+        onPanResponderRelease: (_event, gestureState) => {
+          const distance = Math.hypot(gestureState.dx, gestureState.dy);
+          const zoneId =
+            distance < DRAG_TAP_THRESHOLD
+              ? null
+              : zones.findAt(gestureState.moveX, gestureState.moveY);
+          const missed = distance >= DRAG_TAP_THRESHOLD && zoneId === null;
+
+          setDrag({ dx: 0, dy: 0, active: false });
+          onHoverChangeRef.current(null);
+          // Eine Karte, die neben jeder Ablage losgelassen wird, geht zurück
+          // an ihren Platz – sonst landete sie irgendwo, nur weil die Hand
+          // gerutscht ist.
+          if (!missed && !disabledRef.current) onDropRef.current(zoneId);
+        },
+
+        onPanResponderTerminate: () => {
+          setDrag({ dx: 0, dy: 0, active: false });
+          onHoverChangeRef.current(null);
+        },
+      }),
+    // Absichtlich ohne weitere Abhängigkeiten: alles Veränderliche läuft über
+    // Refs, und `zones` ist selbst stabil.
+    [zones],
+  );
+
+  return (
+    <View
+      {...panResponder.panHandlers}
+      accessibilityRole="button"
+      accessibilityLabel={a11yLabel}
+      style={[
+        tokenChip,
+        tokenIdle,
+        style,
+        { transform: [{ translateX: drag.dx }, { translateY: drag.dy }] },
+        drag.active && tokenDragging,
+      ]}
+    >
+      <Text style={[tokenText, textStyle]}>{label}</Text>
+    </View>
+  );
+}
+
+/**
+ * Der Wortkasten über der Aufgabe: die Karten, die noch zu verteilen sind.
+ *
+ * Bereits abgelegte Wörter bleiben stehen, nur blasser. Sie zu entfernen wäre
+ * falsch: Ein Wort kann in mehrere Lücken gehören (in den Aufgaben vom Typ
+ * „I oder S?“ füllen zwei Karten fünf Lücken), und ein Kasten darf Ablenker
+ * enthalten, die nirgends hingehören.
+ */
+function WordBank({
+  words,
+  usedWords,
+  disabled,
+  zones,
+  onDrop,
+  onHoverChange,
+}: {
+  words: string[];
+  usedWords: Set<string>;
+  disabled: boolean;
+  zones: DropZones;
+  onDrop: (word: string, zoneId: string | null) => void;
+  onHoverChange: (zoneId: string | null) => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <View style={wordBank}>
+      <Text style={wordBankLabel}>{t('exerciseWordBank')}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {words.map((word, index) => (
+          <DragTile
+            key={`${word}-${index}`}
+            label={word}
+            a11yLabel={t('exerciseWordTileA11y', { word })}
+            disabled={disabled}
+            zones={zones}
+            onDrop={(zoneId) => onDrop(word, zoneId)}
+            onHoverChange={onHoverChange}
+            style={usedWords.has(word) ? tokenUsed : undefined}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 // -------------------------------------------------------------- Lückentext
 
 export function Cloze(props: BlockProps<ClozeBlock>) {
@@ -134,25 +381,45 @@ export function Cloze(props: BlockProps<ClozeBlock>) {
   const gaps = answer?.type === 'CLOZE' ? answer.gaps : {};
   const solution = result?.solution as Record<string, string> | undefined;
 
-  const gapSegments = block.segments.filter((s) => s.kind === 'GAP');
-  const filled = gapSegments.every((s) => {
-    const gap = s as Extract<typeof s, { kind: 'GAP' }>;
-    return (gaps[gap.gapId] ?? '').trim().length > 0;
-  });
+  const zones = useDropZones();
+  const [hoverGap, setHoverGap] = useState<string | null>(null);
+
+  const gapIds = block.segments.flatMap((segment) =>
+    segment.kind === 'GAP' ? [segment.gapId] : [],
+  );
+  const filled = gapIds.every((gapId) => (gaps[gapId] ?? '').trim().length > 0);
+  const usedWords = new Set(Object.values(gaps).filter(Boolean));
+
+  // Ohne Wortkasten bliebe die Lücke unfüllbar; der Server baut deshalb beim
+  // Ausliefern einen aus den Lösungen (siehe `stripSolutions`). Für Inhalte,
+  // die trotzdem ohne ankommen, bleibt die Tastatur als Notweg.
+  const bank = block.wordBank ?? [];
+  const typed = bank.length === 0;
+
+  function setGap(gapId: string, value: string) {
+    onChange({ type: 'CLOZE', gaps: { ...gaps, [gapId]: value } });
+  }
+
+  /** Karte abgelegt – oder angetippt, dann geht sie in die erste freie Lücke. */
+  function placeWord(word: string, gapId: string | null) {
+    const target = gapId ?? gapIds.find((id) => !(gaps[id] ?? '').trim());
+    if (target) setGap(target, word);
+  }
 
   return (
     <Frame {...props} instruction={block.instruction} canCheck={filled}>
-      {block.wordBank?.length ? (
-        <View style={wordBank}>
-          <Text style={wordBankLabel}>{t('exerciseWordBank')}</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {block.wordBank.map((word) => (
-              <Text key={word} style={wordBankItem}>
-                {word}
-              </Text>
-            ))}
-          </View>
-        </View>
+      {!typed && !result ? (
+        <>
+          <WordBank
+            words={bank}
+            usedWords={usedWords}
+            disabled={locked}
+            zones={zones}
+            onDrop={placeWord}
+            onHoverChange={setHoverGap}
+          />
+          <Text style={hintText}>{t('exerciseClozeHint')}</Text>
+        </>
       ) : null}
 
       {/* Text und Lücken laufen im Fluss; Lücken sind Schreiblinien wie im Heft. */}
@@ -160,39 +427,86 @@ export function Cloze(props: BlockProps<ClozeBlock>) {
         {block.segments.map((segment, index) => {
           if (segment.kind === 'TEXT') {
             return (
-              <Text key={index} style={[bodyText, { lineHeight: 38 }]}>
+              <Text key={index} selectable style={[bodyText, { lineHeight: 38 }]}>
                 {segment.text}
               </Text>
             );
           }
 
           const isCorrect = result?.details?.[segment.gapId];
+          const value = gaps[segment.gapId] ?? '';
+          const minWidth = Math.max(62, (segment.width ?? 8) * 9);
+          const correction =
+            result && !isCorrect && solution?.[segment.gapId] ? (
+              <Text style={correctionText}>{solution[segment.gapId]}</Text>
+            ) : null;
+
+          if (typed) {
+            return (
+              <View key={index} style={{ marginHorizontal: 3 }}>
+                <TextInput
+                  value={value}
+                  onChangeText={(next) => setGap(segment.gapId, next)}
+                  editable={!result && !locked}
+                  placeholder={segment.hint ?? ''}
+                  placeholderTextColor={book.inkFaint}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[
+                    gapLine,
+                    { minWidth },
+                    result
+                      ? {
+                          borderBottomColor: isCorrect ? book.correct : book.wrong,
+                          color: isCorrect ? book.correct : book.wrong,
+                        }
+                      : null,
+                  ]}
+                />
+                {correction}
+              </View>
+            );
+          }
+
           return (
             <View key={index} style={{ marginHorizontal: 3 }}>
-              <TextInput
-                value={gaps[segment.gapId] ?? ''}
-                onChangeText={(value) =>
-                  onChange({ type: 'CLOZE', gaps: { ...gaps, [segment.gapId]: value } })
+              {/*
+                Die Lücke ist Ablagefläche und Knopf in einem: Hier landet die
+                gezogene Karte, und ein Tippen auf die gefüllte Lücke gibt das
+                Wort wieder frei. Der Hinweis („hablar“) bleibt sichtbar,
+                solange nichts darin liegt – er gehört zur Aufgabe, nicht zur
+                Eingabe.
+              */}
+              <Pressable
+                ref={zones.register(segment.gapId)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  value ? t('exerciseGapFilledA11y', { word: value }) : t('exerciseGapEmptyA11y')
                 }
-                editable={!result && !locked}
-                placeholder={segment.hint ?? ''}
-                placeholderTextColor={book.inkFaint}
-                autoCapitalize="none"
-                autoCorrect={false}
+                disabled={Boolean(result) || locked || !value}
+                onPress={() => setGap(segment.gapId, '')}
                 style={[
-                  gapLine,
-                  { minWidth: Math.max(62, (segment.width ?? 8) * 9) },
+                  gapSlot,
+                  { minWidth },
+                  hoverGap === segment.gapId && gapSlotActive,
+                  value && !result ? gapSlotFilled : null,
                   result
-                    ? {
-                        borderBottomColor: isCorrect ? book.correct : book.wrong,
-                        color: isCorrect ? book.correct : book.wrong,
-                      }
+                    ? { borderBottomColor: isCorrect ? book.correct : book.wrong }
                     : null,
                 ]}
-              />
-              {result && !isCorrect && solution?.[segment.gapId] ? (
-                <Text style={correctionText}>{solution[segment.gapId]}</Text>
-              ) : null}
+              >
+                <Text
+                  style={[
+                    gapValue,
+                    !value && { color: book.inkFaint, fontStyle: 'italic' },
+                    result ? { color: isCorrect ? book.correct : book.wrong } : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {value || segment.hint || ' '}
+                </Text>
+              </Pressable>
+              {correction}
             </View>
           );
         })}
@@ -222,7 +536,11 @@ export function Choice(props: BlockProps<ChoiceBlock>) {
 
   return (
     <Frame {...props} instruction={block.instruction} canCheck={selected.length > 0}>
-      {block.question ? <Text style={bodyText}>{block.question}</Text> : null}
+      {block.question ? (
+        <Text selectable style={bodyText}>
+          {block.question}
+        </Text>
+      ) : null}
       {block.multiple ? <Text style={hintText}>{t('exerciseMultipleCorrect')}</Text> : null}
 
       <View style={{ gap: 10 }}>
@@ -272,186 +590,131 @@ export function Choice(props: BlockProps<ChoiceBlock>) {
 
 // ---------------------------------------------------------------- Zuordnung
 
+/**
+ * Zuordnung – die beiden Hälften werden zusammengeschoben, nicht verbunden.
+ *
+ * Vorher stand hier ein Verbindungsspiel ohne Verbindungslinien: links
+ * antippen, rechts antippen, und das Paar war nur daran zu erkennen, dass
+ * beide Karten dieselbe Tönung trugen. Wer den Kopf einmal gehoben hatte,
+ * musste jedes Paar neu zusammensuchen. Jetzt hat jede Karte der linken Seite
+ * eine leere Stelle neben sich, und die passende Karte wird dorthin gezogen:
+ * Das Paar steht danach nebeneinander in einer Zeile und liest sich als eine
+ * Zeile – wie eine ausgefüllte Zuordnungsaufgabe im Heft. Was noch nicht
+ * zugeordnet ist, liegt darunter im Kasten.
+ */
 export function Matching(props: BlockProps<MatchingBlock>) {
   const { t } = useTranslation();
   const { block, answer, result, onChange, locked } = props;
   const pairs = answer?.type === 'MATCHING' ? answer.pairs : [];
-  const byLeft = new Map(pairs.map((p) => [p.leftId, p.rightId]));
-  const [activeLeft, setActiveLeft] = useState<string | null>(null);
+  const byLeft = new Map(pairs.map((pair) => [pair.leftId, pair.rightId]));
 
-  function assign(rightId: string) {
-    if (!activeLeft) return;
-    const next = pairs.filter((p) => p.leftId !== activeLeft && p.rightId !== rightId);
-    next.push({ leftId: activeLeft, rightId });
+  const zones = useDropZones();
+  const [hoverLeft, setHoverLeft] = useState<string | null>(null);
+
+  const rightById = new Map(block.right.map((item) => [item.id, item]));
+  const remaining = block.right.filter((item) => !pairs.some((pair) => pair.rightId === item.id));
+
+  function assign(rightId: string, leftId: string | null) {
+    // Angetippt statt gezogen: Die Karte geht in die erste freie Zeile.
+    const target = leftId ?? block.left.find((item) => !byLeft.has(item.id))?.id;
+    if (!target) return;
+    const next = pairs.filter((pair) => pair.leftId !== target && pair.rightId !== rightId);
+    next.push({ leftId: target, rightId });
     onChange({ type: 'MATCHING', pairs: next });
-    setActiveLeft(null);
   }
 
-  const usedRight = new Set(pairs.map((p) => p.rightId));
+  function release(leftId: string) {
+    onChange({ type: 'MATCHING', pairs: pairs.filter((pair) => pair.leftId !== leftId) });
+  }
 
   return (
     <Frame {...props} instruction={block.instruction} canCheck={pairs.length === block.left.length}>
-      <Text style={hintText}>
-        {activeLeft ? t('exerciseMatchTapRight') : t('exerciseMatchTapLeft')}
-      </Text>
+      <View style={{ gap: 8 }}>
+        {block.left.map((item) => {
+          const rightId = byLeft.get(item.id);
+          const matched = rightId ? rightById.get(rightId) : undefined;
+          const isCorrect = result?.details?.[item.id];
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1, gap: 8 }}>
-          {block.left.map((item) => {
-            const linked = byLeft.has(item.id);
-            const isCorrect = result?.details?.[item.id];
+          return (
+            <View
+              key={item.id}
+              style={[
+                matchRow,
+                matched && !result ? matchRowLinked : null,
+                result ? { borderColor: isCorrect ? book.correct : book.wrong } : null,
+              ]}
+            >
+              <Text selectable style={matchText}>
+                {item.text}
+              </Text>
 
-            return (
+              {/* Die Stelle, an der die passende Karte liegt. Leer bleibt sie
+                  auch leer – ein gestricheltes Feld heißt im Heft „hier fehlt
+                  etwas“, und die Zeile darunter sagt schon einmal, wie es
+                  dorthin kommt. Fünfmal „Karte hierher“ untereinander wäre
+                  dieselbe Auskunft, nur lauter. */}
               <Pressable
-                key={item.id}
-                disabled={Boolean(result) || locked}
-                onPress={() => setActiveLeft(activeLeft === item.id ? null : item.id)}
+                ref={zones.register(item.id)}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  matched
+                    ? t('exerciseGapFilledA11y', { word: matched.text })
+                    : t('exerciseMatchSlotA11y', { item: item.text })
+                }
+                disabled={Boolean(result) || locked || !matched}
+                onPress={() => release(item.id)}
                 style={[
-                  matchCard,
-                  activeLeft === item.id && { borderColor: book.ink, borderWidth: 1.5 },
-                  linked && !result && matchCardLinked,
-                  result ? { borderColor: isCorrect ? book.correct : book.wrong } : null,
+                  matchSlot,
+                  hoverLeft === item.id && matchSlotActive,
+                  matched ? matchSlotFilled : null,
                 ]}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {/* Ein gefüllter Punkt statt eines Pfeils – der optische
-                      Anker, an dem gedanklich die Verbindungslinie zur
-                      rechten Spalte ansetzt. */}
-                  <View style={[matchDot, linked && { backgroundColor: book.ink }]} />
-                  <Text style={matchText}>{item.text}</Text>
-                </View>
+                <Text
+                  selectable={Boolean(matched)}
+                  style={[
+                    matchSlotText,
+                    result ? { color: isCorrect ? book.correct : book.wrong } : null,
+                  ]}
+                >
+                  {matched?.text ?? ' '}
+                </Text>
               </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={{ flex: 1, gap: 8 }}>
-          {block.right.map((item) => {
-            const isUsed = usedRight.has(item.id);
-            return (
-              <Pressable
-                key={item.id}
-                disabled={Boolean(result) || !activeLeft || locked}
-                onPress={() => assign(item.id)}
-                style={[
-                  matchCard,
-                  isUsed && !result && matchCardLinked,
-                  activeLeft && !result ? { borderColor: book.ink, borderStyle: 'dashed' } : null,
-                ]}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Text style={matchText}>{item.text}</Text>
-                  <View style={[matchDot, isUsed && { backgroundColor: book.ink }]} />
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+            </View>
+          );
+        })}
       </View>
+
+      {remaining.length > 0 && !result ? (
+        <>
+          <View style={wordBank}>
+            <Text style={wordBankLabel}>{t('exerciseWordBank')}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {remaining.map((item) => (
+                <DragTile
+                  key={item.id}
+                  label={item.text}
+                  a11yLabel={t('exerciseWordTileA11y', { word: item.text })}
+                  disabled={locked}
+                  zones={zones}
+                  onDrop={(leftId) => assign(item.id, leftId)}
+                  onHoverChange={setHoverLeft}
+                  style={matchTile}
+                  textStyle={matchTileText}
+                />
+              ))}
+            </View>
+          </View>
+          <Text style={hintText}>{t('exerciseMatchHint')}</Text>
+        </>
+      ) : null}
     </Frame>
   );
 }
 
 // -------------------------------------------------------------- Reihenfolge
 
-/** Schwelle in Bildschirmpixeln: darunter zählt eine Geste als Antippen, nicht als Ziehen. */
-const DRAG_TAP_THRESHOLD = 6;
-
-/**
- * Eine ziehbare Wortkarte aus dem Wortkasten.
- *
- * Trägt ihren eigenen `PanResponder` statt eines `Pressable` – beides auf
- * demselben Element würde um die Touch-Antwortzuständigkeit konkurrieren
- * (dasselbe Problem wie beim Zeichen-Canvas, siehe dort). Eine Geste ohne
- * nennenswerte Bewegung zählt als Tippen und hängt die Karte ans Satzende;
- * eine Geste, die über der Schreiblinie endet, zählt als abgelegt – fachlich
- * dasselbe Ergebnis, nur mit echtem Ziehgefühl.
- */
-function DraggableWordTile({
-  item,
-  disabled,
-  dropZoneRef,
-  onDrop,
-  onHoverChange,
-}: {
-  item: { id: string; text: string };
-  disabled: boolean;
-  dropZoneRef: React.RefObject<View | null>;
-  onDrop: () => void;
-  onHoverChange: (hovering: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const [drag, setDrag] = useState({ dx: 0, dy: 0, active: false });
-
-  const disabledRef = useRef(disabled);
-  const onDropRef = useRef(onDrop);
-  const onHoverChangeRef = useRef(onHoverChange);
-  const zoneRectRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  disabledRef.current = disabled;
-  onDropRef.current = onDrop;
-  onHoverChangeRef.current = onHoverChange;
-
-  function isOverZone(moveX: number, moveY: number): boolean {
-    const zone = zoneRectRef.current;
-    if (!zone) return false;
-    return moveX >= zone.x && moveX <= zone.x + zone.width && moveY >= zone.y && moveY <= zone.y + zone.height;
-  }
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabledRef.current,
-        onMoveShouldSetPanResponder: () => !disabledRef.current,
-
-        onPanResponderGrant: () => {
-          setDrag({ dx: 0, dy: 0, active: true });
-          // Die Schreiblinie einmal beim Greifen vermessen: Ihre Position auf
-          // dem Bildschirm ändert sich während der Geste nicht, ein Messen
-          // bei jeder Bewegung wäre unnötige Arbeit.
-          dropZoneRef.current?.measureInWindow((x, y, width, height) => {
-            zoneRectRef.current = { x, y, width, height };
-          });
-        },
-
-        onPanResponderMove: (_event, gestureState) => {
-          setDrag({ dx: gestureState.dx, dy: gestureState.dy, active: true });
-          onHoverChangeRef.current(isOverZone(gestureState.moveX, gestureState.moveY));
-        },
-
-        onPanResponderRelease: (_event, gestureState) => {
-          const distance = Math.hypot(gestureState.dx, gestureState.dy);
-          const dropped = distance < DRAG_TAP_THRESHOLD || isOverZone(gestureState.moveX, gestureState.moveY);
-          setDrag({ dx: 0, dy: 0, active: false });
-          onHoverChangeRef.current(false);
-          if (dropped && !disabledRef.current) onDropRef.current();
-        },
-
-        onPanResponderTerminate: () => {
-          setDrag({ dx: 0, dy: 0, active: false });
-          onHoverChangeRef.current(false);
-        },
-      }),
-    // Absichtlich ohne weitere Abhängigkeiten: alles Veränderliche läuft über
-    // Refs, und `dropZoneRef` ist selbst stabil.
-    [dropZoneRef],
-  );
-
-  return (
-    <View
-      {...panResponder.panHandlers}
-      accessibilityRole="button"
-      accessibilityLabel={t('exerciseWordTileA11y', { word: item.text })}
-      style={[
-        tokenChip,
-        tokenIdle,
-        { transform: [{ translateX: drag.dx }, { translateY: drag.dy }] },
-        drag.active && tokenDragging,
-      ]}
-    >
-      <Text style={tokenText}>{item.text}</Text>
-    </View>
-  );
-}
+/** Die eine Ablagefläche der Reihenfolge-Aufgabe: die Schreiblinie. */
+const SENTENCE_ZONE = 'sentence';
 
 export function Ordering(props: BlockProps<OrderingBlock>) {
   const { t } = useTranslation();
@@ -461,14 +724,17 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
   const solution = (result?.solution as string[] | undefined) ?? [];
   const label = (id: string) => block.items.find((item) => item.id === id)?.text ?? '';
 
-  const dropZoneRef = useRef<View>(null);
+  const zones = useDropZones();
   const [zoneHighlighted, setZoneHighlighted] = useState(false);
 
   return (
     <Frame {...props} instruction={block.instruction} canCheck={remaining.length === 0}>
       {/* Der gebaute Satz steht auf einer Schreiblinie – dem Zielbereich für
           die gezogenen Wortkarten. */}
-      <View ref={dropZoneRef} style={[sentenceLine, zoneHighlighted && sentenceLineActive]}>
+      <View
+        ref={zones.register(SENTENCE_ZONE)}
+        style={[sentenceLine, zoneHighlighted && sentenceLineActive]}
+      >
         {order.length === 0 ? (
           <Text style={hintText}>{t('exerciseOrderHint')}</Text>
         ) : (
@@ -477,6 +743,8 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
             return (
               <Pressable
                 key={`${id}-${index}`}
+                accessibilityRole="button"
+                accessibilityLabel={t('exerciseGapFilledA11y', { word: label(id) })}
                 disabled={Boolean(result) || locked}
                 onPress={() => onChange({ type: 'ORDERING', order: order.filter((_, i) => i !== index) })}
                 style={[
@@ -502,20 +770,21 @@ export function Ordering(props: BlockProps<OrderingBlock>) {
       {remaining.length > 0 && !result ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {remaining.map((item) => (
-            <DraggableWordTile
+            <DragTile
               key={item.id}
-              item={item}
+              label={item.text}
+              a11yLabel={t('exerciseWordTileA11y', { word: item.text })}
               disabled={locked}
-              dropZoneRef={dropZoneRef}
+              zones={zones}
               onDrop={() => onChange({ type: 'ORDERING', order: [...order, item.id] })}
-              onHoverChange={setZoneHighlighted}
+              onHoverChange={(zoneId) => setZoneHighlighted(zoneId === SENTENCE_ZONE)}
             />
           ))}
         </View>
       ) : null}
 
       {result && !result.correct ? (
-        <Text style={hintText}>
+        <Text selectable style={hintText}>
           {t('exerciseOrderSolution', { solution: solution.map(label).join(' ') })}
         </Text>
       ) : null}
@@ -534,7 +803,11 @@ export function Writing(props: BlockProps<WritingBlock>) {
 
   return (
     <Frame {...props} instruction={block.instruction} canCheck={words >= (block.minWords ?? 1)}>
-      {block.prompt ? <Text style={bodyText}>{block.prompt}</Text> : null}
+      {block.prompt ? (
+        <Text selectable style={bodyText}>
+          {block.prompt}
+        </Text>
+      ) : null}
 
       {/* Liniertes Schreibfeld statt Eingabekasten. */}
       <View style={writingSheet}>
@@ -568,7 +841,9 @@ export function Writing(props: BlockProps<WritingBlock>) {
       {sample ? (
         <View style={[resultBar, { borderLeftColor: book.correct }]}>
           <Text style={[resultText, { color: book.correct }]}>{t('exerciseSample')}</Text>
-          <Text style={bodyText}>{sample}</Text>
+          <Text selectable style={bodyText}>
+            {sample}
+          </Text>
         </View>
       ) : null}
     </Frame>
@@ -588,6 +863,38 @@ const gapLine = {
   borderBottomColor: book.ink,
   paddingHorizontal: 6,
   paddingBottom: 2,
+  fontFamily: bookFont,
+  fontSize: 17,
+  color: book.ink,
+  textAlign: 'center' as const,
+};
+
+/**
+ * Die Lücke als Ablagefläche: dieselbe Schreiblinie wie zuvor das
+ * Eingabefeld, nur dass hier eine Karte landet statt eines Tastendrucks. Die
+ * Höhe ist die einer Wortkarte, damit die Zeile beim Füllen nicht springt.
+ */
+const gapSlot = {
+  minHeight: 34,
+  justifyContent: 'center' as const,
+  paddingHorizontal: 6,
+  paddingBottom: 2,
+  borderBottomWidth: 1.5,
+  borderBottomColor: book.ink,
+};
+
+/** Zeigt sich, während eine Karte über der Lücke schwebt. */
+const gapSlotActive = {
+  backgroundColor: book.tint,
+  borderBottomColor: book.correct,
+};
+
+/** Gefüllt heißt: das Wort sitzt als Karte auf der Linie. */
+const gapSlotFilled = {
+  backgroundColor: book.tintDeep,
+};
+
+const gapValue = {
   fontFamily: bookFont,
   fontSize: 17,
   color: book.ink,
@@ -618,17 +925,6 @@ const wordBankLabel = {
   color: book.inkSoft,
 };
 
-const wordBankItem = {
-  fontFamily: bookFont,
-  fontSize: 16,
-  color: book.ink,
-  backgroundColor: book.paper,
-  borderWidth: 1,
-  borderColor: book.rule,
-  paddingHorizontal: 9,
-  paddingVertical: 4,
-};
-
 const checkboxBase = {
   width: 24,
   height: 24,
@@ -641,14 +937,23 @@ const checkboxBase = {
 const checkbox = { ...checkboxBase, borderRadius: 2 };
 const radioBox = { ...checkboxBase, borderRadius: 12 };
 
-const matchCard = {
+/** Eine Zeile der Zuordnung: links der Begriff, rechts seine Stelle. */
+const matchRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: 10,
   minHeight: 48,
-  justifyContent: 'center' as const,
   paddingHorizontal: 10,
-  paddingVertical: 9,
+  paddingVertical: 8,
   borderWidth: 1,
   borderColor: book.rule,
   backgroundColor: book.paper,
+};
+
+/** Zugeordnet heißt: dieselbe Tönung wie eine gefüllte Lücke. */
+const matchRowLinked = {
+  backgroundColor: book.tint,
+  borderColor: book.inkSoft,
 };
 
 const matchText = {
@@ -659,20 +964,50 @@ const matchText = {
   color: book.ink,
 };
 
-/** Verbunden heißt: derselbe Kastenton wie eine bereits ausgefüllte Lücke. */
-const matchCardLinked = {
-  backgroundColor: book.tint,
-  borderColor: book.inkSoft,
+/**
+ * Die leere Stelle neben dem Begriff – gestrichelt wie eine vorgedruckte
+ * Linie, auf die man etwas schreiben soll. Sie nimmt die halbe Zeile ein,
+ * damit die Zeilen untereinander dieselbe Kante haben.
+ */
+const matchSlot = {
+  flex: 1,
+  minHeight: 34,
+  justifyContent: 'center' as const,
+  paddingHorizontal: 9,
+  paddingVertical: 5,
+  borderWidth: 1,
+  borderColor: book.rule,
+  borderStyle: 'dashed' as const,
+  backgroundColor: book.paper,
 };
 
-/** Anker-Punkt am Kartenrand – dort setzt gedanklich die Verbindungslinie an. */
-const matchDot = {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  borderWidth: 1.5,
+const matchSlotActive = {
+  borderStyle: 'solid' as const,
+  borderColor: book.correct,
+  backgroundColor: book.tint,
+};
+
+const matchSlotFilled = {
+  borderStyle: 'solid' as const,
   borderColor: book.inkSoft,
-  backgroundColor: 'transparent',
+  backgroundColor: book.tintDeep,
+};
+
+const matchSlotText = {
+  fontFamily: bookFont,
+  fontSize: 15,
+  lineHeight: 21,
+  color: book.ink,
+};
+
+/** Karten der Zuordnung tragen ganze Wendungen – sie dürfen umbrechen. */
+const matchTile = {
+  maxWidth: '100%' as const,
+};
+
+const matchTileText = {
+  fontSize: 15,
+  lineHeight: 21,
 };
 
 const sentenceLine = {
@@ -710,10 +1045,16 @@ const tokenIdle = {
   borderColor: book.rule,
 };
 
+/** Schon irgendwo abgelegt – bleibt greifbar, tritt aber zurück. */
+const tokenUsed = {
+  opacity: 0.4,
+};
+
 /** Während des Ziehens: leicht angehoben, mit Schlagschatten wie eine echte Karte. */
 const tokenDragging = {
   zIndex: 20,
   elevation: 8,
+  opacity: 1,
   borderColor: book.ink,
   shadowColor: book.ink,
   shadowOpacity: 0.3,

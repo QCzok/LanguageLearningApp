@@ -209,6 +209,12 @@ function stripBlock(block: WorkbookBlock): WorkbookBlock {
     case 'CLOZE':
       return {
         ...block,
+        // Ohne eigenen Wortkasten wird einer aus den Lösungen gebaut: In der
+        // App werden Lücken nicht mehr getippt, sondern mit Wortkarten
+        // gefüllt, und ohne Karten gäbe es nichts zu füllen. Die Zuordnung
+        // Wort → Lücke bleibt dabei die Aufgabe; welche Lücke welches Wort
+        // nimmt, verrät der Kasten nicht.
+        wordBank: block.wordBank ?? deriveWordBank(block),
         segments: block.segments.map((segment) =>
           segment.kind === 'GAP'
             ? { kind: 'GAP', gapId: segment.gapId, hint: segment.hint, width: segment.width }
@@ -238,6 +244,31 @@ function stripBlock(block: WorkbookBlock): WorkbookBlock {
       return rest;
     }
   }
+}
+
+/**
+ * Der Wortkasten eines Lückentexts, der keinen mitbringt: je Lücke die erste
+ * akzeptierte Schreibweise, doppelte Wörter nur einmal (ein Wort kann in
+ * mehrere Lücken passen, siehe die „I/S“-Aufgaben), gemischt anhand der
+ * Block-ID – sonst stünde der Kasten in der Reihenfolge der Lücken und wäre
+ * die Lösung.
+ */
+function deriveWordBank(block: ClozeBlock): string[] {
+  const words: string[] = [];
+
+  for (const segment of block.segments) {
+    if (segment.kind !== 'GAP') continue;
+    const word = segment.solution?.[0]?.trim();
+    if (!word) continue;
+    // Groß-/Kleinschreibung entscheidet nur bei Aufgaben, die darauf achten –
+    // sonst wäre „Soy“ neben „soy“ zwei Karten für dasselbe Wort.
+    const seen = words.some((existing) =>
+      normalizeAnswer(existing, block.caseSensitive) === normalizeAnswer(word, block.caseSensitive),
+    );
+    if (!seen) words.push(word);
+  }
+
+  return shuffleDeterministic(words, block.id);
 }
 
 /**

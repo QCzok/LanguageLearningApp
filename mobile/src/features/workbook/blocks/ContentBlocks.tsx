@@ -43,7 +43,11 @@ export function Heading({ block, accent }: BlockProps<HeadingBlock>) {
   if (block.level === 1) {
     return <SectionHeading text={block.text} accent={accent} />;
   }
-  return <Text style={subHeading}>{block.text}</Text>;
+  return (
+    <Text selectable style={subHeading}>
+      {block.text}
+    </Text>
+  );
 }
 
 export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: CefrLevel }) {
@@ -57,10 +61,16 @@ export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: Ce
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={bodyText}>{block.text}</Text>
+      <Text selectable style={bodyText}>
+        {block.text}
+      </Text>
       {translation ? (
         <>
-          {open ? <Text style={translationText}>{translation}</Text> : null}
+          {open ? (
+            <Text selectable style={translationText}>
+              {translation}
+            </Text>
+          ) : null}
           <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
             <Text style={translationToggle}>
               {open
@@ -96,8 +106,12 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
   return (
     <View style={[infoBox, { backgroundColor: style.background, borderLeftColor: style.accent }]}>
       <BoxLabel text={t(style.label)} color={style.accent} />
-      <Text style={infoTitle}>{block.title}</Text>
-      <Text style={bodyText}>{block.text}</Text>
+      <Text selectable style={infoTitle}>
+        {block.title}
+      </Text>
+      <Text selectable style={bodyText}>
+        {block.text}
+      </Text>
       {block.table ? (
         <PrintTable headers={block.table.headers} rows={block.table.rows} accent={style.accent} />
       ) : null}
@@ -105,8 +119,12 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
         <>
           {open ? (
             <View style={{ gap: 3, marginTop: 2 }}>
-              <Text style={[infoTitle, { fontSize: 15 }]}>{translation.title}</Text>
-              <Text style={translationText}>{translation.text}</Text>
+              <Text selectable style={[infoTitle, { fontSize: 15 }]}>
+                {translation.title}
+              </Text>
+              <Text selectable style={translationText}>
+                {translation.text}
+              </Text>
             </View>
           ) : null}
           <Pressable onPress={() => setOpen((value) => !value)} hitSlop={8}>
@@ -163,7 +181,9 @@ function PrintTable({
             key={index}
             style={[tableCell, index < headers.length - 1 && tableCellDivider]}
           >
-            <Text style={[tableHeadText, { color: accent }]}>{header}</Text>
+            <Text selectable style={[tableHeadText, { color: accent }]}>
+              {header}
+            </Text>
           </View>
         ))}
       </View>
@@ -178,7 +198,7 @@ function PrintTable({
         >
           {row.map((cell, cellIndex) => (
             <View key={cellIndex} style={[tableCell, cellIndex < row.length - 1 && tableCellDivider]}>
-              <Text style={[tableCellText, cellIndex === 0 && { color: book.inkSoft }]}>
+              <Text selectable style={[tableCellText, cellIndex === 0 && { color: book.inkSoft }]}>
                 {cell}
               </Text>
             </View>
@@ -210,9 +230,13 @@ export function Dialogue({ block, accent }: BlockProps<DialogueBlock>) {
         {block.lines.map((line, index) => (
           <View key={index} style={{ gap: 2 }}>
             <Text style={speakerName}>{line.speaker}</Text>
-            <Text style={bodyText}>{line.text}</Text>
+            <Text selectable style={bodyText}>
+              {line.text}
+            </Text>
             {showTranslations && line.translation ? (
-              <Text style={translationText}>{line.translation}</Text>
+              <Text selectable style={translationText}>
+                {line.translation}
+              </Text>
             ) : null}
           </View>
         ))}
@@ -271,15 +295,23 @@ export function VocabList({ block, accent }: BlockProps<VocabListBlock>) {
                   {item.article}
                 </Text>
               ) : null}
-              <Text style={termText}>{item.term}</Text>
+              <Text selectable style={termText}>
+                {item.term}
+              </Text>
               {item.plural ? (
                 <Text style={metaText}>
                   {t('blockPluralShort')} {item.plural}
                 </Text>
               ) : null}
             </View>
-            <Text style={metaText}>{pickVocabTranslation(item.translations, language)}</Text>
-            {item.example ? <Text style={exampleText}>{item.example}</Text> : null}
+            <Text selectable style={metaText}>
+              {pickVocabTranslation(item.translations, language)}
+            </Text>
+            {item.example ? (
+              <Text selectable style={exampleText}>
+                {item.example}
+              </Text>
+            ) : null}
           </View>
         ))}
       </View>
@@ -309,11 +341,15 @@ export function AudioPlaceholder({ block, accent }: BlockProps<AudioBlock>) {
           <Text style={[bookLabel, { color: accent, fontSize: 10, letterSpacing: 1.2 }]}>
             {t('blockAudio')}
           </Text>
-          <Text style={infoTitle}>{block.title}</Text>
+          <Text selectable style={infoTitle}>
+            {block.title}
+          </Text>
         </View>
       </View>
       {block.transcript ? (
-        <Text style={bodyText}>{block.transcript}</Text>
+        <Text selectable style={bodyText}>
+          {block.transcript}
+        </Text>
       ) : (
         <Text style={metaText}>{t('blockAudioPending')}</Text>
       )}
@@ -337,7 +373,11 @@ export function SceneImage({ block }: BlockProps<ImageBlock>) {
       <View style={imageFrame} accessibilityLabel={block.alt} accessible>
         <Scene />
       </View>
-      {block.caption ? <Text style={imageCaption}>{block.caption}</Text> : null}
+      {block.caption ? (
+        <Text selectable style={imageCaption}>
+          {block.caption}
+        </Text>
+      ) : null}
     </View>
   );
 }

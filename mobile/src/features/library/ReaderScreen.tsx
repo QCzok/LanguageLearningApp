@@ -18,6 +18,7 @@ import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
 import { asTranslatableLanguage } from '../../utils/translation';
+import { hasTextSelection } from '../../utils/selection';
 import { fontFamily, radius, reading, spacing } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { libraryCoverSource } from './LibraryCovers';
@@ -219,8 +220,18 @@ function Reader({ route, navigation }: Props) {
             `<button>` (ungültig), und eine Sprachausgabe läse die Seite als
             eine einzige Schaltfläche vor. Die Leisten lassen sich über die
             Fußzeile ansagbar schalten (siehe `ReaderStatusLine`); das Tippen
-            auf die Seite bleibt die stille Abkürzung daneben. */}
-        <Pressable onPress={() => setChromeVisible((visible) => !visible)}>
+            auf die Seite bleibt die stille Abkürzung daneben.
+
+            Wer gerade Text markiert, meint damit keinen Tipp auf die Seite:
+            Im Browser endet das Markieren mit einem Klick genau hier, und
+            ohne die Abfrage spränge bei jedem Kopieren die Kopfleiste um
+            (siehe `hasTextSelection`). */}
+        <Pressable
+          onPress={() => {
+            if (hasTextSelection()) return;
+            setChromeVisible((visible) => !visible);
+          }}
+        >
           <View
             style={[
               page,
@@ -244,15 +255,19 @@ function Reader({ route, navigation }: Props) {
                 {t('readerWords', { count: data.wordCount })}
               </Text>
 
-              <Text style={[bookTitle, { color: c.ink }]}>{data.title}</Text>
+              <Text selectable style={[bookTitle, { color: c.ink }]}>
+                {data.title}
+              </Text>
 
               {data.author ? (
-                <Text style={[bookAuthor, { color: c.inkSoft }]}>
+                <Text selectable style={[bookAuthor, { color: c.inkSoft }]}>
                   {t('readerBy', { author: data.author })}
                 </Text>
               ) : null}
 
-              <Text style={[lead, { color: c.inkSoft }]}>{data.summary}</Text>
+              <Text selectable style={[lead, { color: c.inkSoft }]}>
+                {data.summary}
+              </Text>
 
               <View style={[titleRule, { backgroundColor: c.accent }]} />
             </View>
