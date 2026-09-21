@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardStatus, DeckItemDto } from '@lingua/shared';
-import { Caption, ErrorState, LevelBadge, Loading, ProgressBar, Row } from '../../components';
+import { Button, Caption, ErrorState, Input, LevelBadge, Loading, ProgressBar, Row, Title } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
 import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
+import { alert } from '../../utils/alert';
+import { PencilIcon, PlusIcon, TrashIcon } from '../workbook/BookIcons';
 import {
   colors,
   flashcard,
@@ -22,6 +24,7 @@ import {
 } from '../../theme';
 import { DeckStack, STACK_LABEL_KEYS, type QueueType } from './DeckStack';
 import type { VocabularyStackParamList } from '../../navigation/types';
+import { MAX_WIDTH } from '../../navigation/WebLayout';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckDetail'>;
 
@@ -42,13 +45,95 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckDetail'>;
 export default function DeckDetailScreen({ route, navigation }: Props) {
   const { deckId } = route.params;
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // `null` = Formular zu, `'new'` = neues Wort, sonst das Wort, das bearbeitet wird.
+  const [wordForm, setWordForm] = useState<DeckItemDto | 'new' | null>(null);
+  const [term, setTerm] = useState('');
+  const [translation, setTranslation] = useState('');
+  const [phonetic, setPhonetic] = useState('');
+  const [partOfSpeech, setPartOfSpeech] = useState('');
+  const [exampleSentence, setExampleSentence] = useState('');
+  const [exampleTranslation, setExampleTranslation] = useState('');
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['deck', deckId],
     queryFn: () => vocabularyApi.deck(deckId),
     staleTime: CACHE.PROGRESS,
   });
+
+  const saveWord = useMutation({
+    mutationFn: () => {
+      const payload = {
+        term: term.trim(),
+        translation: translation.trim(),
+        phonetic: phonetic.trim() || undefined,
+        partOfSpeech: partOfSpeech.trim() || undefined,
+        exampleSentence: exampleSentence.trim() || undefined,
+        exampleTranslation: exampleTranslation.trim() || undefined,
+      };
+      return wordForm && wordForm !== 'new'
+        ? vocabularyApi.updateItem(wordForm.id, payload)
+        : vocabularyApi.addItem(deckId, payload);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['deck', deckId] }),
+        queryClient.invalidateQueries({ queryKey: ['decks'] }),
+      ]);
+      // Kein `closeWordForm()`: die dort geprüfte `isPending`-Flagge stammt
+      // noch aus dem Render, der `mutate()` ausgelöst hat, und stand zu diesem
+      // Zeitpunkt auf `true` – der Zettel bliebe sonst nach dem Speichern offen.
+      resetWordForm();
+    },
+  });
+
+  const deleteWord = useMutation({
+    mutationFn: (itemId: string) => vocabularyApi.deleteItem(itemId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['deck', deckId] }),
+        queryClient.invalidateQueries({ queryKey: ['decks'] }),
+      ]);
+    },
+  });
+
+  function resetWordForm() {
+    setWordForm(null);
+    setTerm('');
+    setTranslation('');
+    setPhonetic('');
+    setPartOfSpeech('');
+    setExampleSentence('');
+    setExampleTranslation('');
+    saveWord.reset();
+  }
+
+  function openAddWord() {
+    setWordForm('new');
+  }
+
+  function openEditWord(item: DeckItemDto) {
+    setWordForm(item);
+    setTerm(item.term);
+    setTranslation(item.translation);
+    setPhonetic(item.phonetic ?? '');
+    setPartOfSpeech(item.partOfSpeech ?? '');
+    setExampleSentence(item.exampleSentence ?? '');
+    setExampleTranslation(item.exampleTranslation ?? '');
+  }
+
+  function closeWordForm() {
+    if (saveWord.isPending) return;
+    resetWordForm();
+  }
+
+  function confirmDeleteWord(item: DeckItemDto) {
+    alert(t('vocabDeleteWordTitle'), t('vocabDeleteWordBody', { term: item.term }), [
+      { text: t('commonCancel'), style: 'cancel' },
+      { text: t('commonDelete'), style: 'destructive', onPress: () => deleteWord.mutate(item.id) },
+    ]);
+  }
 
   // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
   // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
@@ -111,39 +196,54 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         <View style={{ gap: spacing.md }}>
           <SectionRule label={t('deckPracticeHeading')} />
 
-          {newCount > 0 || repeatCount > 0 || learned > 0 ? (
-            /* Drei Wege zu lernen, als Stapel nebeneinander – jeder nur, wenn dort etwas liegt. */
-            <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
-              {newCount > 0 ? (
-                <DeckStack
-                  count={newCount}
-                  label={t('vocabStackNew')}
-                  hint={t('vocabHintNew')}
-                  accent={colors.primary}
-                  onPress={() => startSession('NEW')}
-                />
-              ) : null}
-              {repeatCount > 0 ? (
-                <DeckStack
-                  count={repeatCount}
-                  label={t('vocabStackRepeat')}
-                  hint={t('vocabHintRepeat')}
-                  accent={colors.warning}
-                  onPress={() => startSession('DUE')}
-                />
-              ) : null}
-              {learned > 0 ? (
-                <DeckStack
-                  count={learned}
-                  label={t('vocabStackLearned')}
-                  hint={t('vocabHintLearned')}
-                  accent={colors.success}
-                  onPress={() => startSession('MASTERED')}
-                />
-              ) : null}
-            </Row>
+          {deck.isSystem ? (
+            newCount > 0 || repeatCount > 0 || learned > 0 ? (
+              /* Drei Wege zu lernen, als Stapel nebeneinander – jeder nur, wenn dort etwas liegt. */
+              <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
+                {newCount > 0 ? (
+                  <DeckStack
+                    count={newCount}
+                    label={t('vocabStackNew')}
+                    hint={t('vocabHintNew')}
+                    accent={colors.primary}
+                    onPress={() => startSession('NEW')}
+                  />
+                ) : null}
+                {repeatCount > 0 ? (
+                  <DeckStack
+                    count={repeatCount}
+                    label={t('vocabStackRepeat')}
+                    hint={t('vocabHintRepeat')}
+                    accent={colors.warning}
+                    onPress={() => startSession('DUE')}
+                  />
+                ) : null}
+                {learned > 0 ? (
+                  <DeckStack
+                    count={learned}
+                    label={t('vocabStackLearned')}
+                    hint={t('vocabHintLearned')}
+                    accent={colors.success}
+                    onPress={() => startSession('MASTERED')}
+                  />
+                ) : null}
+              </Row>
+            ) : (
+              <Caption>{t('vocabNothingToDoTopic')}</Caption>
+            )
+          ) : deck.itemCount > 0 ? (
+            // Eigene Decks bleiben ein einziges Deck – keine Aufteilung in
+            // neu/wiederholen/gelernt, und immer zum Umdrehen statt einer
+            // Mehrfachauswahl (siehe `VocabularyService.ownDeckQueue`).
+            <DeckStack
+              count={deck.itemCount}
+              label={t('vocabPracticeDeck')}
+              hint={t('vocabPracticeDeckHint')}
+              accent={accent}
+              onPress={() => startSession('ALL')}
+            />
           ) : (
-            <Caption>{t('vocabNothingToDoTopic')}</Caption>
+            <Caption>{t('vocabDeckEmptyHint')}</Caption>
           )}
         </View>
 
@@ -158,11 +258,87 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 isFirst={index === 0}
                 isOpen={expanded.has(item.id)}
                 onToggle={() => toggleWord(item.id)}
+                onEdit={deck.isSystem ? undefined : () => openEditWord(item)}
+                onDelete={deck.isSystem ? undefined : () => confirmDeleteWord(item)}
               />
             ))}
+
+            {!deck.isSystem ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={openAddWord}
+                style={({ pressed }) => [
+                  addWordRow,
+                  deck.items.length > 0 && wordRowDivider,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <PlusIcon color={colors.primary} size={16} />
+                <Text style={addWordLabel}>{t('vocabAddWord')}</Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={wordForm !== null} transparent animationType="slide" onRequestClose={closeWordForm}>
+        <View style={sheetBackdrop}>
+          <SafeAreaView edges={['bottom']} style={sheetStyle}>
+            <ScrollView contentContainerStyle={{ gap: spacing.md }} keyboardShouldPersistTaps="handled">
+              <Title>{wordForm !== 'new' && wordForm ? t('vocabEditWordTitle') : t('vocabAddWordTitle')}</Title>
+
+              <Input
+                label={t('vocabTermLabel')}
+                value={term}
+                onChangeText={setTerm}
+                placeholder={t('vocabTermPlaceholder')}
+                autoFocus
+                error={saveWord.isError ? (saveWord.error as Error).message : undefined}
+              />
+              <Input
+                label={t('vocabTranslationLabel')}
+                value={translation}
+                onChangeText={setTranslation}
+                placeholder={t('vocabTranslationPlaceholder')}
+              />
+              <Input
+                label={t('vocabPhoneticLabel')}
+                value={phonetic}
+                onChangeText={setPhonetic}
+              />
+              <Input
+                label={t('vocabPartOfSpeechLabel')}
+                value={partOfSpeech}
+                onChangeText={setPartOfSpeech}
+              />
+              <Input
+                label={t('vocabExampleLabel')}
+                value={exampleSentence}
+                onChangeText={setExampleSentence}
+              />
+              <Input
+                label={t('vocabExampleTranslationLabel')}
+                value={exampleTranslation}
+                onChangeText={setExampleTranslation}
+              />
+
+              <Button
+                label={t('vocabSaveWord')}
+                variant="primary"
+                loading={saveWord.isPending}
+                disabled={term.trim().length < 1 || translation.trim().length < 1}
+                onPress={() => saveWord.mutate()}
+              />
+              <Button
+                label={t('commonCancel')}
+                variant="ghost"
+                onPress={closeWordForm}
+                disabled={saveWord.isPending}
+              />
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -179,11 +355,17 @@ function WordRow({
   isFirst,
   isOpen,
   onToggle,
+  onEdit,
+  onDelete,
 }: {
   item: DeckItemDto;
   isFirst: boolean;
   isOpen: boolean;
   onToggle: () => void;
+  /** Nur bei eigenen Decks gesetzt – Systemvokabeln lassen sich nicht bearbeiten. */
+  onEdit?: () => void;
+  /** Nur bei eigenen Decks gesetzt – Systemvokabeln lassen sich nicht löschen. */
+  onDelete?: () => void;
 }) {
   const { t } = useTranslation();
   const hasDetail = Boolean(item.exampleSentence || item.phonetic);
@@ -205,6 +387,34 @@ function WordRow({
           <Text style={wordTranslation}>{item.translation}</Text>
         </View>
         {item.partOfSpeech ? <Text style={wordPos}>{item.partOfSpeech}</Text> : null}
+        {onEdit ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('vocabEditWordA11y', { term: item.term })}
+            hitSlop={8}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onEdit();
+            }}
+            style={{ padding: spacing.xs }}
+          >
+            <PencilIcon color={flashcard.inkSoft} size={16} />
+          </Pressable>
+        ) : null}
+        {onDelete ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('vocabDeleteWordA11y', { term: item.term })}
+            hitSlop={8}
+            onPress={(event) => {
+              event.stopPropagation?.();
+              onDelete();
+            }}
+            style={{ padding: spacing.xs }}
+          >
+            <TrashIcon color={flashcard.inkSoft} size={16} />
+          </Pressable>
+        ) : null}
       </Row>
 
       {isOpen ? (
@@ -304,6 +514,18 @@ const wordRowDivider = {
   borderTopColor: flashcard.rule,
 };
 
+const addWordRow = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.sm,
+  paddingVertical: spacing.sm,
+};
+
+const addWordLabel = {
+  ...typography.bodyStrong,
+  color: colors.primary,
+};
+
 const statusDot = {
   width: 9,
   height: 9,
@@ -344,4 +566,24 @@ const wordExampleTranslation = {
   fontSize: 12.5,
   lineHeight: 17,
   color: colors.textMuted,
+};
+
+const sheetBackdrop = {
+  flex: 1,
+  backgroundColor: 'rgba(15, 23, 42, 0.4)',
+  justifyContent: 'flex-end' as const,
+  // Im Browser spannt sich das Modal über das ganze Fenster, nicht nur über
+  // die telefon-schmale Spalte aus `WebLayout` – ohne diese Zentrierung läge
+  // der Zettel über der vollen Fensterbreite statt über der Bühne der App.
+  alignItems: 'center' as const,
+};
+
+const sheetStyle = {
+  width: '100%' as const,
+  maxWidth: MAX_WIDTH,
+  backgroundColor: colors.background,
+  borderTopLeftRadius: radius.xl,
+  borderTopRightRadius: radius.xl,
+  padding: spacing.lg,
+  maxHeight: '85%' as const,
 };

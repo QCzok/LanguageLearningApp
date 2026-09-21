@@ -28,12 +28,14 @@ export type VocabularyStackParamList = {
    * fest, welchen der drei Stapel der Nutzer gewählt hat: neue Vokabeln
    * (fünf Bedeutungsvorschläge je Wort), den Wiederholen-Stapel (fällige
    * Karten) oder den Gelernt-Stapel (bereits gemeisterte Karten zum
-   * Auffrischen).
+   * Auffrischen). `ALL` gilt nur für eigene Decks: das ganze, kleine Deck auf
+   * einmal, immer umdrehbar statt Mehrfachauswahl (siehe
+   * `VocabularyService.ownDeckQueue`).
    */
   Review: {
     deckId?: string;
     level?: CefrLevel;
-    queueType?: 'NEW' | 'DUE' | 'MASTERED';
+    queueType?: 'NEW' | 'DUE' | 'MASTERED' | 'ALL';
     title?: string;
   };
   VocabStats: undefined;

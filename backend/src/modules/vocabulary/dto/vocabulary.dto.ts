@@ -191,3 +191,39 @@ export class CreateVocabItemDto {
   @IsString({ each: true })
   tags?: string[];
 }
+
+export class UpdateVocabItemDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 120)
+  term?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(1, 200)
+  translation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phonetic?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  partOfSpeech?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 400)
+  exampleSentence?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @Length(0, 400)
+  exampleTranslation?: string;
+}

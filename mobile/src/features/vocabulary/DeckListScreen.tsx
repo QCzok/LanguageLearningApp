@@ -34,6 +34,7 @@ import {
 } from '../../theme';
 import { nextStack, STACK_LABEL_KEYS } from './DeckStack';
 import type { VocabularyStackParamList } from '../../navigation/types';
+import { MAX_WIDTH } from '../../navigation/WebLayout';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
 
@@ -61,7 +62,9 @@ export default function DeckListScreen({ navigation }: Props) {
     staleTime: CACHE.PROGRESS,
   });
   const [showGenerate, setShowGenerate] = useState(false);
+  const [createMode, setCreateMode] = useState<'ai' | 'manual'>('ai');
   const [topic, setTopic] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
 
   const generateDeck = useMutation({
     mutationFn: (value: string) => aiApi.generateVocabDeck(value),
@@ -74,17 +77,35 @@ export default function DeckListScreen({ navigation }: Props) {
     },
   });
 
+  const createDeck = useMutation({
+    mutationFn: () =>
+      vocabularyApi.createDeck({
+        languageId: profile!.language.id,
+        level: profile!.level,
+        title: manualTitle.trim(),
+      }),
+    onSuccess: async (deck) => {
+      await queryClient.invalidateQueries({ queryKey: ['decks'] });
+      setShowGenerate(false);
+      setManualTitle('');
+      navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title });
+    },
+  });
+
   function openGenerator() {
     // Ohne Bezahlstufe führt die Kachel direkt in den Themen-Dialog, statt
     // erst auf einen Hinweis, dass man sie nicht benutzen darf.
+    setCreateMode('ai');
     setShowGenerate(true);
   }
 
   function closeGenerator() {
-    if (generateDeck.isPending) return;
+    if (generateDeck.isPending || createDeck.isPending) return;
     setShowGenerate(false);
     setTopic('');
+    setManualTitle('');
     generateDeck.reset();
+    createDeck.reset();
   }
 
   // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
@@ -132,7 +153,9 @@ export default function DeckListScreen({ navigation }: Props) {
   }
 
   function continueLearning(deck: VocabDeckDto) {
-    const queueType = nextStack(deck.progress);
+    // Eigene Decks kennen keine Aufteilung in neu/wiederholen/gelernt – siehe
+    // `DeckDetailScreen`.
+    const queueType = deck.isSystem ? nextStack(deck.progress) : 'ALL';
     navigation.navigate('Review', {
       deckId: deck.id,
       queueType,
@@ -202,34 +225,88 @@ export default function DeckListScreen({ navigation }: Props) {
       <Modal visible={showGenerate} transparent animationType="slide" onRequestClose={closeGenerator}>
         <View style={sheetBackdrop}>
           <SafeAreaView edges={['bottom']} style={sheetStyle}>
-            <Title>{t('vocabAiDeckTitle')}</Title>
-            <Caption>{t('vocabAiSheetSubtitle')}</Caption>
+            <Row gap={spacing.xs}>
+              <ModeTab
+                label={t('vocabModeAi')}
+                active={createMode === 'ai'}
+                onPress={() => setCreateMode('ai')}
+              />
+              <ModeTab
+                label={t('vocabModeManual')}
+                active={createMode === 'manual'}
+                onPress={() => setCreateMode('manual')}
+              />
+            </Row>
 
-            <Input
-              label={t('vocabTopicLabel')}
-              value={topic}
-              onChangeText={setTopic}
-              placeholder={t('vocabTopicPlaceholder')}
-              error={generateDeck.isError ? (generateDeck.error as Error).message : undefined}
-            />
+            {createMode === 'ai' ? (
+              <>
+                <Title>{t('vocabAiDeckTitle')}</Title>
+                <Caption>{t('vocabAiSheetSubtitle')}</Caption>
 
-            <Button
-              label={t('vocabGenerate')}
-              variant="primary"
-              loading={generateDeck.isPending}
-              disabled={topic.trim().length < 2}
-              onPress={() => generateDeck.mutate(topic.trim())}
-            />
+                <Input
+                  label={t('vocabTopicLabel')}
+                  value={topic}
+                  onChangeText={setTopic}
+                  placeholder={t('vocabTopicPlaceholder')}
+                  error={generateDeck.isError ? (generateDeck.error as Error).message : undefined}
+                />
+
+                <Button
+                  label={t('vocabGenerate')}
+                  variant="primary"
+                  loading={generateDeck.isPending}
+                  disabled={topic.trim().length < 2}
+                  onPress={() => generateDeck.mutate(topic.trim())}
+                />
+              </>
+            ) : (
+              <>
+                <Title>{t('vocabManualDeckTitle')}</Title>
+                <Caption>{t('vocabManualSheetSubtitle')}</Caption>
+
+                <Input
+                  label={t('vocabDeckNameLabel')}
+                  value={manualTitle}
+                  onChangeText={setManualTitle}
+                  placeholder={t('vocabDeckNamePlaceholder')}
+                  autoFocus
+                  error={createDeck.isError ? (createDeck.error as Error).message : undefined}
+                />
+
+                <Button
+                  label={t('vocabCreateDeck')}
+                  variant="primary"
+                  loading={createDeck.isPending}
+                  disabled={!profile || manualTitle.trim().length < 2}
+                  onPress={() => createDeck.mutate()}
+                />
+              </>
+            )}
+
             <Button
               label={t('commonCancel')}
               variant="ghost"
               onPress={closeGenerator}
-              disabled={generateDeck.isPending}
+              disabled={generateDeck.isPending || createDeck.isPending}
             />
           </SafeAreaView>
         </View>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+/** Die zwei Reiter im Anlage-Zettel: KI-Thema oder ein leeres eigenes Deck. */
+function ModeTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[modeTab, active && { backgroundColor: colors.primary }]}
+    >
+      <Text style={[modeTabLabel, active && { color: colors.textInverse }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -410,14 +487,14 @@ function NewDeckTile({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [tile, newTile, pressed && { opacity: 0.9 }]}
     >
-      <Text style={{ fontSize: 26 }}>✨</Text>
+      <Text style={{ fontSize: 26 }}>➕</Text>
       <Text style={tileTitle} numberOfLines={2}>
-        {t('vocabAiDeckTitle')}
+        {t('vocabNewDeckTile')}
       </Text>
-      <Text style={tileMeta}>{t('vocabAiDeckMeta')}</Text>
+      <Text style={tileMeta}>{t('vocabNewDeckTileMeta')}</Text>
       <View style={{ flex: 1 }} />
       <Text style={[tileState, { color: colors.primary }]}>
-        {`${t('vocabChooseTopic')} →`}
+        {`${t('vocabNewDeckCta')} →`}
       </Text>
     </Pressable>
   );
@@ -566,12 +643,31 @@ const sheetBackdrop = {
   flex: 1,
   backgroundColor: 'rgba(15, 23, 42, 0.4)',
   justifyContent: 'flex-end' as const,
+  // Im Browser spannt sich das Modal über das ganze Fenster, nicht nur über
+  // die telefon-schmale Spalte aus `WebLayout` – ohne diese Zentrierung läge
+  // der Zettel über der vollen Fensterbreite statt über der Bühne der App.
+  alignItems: 'center' as const,
 };
 
 const sheetStyle = {
+  width: '100%' as const,
+  maxWidth: MAX_WIDTH,
   backgroundColor: colors.background,
   borderTopLeftRadius: radius.xl,
   borderTopRightRadius: radius.xl,
   padding: spacing.lg,
   gap: spacing.md,
+};
+
+const modeTab = {
+  flex: 1,
+  paddingVertical: spacing.xs,
+  borderRadius: radius.full,
+  backgroundColor: colors.surfaceAlt,
+  alignItems: 'center' as const,
+};
+
+const modeTabLabel = {
+  ...typography.label,
+  color: colors.textMuted,
 };

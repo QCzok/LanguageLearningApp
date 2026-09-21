@@ -35,6 +35,7 @@ import type {
   VideoTopic,
   VocabDeckDetailDto,
   VocabDeckDto,
+  VocabItemDto,
   VocabMode,
   VocabStatsDto,
   WorkbookBook,
@@ -136,6 +137,36 @@ export const vocabularyApi = {
       }>('/vocabulary/review', body)
       .then((r) => r.data),
   stats: () => api.get<VocabStatsDto>('/vocabulary/stats').then((r) => r.data),
+  createDeck: (body: {
+    languageId: string;
+    level: CefrLevel;
+    title: string;
+    description?: string;
+    iconEmoji?: string;
+  }) => api.post<VocabDeckDto>('/vocabulary/decks', body).then((r) => r.data),
+  addItem: (
+    deckId: string,
+    body: {
+      term: string;
+      translation: string;
+      phonetic?: string;
+      partOfSpeech?: string;
+      exampleSentence?: string;
+      exampleTranslation?: string;
+    },
+  ) => api.post<VocabItemDto>(`/vocabulary/decks/${deckId}/items`, body).then((r) => r.data),
+  updateItem: (
+    itemId: string,
+    body: {
+      term?: string;
+      translation?: string;
+      phonetic?: string;
+      partOfSpeech?: string;
+      exampleSentence?: string;
+      exampleTranslation?: string;
+    },
+  ) => api.patch<VocabItemDto>(`/vocabulary/items/${itemId}`, body).then((r) => r.data),
+  deleteItem: (itemId: string) => api.delete(`/vocabulary/items/${itemId}`),
 };
 
 export const notebookApi = {

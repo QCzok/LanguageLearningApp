@@ -4,13 +4,17 @@ import type { DeckProgressDto } from '@lingua/shared';
 import type { TranslationKey } from '../../i18n';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
 
-/** Die drei Wege durch einen Stapel – neu lernen, ausbügeln, auffrischen. */
-export type QueueType = 'NEW' | 'DUE' | 'MASTERED';
+/**
+ * Die drei Wege durch einen Systemstapel – neu lernen, ausbügeln, auffrischen
+ * – plus `ALL`: das ganze eigene Deck auf einmal (siehe `DeckDetailScreen`).
+ */
+export type QueueType = 'NEW' | 'DUE' | 'MASTERED' | 'ALL';
 
 export const STACK_LABEL_KEYS: Record<QueueType, TranslationKey> = {
   NEW: 'vocabStackNew',
   DUE: 'vocabStackRepeat',
   MASTERED: 'vocabStackLearned',
+  ALL: 'vocabPracticeDeck',
 };
 
 /**

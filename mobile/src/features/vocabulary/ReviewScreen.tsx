@@ -20,6 +20,7 @@ import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
 import { Flashcard } from './Flashcard';
+import type { QueueType } from './DeckStack';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'Review'>;
@@ -379,7 +380,7 @@ function ChoiceMode({
 }: {
   card: ReviewCardDto;
   remaining: number;
-  queueType?: 'NEW' | 'DUE' | 'MASTERED';
+  queueType?: QueueType;
   selected: number | null;
   onSelect: (index: number) => void;
   onContinue: () => void;
@@ -570,21 +571,23 @@ const GRADE_LABEL_KEYS: Record<number, TranslationKey> = {
 };
 
 /** Was mit einer falsch beantworteten Karte passiert – abhängig vom Stapel. */
-function wrongLabelKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+function wrongLabelKey(queueType?: QueueType): TranslationKey {
   if (queueType === 'DUE') return 'reviewWrongDue';
   if (queueType === 'MASTERED') return 'reviewWrongMastered';
   return 'reviewWrongNew';
 }
 
-function emptyTitleKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+function emptyTitleKey(queueType?: QueueType): TranslationKey {
   if (queueType === 'NEW') return 'reviewEmptyNewTitle';
   if (queueType === 'MASTERED') return 'reviewEmptyMasteredTitle';
+  if (queueType === 'ALL') return 'reviewEmptyAllTitle';
   return 'reviewEmptyDueTitle';
 }
 
-function emptyDescriptionKey(queueType?: 'NEW' | 'DUE' | 'MASTERED'): TranslationKey {
+function emptyDescriptionKey(queueType?: QueueType): TranslationKey {
   if (queueType === 'NEW') return 'reviewEmptyNewBody';
   if (queueType === 'MASTERED') return 'reviewEmptyMasteredBody';
+  if (queueType === 'ALL') return 'reviewEmptyAllBody';
   return 'reviewEmptyDueBody';
 }
 

@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   ListDecksQueryDto,
   ReviewQueueQueryDto,
   SubmitReviewDto,
+  UpdateVocabItemDto,
 } from './dto/vocabulary.dto';
 import { VocabularyService } from './vocabulary.service';
 
@@ -58,6 +60,16 @@ export class VocabularyController {
     @Body() dto: CreateVocabItemDto,
   ) {
     return this.vocabulary.addItem(userId, deckId, dto);
+  }
+
+  @Patch('items/:id')
+  @ApiOperation({ summary: 'Eigene Vokabel bearbeiten' })
+  updateItem(
+    @CurrentUser('id') userId: string,
+    @Param('id') itemId: string,
+    @Body() dto: UpdateVocabItemDto,
+  ) {
+    return this.vocabulary.updateItem(userId, itemId, dto);
   }
 
   @Delete('items/:id')

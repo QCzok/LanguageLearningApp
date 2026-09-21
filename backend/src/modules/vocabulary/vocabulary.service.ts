@@ -19,6 +19,7 @@ import {
   ListDecksQueryDto,
   ReviewQueueQueryDto,
   SubmitReviewDto,
+  UpdateVocabItemDto,
 } from './dto/vocabulary.dto';
 
 import { ERR } from '../../common/i18n/messages';
@@ -27,6 +28,14 @@ import { ERR } from '../../common/i18n/messages';
 const XP_PER_CORRECT_REVIEW = 2;
 /** Maximale Anzahl neuer Karten, die pro Sitzung eingeführt werden. */
 const DEFAULT_NEW_LIMIT = 10;
+/**
+ * Mindestzahl unterschiedlicher Distraktoren, ab der eine Mehrfachauswahl noch
+ * eine echte Auswahl ist. Eigene, kleine Decks haben oft nur eine Handvoll
+ * Wörter – mit ein oder zwei Alternativen wäre die "Auswahl" eine Ratefrage
+ * mit einer offensichtlichen Antwort statt einer Lernkarte. Dann lieber die
+ * Karte umdrehen (siehe `buildCard`).
+ */
+const MIN_DISTRACTORS_FOR_CHOICES = 3;
 
 const deckWithCount = {
   language: true,
@@ -161,6 +170,24 @@ export class VocabularyService {
     return toVocabItemDto(item);
   }
 
+  async updateItem(
+    userId: string,
+    itemId: string,
+    dto: UpdateVocabItemDto,
+  ): Promise<VocabItemDto> {
+    const item = await this.prisma.vocabItem.findUnique({
+      where: { id: itemId },
+      include: { deck: true },
+    });
+    if (!item) throw new NotFoundException(ERR['notfound.vocab_item']);
+    if (item.deck.isSystem || item.deck.ownerId !== userId) {
+      throw new ForbiddenException(ERR['forbidden.vocab_readonly']);
+    }
+
+    const updated = await this.prisma.vocabItem.update({ where: { id: itemId }, data: dto });
+    return toVocabItemDto(updated);
+  }
+
   async deleteItem(userId: string, itemId: string): Promise<void> {
     const item = await this.prisma.vocabItem.findUnique({
       where: { id: itemId },
@@ -186,6 +213,23 @@ export class VocabularyService {
    * und – wo nötig – Distraktoren aus demselben Deck gezogen.
    */
   async getReviewQueue(userId: string, query: ReviewQueueQueryDto): Promise<ReviewCardDto[]> {
+    // Eigene Decks bleiben ein einziges Deck: keine Aufteilung in neu/
+    // wiederholen/gelernt wie bei den 30-50 Wörter großen Systemdecks, und
+    // immer umdrehbar statt Mehrfachauswahl – dafür reicht ein eigenes Deck
+    // selten genug Wörter für plausible Distraktoren (siehe `ownDeckQueue`).
+    // Das gilt unabhängig davon, was der Client an Filtern/Modus mitschickt:
+    // ein kleines, selbst angelegtes Deck lässt sich nicht in Teilstapel
+    // zerlegen, die es nicht hat.
+    if (query.deckId) {
+      const deck = await this.prisma.vocabDeck.findUnique({
+        where: { id: query.deckId },
+        select: { isSystem: true },
+      });
+      if (deck && !deck.isSystem) {
+        return this.ownDeckQueue(userId, query.deckId);
+      }
+    }
+
     const profile = await this.users.getActiveProfileOrThrow(userId);
     const limit = query.limit ?? 20;
     const now = new Date();
@@ -312,33 +356,79 @@ export class VocabularyService {
     );
   }
 
+  /**
+   * Die Lernwarteschlange eines eigenen Decks: immer das ganze Deck, immer
+   * umdrehbar. Anders als bei Systemdecks gibt es hier kein "fällig" oder
+   * "neu" – jede Runde zeigt alle Wörter, durchmischt, und eine falsch
+   * eingeschätzte Karte kommt über `submitReview`/SM-2 einfach in der
+   * nächsten Runde wieder früher dran.
+   */
+  private async ownDeckQueue(userId: string, deckId: string): Promise<ReviewCardDto[]> {
+    const items = await this.prisma.vocabItem.findMany({
+      where: { deckId },
+      orderBy: { sortOrder: 'asc' },
+    });
+    if (items.length === 0) return [];
+
+    const progressRows = await this.prisma.vocabProgress.findMany({
+      where: { userId, vocabItemId: { in: items.map((item) => item.id) } },
+    });
+    const progressByItem = new Map(progressRows.map((row) => [row.vocabItemId, row]));
+    const now = new Date();
+
+    return shuffle(items).map((item) => {
+      const progress = progressByItem.get(item.id);
+      return {
+        // Ohne Progress-Zeile ist die VocabItem-ID der Platzhalter, den
+        // `submitReview` erkennt und beim ersten Bewerten in eine echte
+        // Progress-Zeile überführt – dieselbe Konvention wie bei Systemdecks
+        // (siehe oben).
+        cardId: progress?.id ?? item.id,
+        item: toVocabItemDto(item),
+        mode: VocabMode.FLASHCARD,
+        status: progress?.status ?? CardStatus.NEW,
+        dueAt: (progress?.dueAt ?? now).toISOString(),
+      };
+    });
+  }
+
   /** Baut eine ReviewCardDto inkl. Distraktoren, wo der Modus Auswahlantworten braucht. */
   private buildCard(
     card: { cardId: string; item: Prisma.VocabItemGetPayload<object>; status: CardStatus; dueAt: Date },
     distractorPool: Array<{ id: string; translation: string }>,
     mode: VocabMode,
   ): ReviewCardDto {
+    // Gleichlautende Übersetzungen werden vorher entfernt – sonst stünde
+    // dieselbe Antwort zweimal da und eine davon würde als falsch gewertet.
+    const alternatives = [
+      ...new Set(
+        distractorPool
+          .filter((entry) => entry.id !== card.item.id && entry.translation !== card.item.translation)
+          .map((entry) => entry.translation),
+      ),
+    ];
+
+    // Ein Auswahlmodus braucht ein Deck mit genug anderen Wörtern, sonst wäre
+    // die "Auswahl" nur die offensichtlich richtige Antwort. Reicht der
+    // Distraktoren-Vorrat nicht, wird die Karte stattdessen umgedreht – das
+    // überstimmt auch einen ausdrücklich angeforderten Auswahlmodus, weil ein
+    // kleines Deck seinen Vorrat nicht durch eine Anfrage vergrößert.
+    const wantsChoices = mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING;
+    const effectiveMode =
+      wantsChoices && alternatives.length < MIN_DISTRACTORS_FOR_CHOICES ? VocabMode.FLASHCARD : mode;
+
     const base: ReviewCardDto = {
       cardId: card.cardId,
       item: toVocabItemDto(card.item),
-      mode,
+      mode: effectiveMode,
       status: card.status,
       dueAt: card.dueAt.toISOString(),
     };
 
-    if (mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING) {
-      // Fünf Vorschläge insgesamt: die richtige Übersetzung plus vier
-      // Distraktoren aus demselben Deck. Gleichlautende Übersetzungen werden
-      // vorher entfernt – sonst stünde dieselbe Antwort zweimal da und eine
-      // davon würde als falsch gewertet.
-      const distractors = shuffle([
-        ...new Set(
-          distractorPool
-            .filter((entry) => entry.id !== card.item.id && entry.translation !== card.item.translation)
-            .map((entry) => entry.translation),
-        ),
-      ]).slice(0, 4);
-      const choices = shuffle([card.item.translation, ...distractors]);
+    if (effectiveMode === VocabMode.MULTIPLE_CHOICE || effectiveMode === VocabMode.LISTENING) {
+      // Fünf Vorschläge insgesamt: die richtige Übersetzung plus bis zu vier
+      // Distraktoren aus demselben Deck.
+      const choices = shuffle([card.item.translation, ...shuffle(alternatives).slice(0, 4)]);
       base.choices = choices;
       base.correctChoiceIndex = choices.indexOf(card.item.translation);
     }
