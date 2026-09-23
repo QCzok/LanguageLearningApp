@@ -20,6 +20,7 @@ import DeckListScreen from '../features/vocabulary/DeckListScreen';
 import DeckDetailScreen from '../features/vocabulary/DeckDetailScreen';
 import ReviewScreen from '../features/vocabulary/ReviewScreen';
 import VocabStatsScreen from '../features/vocabulary/VocabStatsScreen';
+import MatchGameScreen from '../features/vocabulary/MatchGameScreen';
 import BookshelfScreen from '../features/workbook/BookshelfScreen';
 import BookContentsScreen from '../features/workbook/BookContentsScreen';
 import UnitScreen from '../features/workbook/UnitScreen';
@@ -140,6 +141,11 @@ function VocabularyNavigator() {
         name="VocabStats"
         component={VocabStatsScreen}
         options={{ title: t('vocabularyStats') }}
+      />
+      <VocabularyStack.Screen
+        name="Match"
+        component={MatchGameScreen}
+        options={({ route }) => ({ title: `${t('matchTitle')} · ${route.params.title}` })}
       />
     </VocabularyStack.Navigator>
   );

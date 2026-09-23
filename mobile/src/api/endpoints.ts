@@ -37,8 +37,10 @@ import type {
   VocabDeckDetailDto,
   VocabDeckDto,
   VocabItemDto,
+  VocabDirection,
   VocabMode,
   VocabStatsDto,
+  SubmitReviewResultDto,
   WorkbookBook,
 } from '@lingua/shared';
 import { api } from './client';
@@ -126,17 +128,17 @@ export const vocabularyApi = {
     /** Nur Karten, deren letzte Antwort richtig war – Gelernt-Stapel, unabhängig vom Mastery-Intervall. */
     onlyLearned?: boolean;
     mode?: VocabMode;
+    /** Lernsprache → Muttersprache (FORWARD), umgekehrt (REVERSE) oder je Karte zufällig. */
+    direction?: VocabDirection;
   }) => api.get<ReviewCardDto[]>('/vocabulary/review/queue', { params }).then((r) => r.data),
-  review: (body: { cardId: string; grade: number; mode: string; durationMs?: number }) =>
-    api
-      .post<{
-        cardId: string;
-        dueAt: string;
-        intervalDays: number;
-        correct: boolean;
-        xpEarned: number;
-      }>('/vocabulary/review', body)
-      .then((r) => r.data),
+  review: (body: {
+    cardId: string;
+    grade: number;
+    mode: string;
+    durationMs?: number;
+    /** Richtige Antworten in Folge vor dieser Karte – bringt Bonus-XP. */
+    combo?: number;
+  }) => api.post<SubmitReviewResultDto>('/vocabulary/review', body).then((r) => r.data),
   stats: () => api.get<VocabStatsDto>('/vocabulary/stats').then((r) => r.data),
   createDeck: (body: {
     languageId: string;

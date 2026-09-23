@@ -272,6 +272,14 @@ model VocabDeck {
   language    Language  @relation(fields: [languageId], references: [id], onDelete: Cascade)
   level       CefrLevel
   title       String
+  /// Titel je Muttersprache (ISO-639-1 → Text). Systemdecks werden in allen
+  /// Lernsprachen aus denselben Kategorien gebaut – wer Englisch mit
+  /// spanischer Muttersprache lernt, liest die Kategorie auf Spanisch.
+  /// Fehlt die Sprache, gilt `title`.
+  titles      Json?
+  /// Stabiler Schlüssel der Seed-Kategorie (z. B. "a1-food") – der Seed
+  /// gleicht darüber ab, nicht über den Titel.
+  seedKey     String?
   description String?
   iconEmoji   String    @default("📘")
   /// Systemdecks werden ausgeliefert, Nutzerdecks gehören ownerId.
@@ -284,6 +292,7 @@ model VocabDeck {
 
   items VocabItem[]
 
+  @@unique([languageId, seedKey])
   @@index([languageId, level])
   @@index([ownerId])
   @@map("vocab_decks")
@@ -294,7 +303,13 @@ model VocabItem {
   deckId             String
   deck               VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
   term               String
+  /// Übersetzung für Muttersprachen ohne Eintrag in `translations` – bei
+  /// eigenen Decks die Übersetzung in der Muttersprache des Besitzers.
   translation        String
+  /// Übersetzungen je Muttersprache (ISO-639-1 → Text), z. B.
+  /// { "de": "das Haus", "es": "la casa" }. Die API löst anhand der
+  /// Muttersprache des Nutzers auf, Fallback ist `translation`.
+  translations       Json      @default("{}")
   phonetic           String?
   partOfSpeech       String?
   exampleSentence    String?

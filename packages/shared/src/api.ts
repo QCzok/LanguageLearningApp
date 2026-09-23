@@ -1,6 +1,7 @@
 import type { CefrLevel } from './cefr';
 import type {
   AiMode,
+  CardDirection,
   AvatarIconId,
   CardStatus,
   ExerciseType,
@@ -194,6 +195,7 @@ export interface DeckProgressDto {
 export interface VocabItemDto {
   id: string;
   term: string;
+  /** Übersetzung in die Muttersprache des Nutzers (serverseitig aufgelöst). */
   translation: string;
   phonetic: string | null;
   partOfSpeech: string | null;
@@ -218,9 +220,17 @@ export interface ReviewCardDto {
   cardId: string;
   item: VocabItemDto;
   mode: VocabMode;
+  /**
+   * FORWARD: `item.term` ist die Frage, `item.translation` die Antwort.
+   * REVERSE: umgekehrt – gefragt wird in der Muttersprache.
+   */
+  direction: CardDirection;
   status: CardStatus;
   dueAt: string;
-  /** Nur bei MULTIPLE_CHOICE / LISTENING: Distraktoren inkl. korrekter Antwort, gemischt. */
+  /**
+   * Nur bei MULTIPLE_CHOICE / LISTENING: Antwortvorschläge inkl. der
+   * richtigen, gemischt – in der Sprache der Antwort (siehe `direction`).
+   */
   choices?: string[];
   correctChoiceIndex?: number;
 }
@@ -230,6 +240,18 @@ export interface SubmitReviewInput {
   grade: 0 | 1 | 2 | 3 | 4 | 5;
   mode: VocabMode;
   durationMs?: number;
+  /** Richtige Antworten in Folge vor dieser Karte – bringt Bonus-XP. */
+  combo?: number;
+}
+
+export interface SubmitReviewResultDto {
+  cardId: string;
+  status: CardStatus;
+  dueAt: string;
+  intervalDays: number;
+  easeFactor: number;
+  correct: boolean;
+  xpEarned: number;
 }
 
 export interface VocabStatsDto {

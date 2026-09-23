@@ -12,18 +12,7 @@ import { seedWorkbook } from './seed/workbook';
 import { seedVideos } from './seed/videos';
 import { LIBRARY_SEEDS_DE, LIBRARY_SEEDS_EN, LIBRARY_SEEDS_ES, type LibraryContentSeed } from './seed/library';
 import { PLACEMENT_SEEDS_DE, PLACEMENT_SEEDS_EN, PLACEMENT_SEEDS_ES } from './seed/placement';
-import { GERMAN_VOCAB_A1 } from './seed/german-vocab-a1';
-import { GERMAN_VOCAB_A2 } from './seed/german-vocab-a2';
-import { GERMAN_VOCAB_B1 } from './seed/german-vocab-b1';
-import { GERMAN_VOCAB_B2 } from './seed/german-vocab-b2';
-import { GERMAN_VOCAB_C1 } from './seed/german-vocab-c1';
-import { GERMAN_VOCAB_C2 } from './seed/german-vocab-c2';
-import { SPANISH_VOCAB_A1 } from './seed/spanish-vocab-a1';
-import { SPANISH_VOCAB_A2 } from './seed/spanish-vocab-a2';
-import { SPANISH_VOCAB_B1 } from './seed/spanish-vocab-b1';
-import { SPANISH_VOCAB_B2 } from './seed/spanish-vocab-b2';
-import { SPANISH_VOCAB_C1 } from './seed/spanish-vocab-c1';
-import { SPANISH_VOCAB_C2 } from './seed/spanish-vocab-c2';
+import { seedVocabulary } from './seed/vocab';
 
 const prisma = new PrismaClient();
 
@@ -45,113 +34,6 @@ const WORDS_PER_MINUTE: Record<CefrLevel, number> = {
 
 function estimateReadingMinutes(wordCount: number, level: CefrLevel): number {
   return Math.max(1, Math.round(wordCount / WORDS_PER_MINUTE[level]));
-}
-
-interface VocabDeckSeed {
-  title: string;
-  level: CefrLevel;
-  description: string;
-  iconEmoji: string;
-  /** Je Eintrag: [Begriff, Übersetzung, Beispielsatz, Beispielübersetzung, Wortart] */
-  items: string[][];
-}
-
-/** Legt System-Vokabeldecks für eine Sprache an oder aktualisiert sie. */
-async function seedVocabDecks(languageId: string, deckSeeds: VocabDeckSeed[]): Promise<void> {
-  // System-Decks, die nicht mehr im Seed vorkommen, verschwinden mit – sonst
-  // blieben nach einer Umbenennung/Neustrukturierung alte Decks samt Wörtern
-  // liegen und die Gesamtzahl pro Niveau stimmt nicht mehr.
-  await prisma.vocabDeck.deleteMany({
-    where: { languageId, isSystem: true, title: { notIn: deckSeeds.map((seed) => seed.title) } },
-  });
-
-  for (const [index, seed] of deckSeeds.entries()) {
-    const existing = await prisma.vocabDeck.findFirst({
-      where: { languageId, title: seed.title, isSystem: true },
-    });
-
-    const deck = existing
-      ? await prisma.vocabDeck.update({
-          where: { id: existing.id },
-          data: { description: seed.description, level: seed.level, sortOrder: index },
-        })
-      : await prisma.vocabDeck.create({
-          data: {
-            languageId,
-            level: seed.level,
-            title: seed.title,
-            description: seed.description,
-            iconEmoji: seed.iconEmoji,
-            isSystem: true,
-            sortOrder: index,
-          },
-        });
-
-    // Vokabeln über den Begriff abgleichen statt löschen und neu anlegen. An
-    // `VocabItem` hängen `VocabProgress` (der SRS-Zustand: Ease-Faktor,
-    // Intervall, Fälligkeit) und `ReviewLog` (die gesamte Lernhistorie), beide
-    // mit `onDelete: Cascade`. Ein Löschen setzte damit bei jedem Seed-Lauf
-    // die Wiederholungsplanung aller Nutzer auf null zurück – Monate an
-    // Lernfortschritt, die sich nicht rekonstruieren lassen. Bleibt die ID des
-    // Eintrags erhalten, bleibt auch seine Karte erhalten.
-    //
-    // Abgeglichen wird über `term`, weil `VocabItem` keinen zusammengesetzten
-    // Unique-Schlüssel hat und ein Begriff innerhalb eines Stapels nur einmal
-    // vorkommt. Ein `upsert` ist deshalb hier nicht möglich.
-    // Geschrieben wird nur, was sich wirklich unterscheidet. Ohne diesen
-    // Vergleich kostet ein Lauf pro Vokabel ein UPDATE – bei rund dreitausend
-    // Einträgen über eine entfernte Verbindung eine Viertelstunde, in der sich
-    // inhaltlich nichts ändert. Mit ihm braucht ein Lauf ohne Textänderung nur
-    // noch die eine Abfrage je Stapel.
-    const existingItems = await prisma.vocabItem.findMany({
-      where: { deckId: deck.id },
-      select: {
-        id: true,
-        term: true,
-        translation: true,
-        exampleSentence: true,
-        exampleTranslation: true,
-        partOfSpeech: true,
-        tags: true,
-        sortOrder: true,
-      },
-    });
-    const byTerm = new Map(existingItems.map((item) => [item.term, item]));
-
-    for (const [itemIndex, entry] of seed.items.entries()) {
-      const [term, translation, example, exampleTranslation, pos] = entry;
-      const data = {
-        translation,
-        exampleSentence: example,
-        exampleTranslation,
-        partOfSpeech: pos,
-        tags: [seed.level],
-        sortOrder: itemIndex,
-      };
-
-      const current = byTerm.get(term);
-      if (!current) {
-        await prisma.vocabItem.create({ data: { deckId: deck.id, term, ...data } });
-        continue;
-      }
-
-      const unchanged =
-        current.translation === data.translation &&
-        current.exampleSentence === data.exampleSentence &&
-        current.exampleTranslation === data.exampleTranslation &&
-        current.partOfSpeech === data.partOfSpeech &&
-        current.sortOrder === data.sortOrder &&
-        current.tags.join('\u0000') === data.tags.join('\u0000');
-
-      if (!unchanged) await prisma.vocabItem.update({ where: { id: current.id }, data });
-    }
-
-    // Begriffe, die der Stapel nicht mehr enthält, verschwinden – ihre Karten
-    // sind gegenstandslos, weil es die Vokabel nicht mehr gibt.
-    await prisma.vocabItem.deleteMany({
-      where: { deckId: deck.id, term: { notIn: seed.items.map(([term]) => term) } },
-    });
-  }
 }
 
 async function main(): Promise<void> {
@@ -274,104 +156,11 @@ async function main(): Promise<void> {
   }
 
   // ------------------------------------------------------------- Vokabeln
-  const deckSeeds = [
-    {
-      title: 'Erste Wörter',
-      level: CefrLevel.A1,
-      description: 'Die 20 wichtigsten Wörter für den Anfang',
-      iconEmoji: '🌱',
-      items: [
-        ['hello', 'hallo', 'Hello, how are you?', 'Hallo, wie geht es dir?', 'interjection'],
-        ['thank you', 'danke', 'Thank you very much.', 'Vielen Dank.', 'phrase'],
-        ['please', 'bitte', 'Two coffees, please.', 'Zwei Kaffee, bitte.', 'adverb'],
-        ['house', 'das Haus', 'Our house is small.', 'Unser Haus ist klein.', 'noun'],
-        ['water', 'das Wasser', 'I drink water every day.', 'Ich trinke jeden Tag Wasser.', 'noun'],
-        ['friend', 'der Freund', 'She is my best friend.', 'Sie ist meine beste Freundin.', 'noun'],
-        ['to eat', 'essen', 'We eat at seven.', 'Wir essen um sieben.', 'verb'],
-        ['to work', 'arbeiten', 'I work from home.', 'Ich arbeite von zu Hause.', 'verb'],
-        ['big', 'groß', 'That is a big city.', 'Das ist eine große Stadt.', 'adjective'],
-        ['small', 'klein', 'A small problem.', 'Ein kleines Problem.', 'adjective'],
-      ],
-    },
-    {
-      title: 'Alltag & Einkaufen',
-      level: CefrLevel.A2,
-      description: 'Wortschatz für Supermarkt, Bahn und Restaurant',
-      iconEmoji: '🛒',
-      items: [
-        ['receipt', 'der Kassenbon', 'Can I have the receipt?', 'Kann ich den Kassenbon haben?', 'noun'],
-        ['discount', 'der Rabatt', 'Is there a discount?', 'Gibt es einen Rabatt?', 'noun'],
-        ['to order', 'bestellen', 'I would like to order.', 'Ich möchte bestellen.', 'verb'],
-        ['platform', 'das Gleis', 'The train leaves from platform 4.', 'Der Zug fährt von Gleis 4.', 'noun'],
-        ['delay', 'die Verspätung', 'The train has a delay.', 'Der Zug hat Verspätung.', 'noun'],
-        ['to try on', 'anprobieren', 'May I try this on?', 'Darf ich das anprobieren?', 'phrasal verb'],
-        ['cash', 'das Bargeld', 'Do you take cash?', 'Nehmen Sie Bargeld?', 'noun'],
-        ['refund', 'die Rückerstattung', 'I would like a refund.', 'Ich hätte gern eine Rückerstattung.', 'noun'],
-      ],
-    },
-    {
-      title: 'Arbeit & Büro',
-      level: CefrLevel.B1,
-      description: 'Formulierungen für Meetings, E-Mails und Small Talk',
-      iconEmoji: '💼',
-      items: [
-        ['deadline', 'die Frist', 'We missed the deadline.', 'Wir haben die Frist verpasst.', 'noun'],
-        ['to schedule', 'terminieren', 'Let us schedule a call.', 'Lass uns einen Anruf terminieren.', 'verb'],
-        ['agenda', 'die Tagesordnung', 'What is on the agenda?', 'Was steht auf der Tagesordnung?', 'noun'],
-        ['to follow up', 'nachfassen', 'I will follow up tomorrow.', 'Ich fasse morgen nach.', 'phrasal verb'],
-        ['stakeholder', 'die Interessengruppe', 'We informed all stakeholders.', 'Wir haben alle Interessengruppen informiert.', 'noun'],
-        ['workload', 'die Arbeitsbelastung', 'My workload is heavy.', 'Meine Arbeitsbelastung ist hoch.', 'noun'],
-        ['to delegate', 'delegieren', 'She delegates well.', 'Sie delegiert gut.', 'verb'],
-        ['feasible', 'machbar', 'That is not feasible.', 'Das ist nicht machbar.', 'adjective'],
-      ],
-    },
-    {
-      title: 'Meinung & Diskussion',
-      level: CefrLevel.B2,
-      description: 'Argumentieren, widersprechen, abwägen',
-      iconEmoji: '💬',
-      items: [
-        ['to argue', 'argumentieren', 'He argued convincingly.', 'Er hat überzeugend argumentiert.', 'verb'],
-        ['on the contrary', 'im Gegenteil', 'On the contrary, it helped.', 'Im Gegenteil, es hat geholfen.', 'phrase'],
-        ['to concede', 'einräumen', 'I concede that point.', 'Ich räume diesen Punkt ein.', 'verb'],
-        ['bias', 'die Voreingenommenheit', 'The study shows bias.', 'Die Studie zeigt Voreingenommenheit.', 'noun'],
-        ['compelling', 'überzeugend', 'A compelling argument.', 'Ein überzeugendes Argument.', 'adjective'],
-        ['to undermine', 'untergraben', 'That undermines the claim.', 'Das untergräbt die Behauptung.', 'verb'],
-      ],
-    },
-  ];
-
-  /**
-   * Deutsch als Fremdsprache: 250 Wörter pro Niveau (A1–C2), je fünf
-   * Themenpakete zu 50 Wörtern – ausgelagert nach `seed/german-vocab-*.ts`,
-   * damit diese Datei nicht auf mehrere tausend Zeilen anwächst.
-   */
-  const germanDeckSeeds = [
-    ...GERMAN_VOCAB_A1,
-    ...GERMAN_VOCAB_A2,
-    ...GERMAN_VOCAB_B1,
-    ...GERMAN_VOCAB_B2,
-    ...GERMAN_VOCAB_C1,
-    ...GERMAN_VOCAB_C2,
-  ];
-
-  /**
-   * Spanisch als Fremdsprache: gleicher Aufbau wie die Deutsch-Stapel,
-   * 250 Wörter pro Niveau (A1–C2) in fünf Themenpaketen zu 50 Wörtern.
-   * Übersetzt wird hier ins Deutsche, weil die Oberfläche deutsch ist.
-   */
-  const spanishDeckSeeds = [
-    ...SPANISH_VOCAB_A1,
-    ...SPANISH_VOCAB_A2,
-    ...SPANISH_VOCAB_B1,
-    ...SPANISH_VOCAB_B2,
-    ...SPANISH_VOCAB_C1,
-    ...SPANISH_VOCAB_C2,
-  ];
-
-  await seedVocabDecks(en, deckSeeds);
-  await seedVocabDecks(de, germanDeckSeeds);
-  await seedVocabDecks(es, spanishDeckSeeds);
+  // Ein gemeinsamer Wortschatz für alle Lernsprachen: sechs Niveaus mit je
+  // acht Kategorien zu 50 Begriffen, jeder Begriff in allen Oberflächen-
+  // sprachen hinterlegt (siehe seed/vocab). Daraus entstehen die Stapel für
+  // Deutsch, Englisch und Spanisch – mit Übersetzungen in jede Muttersprache.
+  await seedVocabulary(prisma, { de, en, es });
 
   // ----------------------------------------------------------- Bibliothek
   async function seedLibraryContent(languageId: string, seeds: LibraryContentSeed[]): Promise<void> {

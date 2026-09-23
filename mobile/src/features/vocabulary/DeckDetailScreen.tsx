@@ -5,11 +5,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { CardStatus, DeckItemDto } from '@lingua/shared';
 import { Button, Caption, ErrorState, Input, LevelBadge, Loading, ProgressBar, Row, Title } from '../../components';
-import { vocabularyApi } from '../../api/endpoints';
+import { aiApi, vocabularyApi } from '../../api/endpoints';
 import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { alert } from '../../utils/alert';
+import { useAuthStore } from '../../store/auth.store';
 import { PencilIcon, PlusIcon, TrashIcon } from '../workbook/BookIcons';
 import {
   colors,
@@ -23,6 +24,8 @@ import {
   typography,
 } from '../../theme';
 import { DeckStack, STACK_LABEL_KEYS, type QueueType } from './DeckStack';
+import { MATCH_MIN_WORDS } from './MatchGameScreen';
+import { TrainerOptions } from './TrainerOptions';
 import type { VocabularyStackParamList } from '../../navigation/types';
 import { MAX_WIDTH } from '../../navigation/WebLayout';
 
@@ -44,7 +47,8 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckDetail'>;
  */
 export default function DeckDetailScreen({ route, navigation }: Props) {
   const { deckId } = route.params;
-  const { t } = useTranslation();
+  const { t, tLanguage } = useTranslation();
+  const nativeCode = useAuthStore((state) => state.user?.nativeLanguage);
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // `null` = Formular zu, `'new'` = neues Wort, sonst das Wort, das bearbeitet wird.
@@ -88,6 +92,13 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     },
   });
 
+  // Übersetzung per KI vorschlagen – spart beim Anlegen eigener Wörter das
+  // Nachschlagen. Das Ergebnis landet nur im Feld und bleibt editierbar.
+  const suggest = useMutation({
+    mutationFn: () => aiApi.translate({ text: term.trim() }),
+    onSuccess: (result) => setTranslation(result.translation),
+  });
+
   const deleteWord = useMutation({
     mutationFn: (itemId: string) => vocabularyApi.deleteItem(itemId),
     onSuccess: async () => {
@@ -107,6 +118,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     setExampleSentence('');
     setExampleTranslation('');
     saveWord.reset();
+    suggest.reset();
   }
 
   function openAddWord() {
@@ -196,6 +208,8 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
         <View style={{ gap: spacing.md }}>
           <SectionRule label={t('deckPracticeHeading')} />
 
+          {deck.itemCount > 0 ? <TrainerOptions /> : null}
+
           {deck.isSystem ? (
             newCount > 0 || repeatCount > 0 || learned > 0 ? (
               /* Drei Wege zu lernen, als Stapel nebeneinander – jeder nur, wenn dort etwas liegt. */
@@ -245,6 +259,21 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           ) : (
             <Caption>{t('vocabDeckEmptyHint')}</Caption>
           )}
+
+          {deck.items.length >= MATCH_MIN_WORDS ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Match', { deckId, title: deck.title })}
+              style={({ pressed }) => [gameCard, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
+            >
+              <Text style={{ fontSize: 28 }}>🧩</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={gameTitle}>{t('matchTitle')}</Text>
+                <Text style={gameHint}>{t('matchTeaser')}</Text>
+              </View>
+              <Text style={[gameTitle, { color: colors.primary }]}>▶</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={{ gap: spacing.sm }}>
@@ -296,10 +325,18 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 error={saveWord.isError ? (saveWord.error as Error).message : undefined}
               />
               <Input
-                label={t('vocabTranslationLabel')}
+                label={`${t('vocabTranslationLabel')} (${tLanguage(nativeCode ?? '', nativeCode)})`}
                 value={translation}
                 onChangeText={setTranslation}
                 placeholder={t('vocabTranslationPlaceholder')}
+                error={suggest.isError ? (suggest.error as Error).message : undefined}
+              />
+              <Button
+                label={`✨ ${t('vocabSuggestTranslation')}`}
+                variant="secondary"
+                loading={suggest.isPending}
+                disabled={term.trim().length < 1}
+                onPress={() => suggest.mutate()}
               />
               <Input
                 label={t('vocabPhoneticLabel')}
@@ -586,4 +623,26 @@ const sheetStyle = {
   borderTopRightRadius: radius.xl,
   padding: spacing.lg,
   maxHeight: '85%' as const,
+};
+
+const gameCard = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.md,
+  padding: spacing.md,
+  borderRadius: radius.md,
+  backgroundColor: colors.premiumSoft,
+  borderWidth: 1,
+  borderBottomWidth: 3,
+  borderColor: colors.premium,
+};
+
+const gameTitle = {
+  ...typography.bodyStrong,
+  color: colors.text,
+};
+
+const gameHint = {
+  ...typography.caption,
+  color: colors.textMuted,
 };

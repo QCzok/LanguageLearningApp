@@ -616,6 +616,9 @@ ${TRANSLATION_INSTRUCTIONS}`,
           create: parsed.items.map((item, index) => ({
             term: item.term,
             translation: item.translation,
+            // Unter dem Sprachcode abgelegt, damit die Übersetzung auch nach
+            // einem Wechsel der Muttersprache zugeordnet bleibt.
+            translations: { [user.nativeLanguage]: item.translation },
             phonetic: item.phonetic,
             partOfSpeech: item.partOfSpeech,
             exampleSentence: item.exampleSentence,

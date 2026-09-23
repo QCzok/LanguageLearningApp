@@ -6,10 +6,13 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { toLanguageDto } from '../languages/languages.service';
 import type {
+  CardDirection,
   DeckProgressDto,
   ReviewCardDto,
+  SubmitReviewResultDto,
   VocabDeckDetailDto,
   VocabDeckDto,
+  VocabDirection,
   VocabItemDto,
   VocabStatsDto,
 } from '@lingua/shared';
@@ -30,17 +33,38 @@ const XP_PER_CORRECT_REVIEW = 2;
 const DEFAULT_NEW_LIMIT = 10;
 /**
  * Mindestzahl unterschiedlicher Distraktoren, ab der eine Mehrfachauswahl noch
- * eine echte Auswahl ist. Eigene, kleine Decks haben oft nur eine Handvoll
- * Wörter – mit ein oder zwei Alternativen wäre die "Auswahl" eine Ratefrage
- * mit einer offensichtlichen Antwort statt einer Lernkarte. Dann lieber die
- * Karte umdrehen (siehe `buildCard`).
+ * eine echte Auswahl ist. Reicht der Vorrat nicht, wird die Karte zum
+ * Umdrehen gezeigt (siehe `buildCard`).
  */
 const MIN_DISTRACTORS_FOR_CHOICES = 3;
+/** Vier falsche plus die richtige Antwort. */
+const CHOICE_DISTRACTORS = 4;
+
+/**
+ * Bonus-XP für eine Serie richtiger Antworten – der spielerische Anreiz,
+ * konzentriert zu bleiben. Gedeckelt, damit eine lange Sitzung nicht
+ * beliebig viel XP abwirft.
+ */
+function comboBonus(combo: number): number {
+  if (combo >= 10) return 3;
+  if (combo >= 5) return 2;
+  if (combo >= 3) return 1;
+  return 0;
+}
 
 const deckWithCount = {
   language: true,
   _count: { select: { items: true } },
 } satisfies Prisma.VocabDeckInclude;
+
+type ItemRow = Prisma.VocabItemGetPayload<object>;
+
+/** Ein Eintrag im Distraktoren-Vorrat: Begriff und aufgelöste Übersetzung. */
+interface PoolEntry {
+  id: string;
+  term: string;
+  translation: string;
+}
 
 @Injectable()
 export class VocabularyService {
@@ -52,7 +76,10 @@ export class VocabularyService {
   // ------------------------------------------------------------------ Decks
 
   async listDecks(userId: string, query: ListDecksQueryDto): Promise<VocabDeckDto[]> {
-    const profile = await this.users.getActiveProfileOrThrow(userId);
+    const [profile, native] = await Promise.all([
+      this.users.getActiveProfileOrThrow(userId),
+      this.nativeLanguage(userId),
+    ]);
     const languageId = query.languageId ?? profile.languageId;
 
     // Systemdecks sind auf das aktuelle Profil-Niveau begrenzt – höhere Niveaus
@@ -81,23 +108,19 @@ export class VocabularyService {
     );
 
     return decks.map((deck) => ({
-      id: deck.id,
-      title: deck.title,
-      description: deck.description,
-      iconEmoji: deck.iconEmoji,
-      level: deck.level,
-      language: toLanguageDto(deck.language),
-      itemCount: deck._count.items,
-      isSystem: deck.isSystem,
+      ...toDeckDto(deck, native),
       progress: progressByDeck.get(deck.id),
     }));
   }
 
   async getDeck(userId: string, deckId: string): Promise<VocabDeckDetailDto> {
-    const deck = await this.prisma.vocabDeck.findUnique({
-      where: { id: deckId },
-      include: { ...deckWithCount, items: { orderBy: { sortOrder: 'asc' } } },
-    });
+    const [deck, native] = await Promise.all([
+      this.prisma.vocabDeck.findUnique({
+        where: { id: deckId },
+        include: { ...deckWithCount, items: { orderBy: { sortOrder: 'asc' } } },
+      }),
+      this.nativeLanguage(userId),
+    ]);
     if (!deck) throw new NotFoundException(ERR['notfound.deck']);
     if (!deck.isSystem && deck.ownerId !== userId) {
       throw new ForbiddenException(ERR['forbidden.deck_other_user']);
@@ -118,17 +141,10 @@ export class VocabularyService {
     const statusByItem = new Map(statuses.map((row) => [row.vocabItemId, row.status]));
 
     return {
-      id: deck.id,
-      title: deck.title,
-      description: deck.description,
-      iconEmoji: deck.iconEmoji,
-      level: deck.level,
-      language: toLanguageDto(deck.language),
-      itemCount: deck._count.items,
-      isSystem: deck.isSystem,
+      ...toDeckDto(deck, native),
       progress,
       items: deck.items.map((item) => ({
-        ...toVocabItemDto(item),
+        ...toVocabItemDto(item, native),
         status: statusByItem.get(item.id) ?? null,
       })),
     };
@@ -148,26 +164,27 @@ export class VocabularyService {
       include: deckWithCount,
     });
 
-    return {
-      id: deck.id,
-      title: deck.title,
-      description: deck.description,
-      iconEmoji: deck.iconEmoji,
-      level: deck.level,
-      language: toLanguageDto(deck.language),
-      itemCount: 0,
-      isSystem: false,
-    };
+    return toDeckDto(deck);
   }
 
   async addItem(userId: string, deckId: string, dto: CreateVocabItemDto): Promise<VocabItemDto> {
     await this.assertOwnDeck(userId, deckId);
 
+    // Eigene Vokabeln tragen die Übersetzung in der Muttersprache ihres
+    // Besitzers – als Fallback in `translation` und zusätzlich unter dem
+    // Sprachcode, damit sie ein Wechsel der Muttersprache nicht verliert.
+    const native = await this.nativeLanguage(userId);
     const count = await this.prisma.vocabItem.count({ where: { deckId } });
     const item = await this.prisma.vocabItem.create({
-      data: { deckId, ...dto, tags: dto.tags ?? [], sortOrder: count },
+      data: {
+        deckId,
+        ...dto,
+        translations: { [native]: dto.translation },
+        tags: dto.tags ?? [],
+        sortOrder: count,
+      },
     });
-    return toVocabItemDto(item);
+    return toVocabItemDto(item, native);
   }
 
   async updateItem(
@@ -184,8 +201,17 @@ export class VocabularyService {
       throw new ForbiddenException(ERR['forbidden.vocab_readonly']);
     }
 
-    const updated = await this.prisma.vocabItem.update({ where: { id: itemId }, data: dto });
-    return toVocabItemDto(updated);
+    const native = await this.nativeLanguage(userId);
+    const translations =
+      dto.translation !== undefined
+        ? { ...asTranslations(item.translations), [native]: dto.translation }
+        : undefined;
+
+    const updated = await this.prisma.vocabItem.update({
+      where: { id: itemId },
+      data: { ...dto, ...(translations ? { translations } : {}) },
+    });
+    return toVocabItemDto(updated, native);
   }
 
   async deleteItem(userId: string, itemId: string): Promise<void> {
@@ -209,24 +235,23 @@ export class VocabularyService {
 
   /**
    * Stellt die Lernwarteschlange zusammen: zuerst fällige Karten (älteste zuerst),
-   * danach neue Karten bis zum Limit. Für jede Karte wird ein Lernmodus gewählt
-   * und – wo nötig – Distraktoren aus demselben Deck gezogen.
+   * danach neue Karten bis zum Limit. Für jede Karte werden Lernrichtung und
+   * Lernmodus gewählt und – wo nötig – Distraktoren aus demselben Deck gezogen.
    */
   async getReviewQueue(userId: string, query: ReviewQueueQueryDto): Promise<ReviewCardDto[]> {
+    const native = await this.nativeLanguage(userId);
+    const options: CardOptions = { native, mode: query.mode, direction: query.direction };
+
     // Eigene Decks bleiben ein einziges Deck: keine Aufteilung in neu/
-    // wiederholen/gelernt wie bei den 30-50 Wörter großen Systemdecks, und
-    // immer umdrehbar statt Mehrfachauswahl – dafür reicht ein eigenes Deck
-    // selten genug Wörter für plausible Distraktoren (siehe `ownDeckQueue`).
-    // Das gilt unabhängig davon, was der Client an Filtern/Modus mitschickt:
-    // ein kleines, selbst angelegtes Deck lässt sich nicht in Teilstapel
-    // zerlegen, die es nicht hat.
+    // wiederholen/gelernt wie bei den 50 Wörter großen Systemdecks – jede
+    // Runde zeigt das ganze Deck (siehe `ownDeckQueue`).
     if (query.deckId) {
       const deck = await this.prisma.vocabDeck.findUnique({
         where: { id: query.deckId },
         select: { isSystem: true },
       });
       if (deck && !deck.isSystem) {
-        return this.ownDeckQueue(userId, query.deckId);
+        return this.ownDeckQueue(userId, query.deckId, options);
       }
     }
 
@@ -263,7 +288,7 @@ export class VocabularyService {
       return this.queueFromWhere(
         { userId, status: CardStatus.LEARNING, repetitions: 0, vocabItem: deckFilter },
         limit,
-        query.mode,
+        options,
       );
     }
 
@@ -275,12 +300,12 @@ export class VocabularyService {
       return this.queueFromWhere(
         { userId, repetitions: { gte: 1 }, vocabItem: deckFilter },
         limit,
-        query.mode,
+        options,
       );
     }
 
     // `dueLimit: 0` blendet den Wiederholen-Stapel bewusst aus – für eine
-    // Sitzung, die ausschließlich neue Vokabeln zeigt (siehe pickMode/mode).
+    // Sitzung, die ausschließlich neue Vokabeln zeigt.
     const due = await this.prisma.vocabProgress.findMany({
       where: { userId, dueAt: { lte: now }, vocabItem: deckFilter },
       include: { vocabItem: true },
@@ -291,7 +316,7 @@ export class VocabularyService {
     const remaining = Math.max(0, limit - due.length);
     const newLimit = Math.min(remaining, query.newLimit ?? DEFAULT_NEW_LIMIT);
 
-    let fresh: Prisma.VocabItemGetPayload<object>[] = [];
+    let fresh: ItemRow[] = [];
     if (newLimit > 0) {
       // Karten ohne Progress-Eintrag = noch nie gesehen. Bewusst OHNE hier
       // schon eine Progress-Zeile anzulegen: nur weil eine Karte ausgeliefert
@@ -305,7 +330,7 @@ export class VocabularyService {
       });
     }
 
-    const cards = [
+    const cards: QueueCard[] = [
       ...due.map((entry) => ({
         cardId: entry.id,
         item: entry.vocabItem,
@@ -324,20 +349,21 @@ export class VocabularyService {
 
     if (cards.length === 0) return [];
 
-    const distractorPool = await this.distractorPool(cards.map((card) => card.item.deckId));
-
-    // Alle Stapel sind durchmischbar – die Reihenfolge (älteste Fälligkeit
-    // zuerst, dann neue Karten) ist keine feste Abarbeitungsliste.
-    return shuffle(cards).map((card) =>
-      this.buildCard(card, distractorPool, this.pickMode(card.status, query.mode)),
+    const pool = await this.distractorPool(
+      cards.map((card) => card.item.deckId),
+      native,
     );
+
+    // Alle Stapel sind durchmischt – die Reihenfolge (älteste Fälligkeit
+    // zuerst, dann neue Karten) ist keine feste Abarbeitungsliste.
+    return shuffle(cards).map((card) => this.buildCard(card, pool, options));
   }
 
   /** Lädt Karten anhand eines Progress-Filters (statt dueAt/newLimit-Kombination) und baut sie durchmischt auf. */
   private async queueFromWhere(
     where: Prisma.VocabProgressWhereInput,
     limit: number,
-    mode?: VocabMode,
+    options: CardOptions,
   ): Promise<ReviewCardDto[]> {
     const rows = await this.prisma.vocabProgress.findMany({
       where,
@@ -346,91 +372,121 @@ export class VocabularyService {
     });
     if (rows.length === 0) return [];
 
-    const distractorPool = await this.distractorPool(rows.map((entry) => entry.vocabItem.deckId));
+    const pool = await this.distractorPool(
+      rows.map((entry) => entry.vocabItem.deckId),
+      options.native,
+    );
     return shuffle(rows).map((entry) =>
       this.buildCard(
         { cardId: entry.id, item: entry.vocabItem, status: entry.status, dueAt: entry.dueAt },
-        distractorPool,
-        mode ?? VocabMode.MULTIPLE_CHOICE,
+        pool,
+        options,
       ),
     );
   }
 
   /**
-   * Die Lernwarteschlange eines eigenen Decks: immer das ganze Deck, immer
-   * umdrehbar. Anders als bei Systemdecks gibt es hier kein "fällig" oder
-   * "neu" – jede Runde zeigt alle Wörter, durchmischt, und eine falsch
-   * eingeschätzte Karte kommt über `submitReview`/SM-2 einfach in der
-   * nächsten Runde wieder früher dran.
+   * Die Lernwarteschlange eines eigenen Decks: immer das ganze Deck,
+   * durchmischt. Anders als bei Systemdecks gibt es hier kein "fällig" oder
+   * "neu" – jede Runde zeigt alle Wörter, und eine falsch beantwortete Karte
+   * kommt über `submitReview`/SM-2 in der nächsten Runde früher dran.
+   *
+   * Kleine Decks haben selten genug Wörter für eine echte Auswahl. Dann
+   * stammen die falschen Antworten zusätzlich aus den Systemstapeln derselben
+   * Sprache und desselben Niveaus – so funktioniert auch ein Deck mit drei
+   * eigenen Wörtern als Auswahlübung.
    */
-  private async ownDeckQueue(userId: string, deckId: string): Promise<ReviewCardDto[]> {
-    const items = await this.prisma.vocabItem.findMany({
-      where: { deckId },
-      orderBy: { sortOrder: 'asc' },
+  private async ownDeckQueue(
+    userId: string,
+    deckId: string,
+    options: CardOptions,
+  ): Promise<ReviewCardDto[]> {
+    const deck = await this.prisma.vocabDeck.findUniqueOrThrow({
+      where: { id: deckId },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
     });
-    if (items.length === 0) return [];
+    if (deck.ownerId !== userId) throw new ForbiddenException(ERR['forbidden.deck_other_user']);
+    if (deck.items.length === 0) return [];
 
     const progressRows = await this.prisma.vocabProgress.findMany({
-      where: { userId, vocabItemId: { in: items.map((item) => item.id) } },
+      where: { userId, vocabItemId: { in: deck.items.map((item) => item.id) } },
     });
     const progressByItem = new Map(progressRows.map((row) => [row.vocabItemId, row]));
     const now = new Date();
 
-    return shuffle(items).map((item) => {
+    let pool: PoolEntry[] = deck.items.map((item) => toPoolEntry(item, options.native));
+    if (pool.length <= MIN_DISTRACTORS_FOR_CHOICES + 1) {
+      const extra = await this.prisma.vocabItem.findMany({
+        where: { deck: { languageId: deck.languageId, level: deck.level, isSystem: true } },
+        take: 60,
+      });
+      pool = [...pool, ...extra.map((item) => toPoolEntry(item, options.native))];
+    }
+
+    return shuffle(deck.items).map((item) => {
       const progress = progressByItem.get(item.id);
-      return {
-        // Ohne Progress-Zeile ist die VocabItem-ID der Platzhalter, den
-        // `submitReview` erkennt und beim ersten Bewerten in eine echte
-        // Progress-Zeile überführt – dieselbe Konvention wie bei Systemdecks
-        // (siehe oben).
-        cardId: progress?.id ?? item.id,
-        item: toVocabItemDto(item),
-        mode: VocabMode.FLASHCARD,
-        status: progress?.status ?? CardStatus.NEW,
-        dueAt: (progress?.dueAt ?? now).toISOString(),
-      };
+      return this.buildCard(
+        {
+          // Ohne Progress-Zeile ist die VocabItem-ID der Platzhalter, den
+          // `submitReview` beim ersten Bewerten in eine Progress-Zeile
+          // überführt – dieselbe Konvention wie bei Systemdecks.
+          cardId: progress?.id ?? item.id,
+          item,
+          status: progress?.status ?? CardStatus.NEW,
+          dueAt: progress?.dueAt ?? now,
+        },
+        pool,
+        options,
+      );
     });
   }
 
-  /** Baut eine ReviewCardDto inkl. Distraktoren, wo der Modus Auswahlantworten braucht. */
-  private buildCard(
-    card: { cardId: string; item: Prisma.VocabItemGetPayload<object>; status: CardStatus; dueAt: Date },
-    distractorPool: Array<{ id: string; translation: string }>,
-    mode: VocabMode,
-  ): ReviewCardDto {
-    // Gleichlautende Übersetzungen werden vorher entfernt – sonst stünde
-    // dieselbe Antwort zweimal da und eine davon würde als falsch gewertet.
+  /**
+   * Baut eine Karte: Richtung, Modus und – bei Auswahlmodi – fünf Vorschläge.
+   *
+   * FORWARD fragt den Begriff ab, die Vorschläge sind Übersetzungen in der
+   * Muttersprache. REVERSE zeigt die Übersetzung, die Vorschläge sind Begriffe
+   * der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
+   * Stapel gezogen; gleichlautende werden vorher entfernt, sonst stünde die
+   * richtige Antwort zweimal da und eine davon würde als falsch gewertet.
+   */
+  private buildCard(card: QueueCard, pool: PoolEntry[], options: CardOptions): ReviewCardDto {
+    const item = toVocabItemDto(card.item, options.native);
+    const direction = pickDirection(options.direction);
+    const mode = pickMode(card.status, options.mode, direction);
+
+    const answerOf = (entry: { term: string; translation: string }) =>
+      direction === 'FORWARD' ? entry.translation : entry.term;
+    const correct = answerOf(item);
+
     const alternatives = [
       ...new Set(
-        distractorPool
-          .filter((entry) => entry.id !== card.item.id && entry.translation !== card.item.translation)
-          .map((entry) => entry.translation),
+        pool
+          .filter((entry) => entry.id !== item.id)
+          .map(answerOf)
+          .filter((answer) => answer !== correct),
       ),
     ];
 
-    // Ein Auswahlmodus braucht ein Deck mit genug anderen Wörtern, sonst wäre
-    // die "Auswahl" nur die offensichtlich richtige Antwort. Reicht der
-    // Distraktoren-Vorrat nicht, wird die Karte stattdessen umgedreht – das
-    // überstimmt auch einen ausdrücklich angeforderten Auswahlmodus, weil ein
-    // kleines Deck seinen Vorrat nicht durch eine Anfrage vergrößert.
+    // Ein Auswahlmodus braucht genug andere Wörter, sonst wäre die "Auswahl"
+    // nur die offensichtlich richtige Antwort – dann wird die Karte umgedreht.
     const wantsChoices = mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING;
     const effectiveMode =
       wantsChoices && alternatives.length < MIN_DISTRACTORS_FOR_CHOICES ? VocabMode.FLASHCARD : mode;
 
     const base: ReviewCardDto = {
       cardId: card.cardId,
-      item: toVocabItemDto(card.item),
+      item,
       mode: effectiveMode,
+      direction,
       status: card.status,
       dueAt: card.dueAt.toISOString(),
     };
 
     if (effectiveMode === VocabMode.MULTIPLE_CHOICE || effectiveMode === VocabMode.LISTENING) {
-      // Fünf Vorschläge insgesamt: die richtige Übersetzung plus bis zu vier
-      // Distraktoren aus demselben Deck.
-      const choices = shuffle([card.item.translation, ...shuffle(alternatives).slice(0, 4)]);
+      const choices = shuffle([correct, ...shuffle(alternatives).slice(0, CHOICE_DISTRACTORS)]);
       base.choices = choices;
-      base.correctChoiceIndex = choices.indexOf(card.item.translation);
+      base.correctChoiceIndex = choices.indexOf(correct);
     }
     return base;
   }
@@ -439,7 +495,7 @@ export class VocabularyService {
    * Bewertet eine Karte. Die SM-2-Berechnung erfolgt serverseitig – die App liefert
    * nur die Note, damit der Lernstand nicht manipulierbar ist.
    */
-  async submitReview(userId: string, dto: SubmitReviewDto) {
+  async submitReview(userId: string, dto: SubmitReviewDto): Promise<SubmitReviewResultDto> {
     let card = await this.prisma.vocabProgress.findFirst({
       where: { id: dto.cardId, userId },
       include: { vocabItem: true },
@@ -472,6 +528,7 @@ export class VocabularyService {
     );
 
     const correct = dto.grade >= 3;
+    const xpEarned = correct ? XP_PER_CORRECT_REVIEW + comboBonus(dto.combo ?? 0) : 0;
 
     const [updated] = await this.prisma.$transaction([
       this.prisma.vocabProgress.update({
@@ -501,7 +558,7 @@ export class VocabularyService {
     await this.users.trackActivity(userId, {
       reviews: 1,
       correctReviews: correct ? 1 : 0,
-      xp: correct ? XP_PER_CORRECT_REVIEW : 0,
+      xp: xpEarned,
       minutes: Math.round((dto.durationMs ?? 0) / 60_000),
     });
 
@@ -512,7 +569,7 @@ export class VocabularyService {
       intervalDays: updated.intervalDays,
       easeFactor: Number(updated.easeFactor.toFixed(2)),
       correct,
-      xpEarned: correct ? XP_PER_CORRECT_REVIEW : 0,
+      xpEarned,
     };
   }
 
@@ -570,6 +627,15 @@ export class VocabularyService {
   }
 
   // --------------------------------------------------------------- Helfer
+
+  /** Die Muttersprache des Nutzers – bestimmt, in welcher Sprache übersetzt wird. */
+  private async nativeLanguage(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { nativeLanguage: true },
+    });
+    return user.nativeLanguage;
+  }
 
   private async assertOwnDeck(userId: string, deckId: string) {
     const deck = await this.prisma.vocabDeck.findUnique({ where: { id: deckId } });
@@ -644,41 +710,124 @@ export class VocabularyService {
    * Distraktoren mehr – die jeweils eigene Karte wird erst beim Bauen der
    * Auswahl herausgefiltert.
    */
-  private async distractorPool(deckIds: string[]) {
-    return this.prisma.vocabItem.findMany({
+  private async distractorPool(deckIds: string[], native: string): Promise<PoolEntry[]> {
+    const items = await this.prisma.vocabItem.findMany({
       where: { deckId: { in: [...new Set(deckIds)] } },
-      select: { id: true, translation: true },
-      take: 200,
+      select: { id: true, term: true, translation: true, translations: true },
+      take: 400,
     });
-  }
-
-  /**
-   * Modusauswahl: Neue Karten werden zuerst als Lernkarte gezeigt, geübte Karten
-   * fordern aktives Abrufen. Ein explizit gewünschter Modus hat Vorrang.
-   */
-  private pickMode(status: CardStatus, requested?: VocabMode): VocabMode {
-    if (requested) return requested;
-    if (status === CardStatus.NEW) return VocabMode.FLASHCARD;
-    if (status === CardStatus.LEARNING) return VocabMode.MULTIPLE_CHOICE;
-    return shuffleSeedFree([VocabMode.TYPING, VocabMode.MULTIPLE_CHOICE, VocabMode.FLASHCARD]);
+    return items.map((item) => toPoolEntry(item, native));
   }
 }
 
-export function toVocabItemDto(item: {
-  id: string;
-  term: string;
-  translation: string;
-  phonetic: string | null;
-  partOfSpeech: string | null;
-  exampleSentence: string | null;
-  exampleTranslation: string | null;
-  audioUrl: string | null;
-  tags: string[];
-}): VocabItemDto {
+// ------------------------------------------------------------------ Karten
+
+interface CardOptions {
+  native: string;
+  mode?: VocabMode;
+  direction?: VocabDirection;
+}
+
+interface QueueCard {
+  cardId: string;
+  item: ItemRow;
+  status: CardStatus;
+  dueAt: Date;
+}
+
+function pickDirection(requested?: VocabDirection): CardDirection {
+  if (requested === 'REVERSE') return 'REVERSE';
+  if (requested === 'MIXED') return Math.random() < 0.5 ? 'FORWARD' : 'REVERSE';
+  return 'FORWARD';
+}
+
+/**
+ * Modusauswahl, wenn der Nutzer keinen festen Modus gewählt hat: Neue und
+ * gerade falsch beantwortete Karten kommen als Auswahl (erkennen ist
+ * leichter als abrufen), gefestigte Karten wechseln zwischen Auswahl,
+ * Eintippen, Hören und Lernkarte. Hören geht nur vorwärts – vorgelesen wird
+ * der Begriff in der Lernsprache.
+ */
+function pickMode(status: CardStatus, requested: VocabMode | undefined, direction: CardDirection): VocabMode {
+  const mode =
+    requested ??
+    (status === CardStatus.NEW || status === CardStatus.LEARNING
+      ? Math.random() < 0.2
+        ? VocabMode.LISTENING
+        : VocabMode.MULTIPLE_CHOICE
+      : shuffleSeedFree([
+          VocabMode.MULTIPLE_CHOICE,
+          VocabMode.TYPING,
+          VocabMode.LISTENING,
+          VocabMode.FLASHCARD,
+        ]));
+  if (mode === VocabMode.LISTENING && direction === 'REVERSE') return VocabMode.MULTIPLE_CHOICE;
+  // Zuordnen ist ein eigenes Spiel über mehrere Karten, keine Einzelkarte.
+  if (mode === VocabMode.MATCHING) return VocabMode.MULTIPLE_CHOICE;
+  return mode;
+}
+
+// ------------------------------------------------------------ Umwandlungen
+
+function asTranslations(value: Prisma.JsonValue | undefined): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+  );
+}
+
+/** Die Übersetzung in der Muttersprache, sonst die hinterlegte Standardübersetzung. */
+export function resolveTranslation(
+  item: { translation: string; translations: Prisma.JsonValue },
+  native?: string,
+): string {
+  if (!native) return item.translation;
+  return asTranslations(item.translations)[native] ?? item.translation;
+}
+
+function toPoolEntry(
+  item: { id: string; term: string; translation: string; translations: Prisma.JsonValue },
+  native: string,
+): PoolEntry {
+  return { id: item.id, term: item.term, translation: resolveTranslation(item, native) };
+}
+
+function toDeckDto(
+  deck: Prisma.VocabDeckGetPayload<{ include: typeof deckWithCount }>,
+  native?: string,
+): VocabDeckDto {
+  const titles = asTranslations(deck.titles);
+  return {
+    id: deck.id,
+    title: (native && titles[native]) || titles.en || deck.title,
+    description: deck.description,
+    iconEmoji: deck.iconEmoji,
+    level: deck.level,
+    language: toLanguageDto(deck.language),
+    itemCount: deck._count.items,
+    isSystem: deck.isSystem,
+  };
+}
+
+export function toVocabItemDto(
+  item: {
+    id: string;
+    term: string;
+    translation: string;
+    translations: Prisma.JsonValue;
+    phonetic: string | null;
+    partOfSpeech: string | null;
+    exampleSentence: string | null;
+    exampleTranslation: string | null;
+    audioUrl: string | null;
+    tags: string[];
+  },
+  native?: string,
+): VocabItemDto {
   return {
     id: item.id,
     term: item.term,
-    translation: item.translation,
+    translation: resolveTranslation(item, native),
     phonetic: item.phonetic,
     partOfSpeech: item.partOfSpeech,
     exampleSentence: item.exampleSentence,

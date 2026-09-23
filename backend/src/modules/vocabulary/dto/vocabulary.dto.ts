@@ -1,10 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CefrLevel, VocabMode } from '@prisma/client';
 import { Type } from 'class-transformer';
+import { VOCAB_DIRECTIONS, type VocabDirection } from '@lingua/shared';
 import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -47,6 +49,16 @@ export class ReviewQueueQueryDto {
   @IsOptional()
   @IsEnum(VocabMode)
   mode?: VocabMode;
+
+  @ApiPropertyOptional({
+    enum: VOCAB_DIRECTIONS,
+    default: 'FORWARD',
+    description:
+      'FORWARD: Lernsprache → Muttersprache, REVERSE: Muttersprache → Lernsprache, MIXED: je Karte zufällig.',
+  })
+  @IsOptional()
+  @IsIn(VOCAB_DIRECTIONS)
+  direction?: VocabDirection;
 
   @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
   @IsOptional()
@@ -118,6 +130,14 @@ export class SubmitReviewDto {
   @IsInt()
   @Min(0)
   durationMs?: number;
+
+  @ApiPropertyOptional({ description: 'Richtige Antworten in Folge vor dieser Karte (Bonus-XP)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1000)
+  combo?: number;
 }
 
 export class CreateDeckDto {

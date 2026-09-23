@@ -35,6 +35,15 @@ export const VOCAB_MODES = [
 ] as const;
 export type VocabMode = (typeof VOCAB_MODES)[number];
 
+/**
+ * Lernrichtung einer Sitzung: FORWARD fragt den Begriff in der Lernsprache
+ * ab (Antwort in der Muttersprache), REVERSE umgekehrt. MIXED wählt je Karte.
+ */
+export const VOCAB_DIRECTIONS = ['FORWARD', 'REVERSE', 'MIXED'] as const;
+export type VocabDirection = (typeof VOCAB_DIRECTIONS)[number];
+/** Die Richtung einer einzelnen Karte – MIXED ist bereits aufgelöst. */
+export type CardDirection = Exclude<VocabDirection, 'MIXED'>;
+
 /** Bewertung einer Karte nach SM-2 (0–5). Die App mappt auf 4 Buttons. */
 export const REVIEW_GRADES = [0, 1, 2, 3, 4, 5] as const;
 export type ReviewGrade = (typeof REVIEW_GRADES)[number];

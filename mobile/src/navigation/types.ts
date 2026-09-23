@@ -28,9 +28,9 @@ export type VocabularyStackParamList = {
    * fest, welchen der drei Stapel der Nutzer gewählt hat: neue Vokabeln
    * (fünf Bedeutungsvorschläge je Wort), den Wiederholen-Stapel (fällige
    * Karten) oder den Gelernt-Stapel (bereits gemeisterte Karten zum
-   * Auffrischen). `ALL` gilt nur für eigene Decks: das ganze, kleine Deck auf
-   * einmal, immer umdrehbar statt Mehrfachauswahl (siehe
-   * `VocabularyService.ownDeckQueue`).
+   * Auffrischen). `ALL` gilt nur für eigene Decks: das ganze Deck auf einmal
+   * (siehe `VocabularyService.ownDeckQueue`). Richtung und Modus kommen aus
+   * den Trainer-Einstellungen (`useTrainerSettings`).
    */
   Review: {
     deckId?: string;
@@ -39,6 +39,8 @@ export type VocabularyStackParamList = {
     title?: string;
   };
   VocabStats: undefined;
+  /** Paare finden – Begriffe und Übersetzungen eines Stapels gegen die Uhr zuordnen. */
+  Match: { deckId: string; title: string };
 };
 
 export type NotebookStackParamList = {
