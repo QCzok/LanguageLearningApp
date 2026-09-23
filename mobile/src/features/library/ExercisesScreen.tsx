@@ -18,6 +18,8 @@ import {
 } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { ReadingSection } from './ReadingSection';
+import { TranslateLayer } from '../translate/TranslateLayer';
+import { useTranslateHeaderButton } from '../translate/TranslateButton';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Exercises'>;
 
@@ -39,6 +41,7 @@ const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
 export default function ExercisesScreen({ route, navigation }: Props) {
   const { contentId } = route.params;
   const { t } = useTranslation();
+  const translator = useTranslateHeaderButton(navigation);
 
   const [choices, setChoices] = useState<Record<string, number>>({});
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -74,155 +77,164 @@ export default function ExercisesScreen({ route, navigation }: Props) {
   const passed = (result?.scorePercent ?? 0) >= PASS_PERCENT;
 
   return (
-    <Screen scroll>
-      {result ? (
-        <ResultBanner result={result} passed={passed} />
-      ) : (
-        <View style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <Text style={[readingLabel, { color: colors.text }]}>{t('exercisesHeading')}</Text>
-            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-            <Text style={[readingLabel, { color: colors.textMuted }]}>
-              {answered} / {exercises.length}
-            </Text>
-          </View>
-
-          {/* Ein Punkt je Frage statt eines Balkens: Man sieht nicht nur wie
-              weit, sondern auch wie viel überhaupt noch kommt. */}
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {exercises.map((exercise) => (
-              <View
-                key={exercise.id}
-                style={[dot, isAnswered(exercise.id) && { backgroundColor: colors.primary }]}
-              />
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* Zum Nachlesen während der Aufgaben – standardmäßig eingeklappt,
-          damit die Fragen im Vordergrund stehen. */}
-      {data.body?.length ? (
-        <View style={textBox}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: textVisible }}
-            onPress={() => setTextVisible((value) => !value)}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
-          >
-            <Text style={{ fontSize: 13, color: colors.primary }}>{textVisible ? '▾' : '▸'}</Text>
-            <Text style={[readingLabel, { color: colors.text }]}>
-              {textVisible ? t('exercisesHideText') : t('exercisesShowText')}
-            </Text>
-          </Pressable>
-
-          {textVisible ? (
-            <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
-              {data.body.map((section) => (
-                <ReadingSection key={section.id} section={section} />
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ) : null}
-
-      {exercises.map((exercise, index) => {
-        const feedback = resultById.get(exercise.id);
-        const isOpen = exercise.type === 'OPEN';
-
-        return (
-          <View key={exercise.id} style={questionCard}>
-            <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
-              <Text style={questionNumber}>{String(index + 1).padStart(2, '0')}</Text>
-              <Text selectable style={questionText}>
-                {exercise.question}
+    <>
+      <Screen scroll>
+        {result ? (
+          <ResultBanner result={result} passed={passed} />
+        ) : (
+          <View style={{ gap: spacing.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Text style={[readingLabel, { color: colors.text }]}>{t('exercisesHeading')}</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+              <Text style={[readingLabel, { color: colors.textMuted }]}>
+                {answered} / {exercises.length}
               </Text>
             </View>
 
-            {isOpen ? (
-              <TextInput
-                multiline
-                value={texts[exercise.id] ?? ''}
-                onChangeText={(value) => setTexts((prev) => ({ ...prev, [exercise.id]: value }))}
-                editable={!result}
-                placeholder={t('exercisesAnswerPlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                style={openInputStyle}
-              />
-            ) : (
-              <View style={{ gap: spacing.sm }}>
-                {exercise.options.map((option, optionIndex) => {
-                  const selected = choices[exercise.id] === optionIndex;
-                  const state = !feedback
-                    ? selected
-                      ? 'selected'
-                      : 'idle'
-                    : optionIndex === feedback.correctIndex
-                      ? 'correct'
-                      : selected
-                        ? 'wrong'
-                        : 'idle';
+            {/* Ein Punkt je Frage statt eines Balkens: Man sieht nicht nur wie
+              weit, sondern auch wie viel überhaupt noch kommt. */}
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              {exercises.map((exercise) => (
+                <View
+                  key={exercise.id}
+                  style={[dot, isAnswered(exercise.id) && { backgroundColor: colors.primary }]}
+                />
+              ))}
+            </View>
+          </View>
+        )}
 
-                  return (
-                    <Pressable
-                      key={option}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected, disabled: Boolean(result) }}
-                      disabled={Boolean(result)}
-                      onPress={() => setChoices((prev) => ({ ...prev, [exercise.id]: optionIndex }))}
-                      style={[optionStyles.base, optionStyles[state]]}
-                    >
-                      <View style={[letterBadge, letterBadgeStyles[state]]}>
-                        <Text style={[letterText, state !== 'idle' && { color: colors.textInverse }]}>
-                          {OPTION_LETTERS[optionIndex] ?? optionIndex + 1}
-                        </Text>
-                      </View>
-                      <Text style={[typography.body, { flex: 1 }]}>{option}</Text>
-                      {state === 'correct' ? <Text style={{ color: colors.success }}>✓</Text> : null}
-                      {state === 'wrong' ? <Text style={{ color: colors.danger }}>✗</Text> : null}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            )}
+        {/* Zum Nachlesen während der Aufgaben – standardmäßig eingeklappt,
+          damit die Fragen im Vordergrund stehen. */}
+        {data.body?.length ? (
+          <View style={textBox}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: textVisible }}
+              onPress={() => setTextVisible((value) => !value)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}
+            >
+              <Text style={{ fontSize: 13, color: colors.primary }}>{textVisible ? '▾' : '▸'}</Text>
+              <Text style={[readingLabel, { color: colors.text }]}>
+                {textVisible ? t('exercisesHideText') : t('exercisesShowText')}
+              </Text>
+            </Pressable>
 
-            {/* Erklärungen liefert das Backend erst nach der Abgabe mit. */}
-            {feedback?.explanation ? (
-              <View style={explanationBox}>
-                <Text style={[readingLabel, { color: reading.inkFaint }]}>
-                  {t('exercisesExplanation')}
-                </Text>
-                <Text selectable style={explanationText}>
-                  {feedback.explanation}
-                </Text>
+            {textVisible ? (
+              <View style={{ gap: spacing.lg, marginTop: spacing.md }}>
+                {data.body.map((section) => (
+                  <ReadingSection key={section.id} section={section} />
+                ))}
               </View>
             ) : null}
           </View>
-        );
-      })}
+        ) : null}
 
-      {result ? (
-        <>
+        {exercises.map((exercise, index) => {
+          const feedback = resultById.get(exercise.id);
+          const isOpen = exercise.type === 'OPEN';
+
+          return (
+            <View key={exercise.id} style={questionCard}>
+              <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' }}>
+                <Text style={questionNumber}>{String(index + 1).padStart(2, '0')}</Text>
+                <Text selectable style={questionText}>
+                  {exercise.question}
+                </Text>
+              </View>
+
+              {isOpen ? (
+                <TextInput
+                  multiline
+                  value={texts[exercise.id] ?? ''}
+                  onChangeText={(value) => setTexts((prev) => ({ ...prev, [exercise.id]: value }))}
+                  editable={!result}
+                  placeholder={t('exercisesAnswerPlaceholder')}
+                  placeholderTextColor={colors.textMuted}
+                  style={openInputStyle}
+                />
+              ) : (
+                <View style={{ gap: spacing.sm }}>
+                  {exercise.options.map((option, optionIndex) => {
+                    const selected = choices[exercise.id] === optionIndex;
+                    const state = !feedback
+                      ? selected
+                        ? 'selected'
+                        : 'idle'
+                      : optionIndex === feedback.correctIndex
+                        ? 'correct'
+                        : selected
+                          ? 'wrong'
+                          : 'idle';
+
+                    return (
+                      <Pressable
+                        key={option}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected, disabled: Boolean(result) }}
+                        disabled={Boolean(result)}
+                        onPress={() =>
+                          setChoices((prev) => ({ ...prev, [exercise.id]: optionIndex }))
+                        }
+                        style={[optionStyles.base, optionStyles[state]]}
+                      >
+                        <View style={[letterBadge, letterBadgeStyles[state]]}>
+                          <Text
+                            style={[letterText, state !== 'idle' && { color: colors.textInverse }]}
+                          >
+                            {OPTION_LETTERS[optionIndex] ?? optionIndex + 1}
+                          </Text>
+                        </View>
+                        <Text style={[typography.body, { flex: 1 }]}>{option}</Text>
+                        {state === 'correct' ? (
+                          <Text style={{ color: colors.success }}>✓</Text>
+                        ) : null}
+                        {state === 'wrong' ? <Text style={{ color: colors.danger }}>✗</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* Erklärungen liefert das Backend erst nach der Abgabe mit. */}
+              {feedback?.explanation ? (
+                <View style={explanationBox}>
+                  <Text style={[readingLabel, { color: reading.inkFaint }]}>
+                    {t('exercisesExplanation')}
+                  </Text>
+                  <Text selectable style={explanationText}>
+                    {feedback.explanation}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {result ? (
+          <>
+            <Button
+              label={t('exercisesTryAgain')}
+              variant="secondary"
+              onPress={() => {
+                setResult(null);
+                setChoices({});
+                setTexts({});
+              }}
+            />
+            <Button label={t('commonDone')} onPress={() => navigation.goBack()} />
+          </>
+        ) : (
           <Button
-            label={t('exercisesTryAgain')}
-            variant="secondary"
-            onPress={() => {
-              setResult(null);
-              setChoices({});
-              setTexts({});
-            }}
+            label={t('exercisesSubmit')}
+            onPress={() => submit.mutate()}
+            disabled={answered === 0}
+            loading={submit.isPending}
           />
-          <Button label={t('commonDone')} onPress={() => navigation.goBack()} />
-        </>
-      ) : (
-        <Button
-          label={t('exercisesSubmit')}
-          onPress={() => submit.mutate()}
-          disabled={answered === 0}
-          loading={submit.isPending}
-        />
-      )}
-    </Screen>
+        )}
+      </Screen>
+      <TranslateLayer ref={translator} />
+    </>
   );
 }
 

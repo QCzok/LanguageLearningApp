@@ -30,6 +30,7 @@ import type {
   UnitAnswers,
   UnitCheckResult,
   UnitDetailDto,
+  TranslationDto,
   UserDto,
   VideoItemDto,
   VideoTopic,
@@ -251,6 +252,8 @@ export const aiApi = {
   recommendations: () => api.get<RecommendationDto>('/ai/recommendations').then((r) => r.data),
   generateVocabDeck: (topic: string) =>
     api.post<VocabDeckDto>('/ai/vocab-decks', { topic }).then((r) => r.data),
+  translate: (body: { text: string; context?: string }) =>
+    api.post<TranslationDto>('/ai/translate', body).then((r) => r.data),
 };
 
 export const progressApi = {

@@ -1,11 +1,36 @@
 import { PrismaClient, Prisma, WorkbookBook } from '@prisma/client';
 import { CURRICULUM, type ChapterSeed } from './curriculum';
 import { BEGINNER_1_UNITS, type UnitSeed } from './chapter-beginner-1';
+import { BEGINNER_2_UNITS } from './chapter-beginner-2';
+import { BEGINNER_3_UNITS } from './chapter-beginner-3';
+import { BEGINNER_4_UNITS } from './chapter-beginner-4';
+import { BEGINNER_5_UNITS } from './chapter-beginner-5';
+import { BEGINNER_6_UNITS } from './chapter-beginner-6';
+import { BEGINNER_7_UNITS } from './chapter-beginner-7';
+import { BEGINNER_8_UNITS } from './chapter-beginner-8';
+import { BEGINNER_9_UNITS } from './chapter-beginner-9';
+import { BEGINNER_10_UNITS } from './chapter-beginner-10';
+import { BEGINNER_11_UNITS } from './chapter-beginner-11';
+import { BEGINNER_12_UNITS } from './chapter-beginner-12';
 import { GRAMMAR_1_UNITS } from './chapter-grammar-1';
+import { GRAMMAR_2_UNITS } from './chapter-grammar-2';
+import { GRAMMAR_3_UNITS } from './chapter-grammar-3';
+import { GRAMMAR_4_UNITS } from './chapter-grammar-4';
+import { GRAMMAR_5_UNITS } from './chapter-grammar-5';
+import { GRAMMAR_6_UNITS } from './chapter-grammar-6';
 import { SPANISH_CURRICULUM } from './spanish-curriculum';
 import { SPANISH_BEGINNER_1_UNITS } from './spanish-chapter-beginner-1';
 import { SPANISH_BEGINNER_2_UNITS } from './spanish-chapter-beginner-2';
 import { SPANISH_BEGINNER_3_UNITS } from './spanish-chapter-beginner-3';
+import { SPANISH_BEGINNER_4_UNITS } from './spanish-chapter-beginner-4';
+import { SPANISH_BEGINNER_5_UNITS } from './spanish-chapter-beginner-5';
+import { SPANISH_BEGINNER_6_UNITS } from './spanish-chapter-beginner-6';
+import { SPANISH_BEGINNER_7_UNITS } from './spanish-chapter-beginner-7';
+import { SPANISH_BEGINNER_8_UNITS } from './spanish-chapter-beginner-8';
+import { SPANISH_BEGINNER_9_UNITS } from './spanish-chapter-beginner-9';
+import { SPANISH_BEGINNER_10_UNITS } from './spanish-chapter-beginner-10';
+import { SPANISH_BEGINNER_11_UNITS } from './spanish-chapter-beginner-11';
+import { SPANISH_BEGINNER_12_UNITS } from './spanish-chapter-beginner-12';
 import { SPANISH_INTERMEDIATE_1_UNITS } from './spanish-chapter-intermediate-1';
 import { SPANISH_INTERMEDIATE_2_UNITS } from './spanish-chapter-intermediate-2';
 import { SPANISH_INTERMEDIATE_3_UNITS } from './spanish-chapter-intermediate-3';
@@ -21,6 +46,16 @@ import { SPANISH_INTERMEDIATE_12_UNITS } from './spanish-chapter-intermediate-12
 import { SPANISH_ADVANCED_1_UNITS } from './spanish-chapter-advanced-1';
 import { SPANISH_GRAMMAR_1_UNITS } from './spanish-chapter-grammar-1';
 import { SPANISH_GRAMMAR_2_UNITS } from './spanish-chapter-grammar-2';
+import { SPANISH_GRAMMAR_3_UNITS } from './spanish-chapter-grammar-3';
+import { SPANISH_GRAMMAR_4_UNITS } from './spanish-chapter-grammar-4';
+import { SPANISH_GRAMMAR_5_UNITS } from './spanish-chapter-grammar-5';
+import { SPANISH_GRAMMAR_6_UNITS } from './spanish-chapter-grammar-6';
+import { SPANISH_GRAMMAR_7_UNITS } from './spanish-chapter-grammar-7';
+import { SPANISH_GRAMMAR_8_UNITS } from './spanish-chapter-grammar-8';
+import { SPANISH_GRAMMAR_9_UNITS } from './spanish-chapter-grammar-9';
+import { SPANISH_GRAMMAR_10_UNITS } from './spanish-chapter-grammar-10';
+import { SPANISH_GRAMMAR_11_UNITS } from './spanish-chapter-grammar-11';
+import { SPANISH_GRAMMAR_12_UNITS } from './spanish-chapter-grammar-12';
 
 /**
  * Legt die Lehrwerke an: je Sprache drei Kursbücher zu zwölf Kapiteln und ein
@@ -63,8 +98,27 @@ const WORKBOOKS: WorkbookSeed[] = [
     label: 'Deutsch',
     curriculum: CURRICULUM,
     showcase: [
+      // Der Beginner-Band ist vollständig: A1 stellt die Kapitel 1 bis 6,
+      // A2 die Kapitel 7 bis 12. Im Grammatikbuch sind die A1- und
+      // A2-Kapitel (1 bis 6) ausgearbeitet.
       { book: WorkbookBook.BEGINNER, order: 1, units: BEGINNER_1_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 2, units: BEGINNER_2_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 3, units: BEGINNER_3_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 4, units: BEGINNER_4_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 5, units: BEGINNER_5_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 6, units: BEGINNER_6_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 7, units: BEGINNER_7_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 8, units: BEGINNER_8_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 9, units: BEGINNER_9_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 10, units: BEGINNER_10_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 11, units: BEGINNER_11_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 12, units: BEGINNER_12_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: GRAMMAR_1_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 2, units: GRAMMAR_2_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 3, units: GRAMMAR_3_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 4, units: GRAMMAR_4_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 5, units: GRAMMAR_5_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 6, units: GRAMMAR_6_UNITS },
     ],
   },
   {
@@ -75,6 +129,17 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.BEGINNER, order: 1, units: SPANISH_BEGINNER_1_UNITS },
       { book: WorkbookBook.BEGINNER, order: 2, units: SPANISH_BEGINNER_2_UNITS },
       { book: WorkbookBook.BEGINNER, order: 3, units: SPANISH_BEGINNER_3_UNITS },
+      // Der Beginner-Band ist vollständig: A1 stellt die Kapitel 1 bis 6,
+      // A2 die Kapitel 7 bis 12.
+      { book: WorkbookBook.BEGINNER, order: 4, units: SPANISH_BEGINNER_4_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 5, units: SPANISH_BEGINNER_5_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 6, units: SPANISH_BEGINNER_6_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 7, units: SPANISH_BEGINNER_7_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 8, units: SPANISH_BEGINNER_8_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 9, units: SPANISH_BEGINNER_9_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 10, units: SPANISH_BEGINNER_10_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 11, units: SPANISH_BEGINNER_11_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 12, units: SPANISH_BEGINNER_12_UNITS },
       // Der Intermediate-Band ist vollständig: B1 stellt die Kapitel 1 bis 6,
       // B2 die Kapitel 7 bis 12.
       { book: WorkbookBook.INTERMEDIATE, order: 1, units: SPANISH_INTERMEDIATE_1_UNITS },
@@ -92,6 +157,16 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.ADVANCED, order: 1, units: SPANISH_ADVANCED_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: SPANISH_GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: SPANISH_GRAMMAR_2_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 3, units: SPANISH_GRAMMAR_3_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 4, units: SPANISH_GRAMMAR_4_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 5, units: SPANISH_GRAMMAR_5_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 6, units: SPANISH_GRAMMAR_6_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 7, units: SPANISH_GRAMMAR_7_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 8, units: SPANISH_GRAMMAR_8_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 9, units: SPANISH_GRAMMAR_9_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 10, units: SPANISH_GRAMMAR_10_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 11, units: SPANISH_GRAMMAR_11_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 12, units: SPANISH_GRAMMAR_12_UNITS },
     ],
   },
 ];

@@ -2367,6 +2367,895 @@ function renderSceneSignpost(WIDTH, HEIGHT) {
   return canvas;
 }
 
+/** A1 „La rutina diaria“: Wanduhr zwischen Sonne und Mond. */
+function renderSceneClockDay(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const clockCx = 0.5 * WIDTH;
+  const clockCy = 0.5 * S;
+  const clockR = 0.29 * S;
+  // Zeiger auf zwanzig nach sieben – eine Uhrzeit, die im Kapitel vorkommt.
+  const hourAngle = (7 / 12 + 20 / 720) * Math.PI * 2 - Math.PI / 2;
+  const minuteAngle = (20 / 60) * Math.PI * 2 - Math.PI / 2;
+
+  const sunCx = 0.15 * WIDTH;
+  const sunCy = 0.27 * S;
+  const sunR = 0.1 * S;
+  const moonCx = 0.85 * WIDTH;
+  const moonCy = 0.73 * S;
+  const moonR = 0.095 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      // Der Verlauf läuft von der hellen Morgenecke zur kühlen Nachtecke.
+      let col = paintBackdrop(nx, ny, [251, 241, 224], [214, 221, 237], 0.18, 0.2, 0.62);
+
+      // Sonne links oben, mit Strahlen.
+      for (let ray = 0; ray < 8; ray += 1) {
+        const a = (ray / 8) * Math.PI * 2;
+        const x0 = sunCx + Math.cos(a) * sunR * 1.3;
+        const y0 = sunCy + Math.sin(a) * sunR * 1.3;
+        const x1 = sunCx + Math.cos(a) * sunR * 1.72;
+        const y1 = sunCy + Math.sin(a) * sunR * 1.72;
+        const rayD = sdSegment(x, y, x0, y0, x1, y1) - 0.007 * S;
+        col = mixColor(col, OCHRE, smoothstep(aa, -aa, rayD) * 0.85);
+      }
+      const sunD = Math.hypot(x - sunCx, y - sunCy) - sunR;
+      col = mixColor(col, [233, 178, 88], smoothstep(aa, -aa, sunD));
+      col = mixColor(col, [246, 214, 158], smoothstep(aa, -aa, Math.hypot(x - (sunCx - sunR * 0.28), y - (sunCy - sunR * 0.3)) - sunR * 0.52) * 0.7);
+
+      // Mond rechts unten: Vollkreis minus versetzter Kreis.
+      const moonD = Math.hypot(x - moonCx, y - moonCy) - moonR;
+      const biteD = Math.hypot(x - (moonCx + moonR * 0.52), y - (moonCy - moonR * 0.38)) - moonR * 0.86;
+      const crescent = Math.max(moonD, -biteD);
+      col = mixColor(col, [116, 130, 168], smoothstep(aa, -aa, crescent));
+
+      // Gehäuse und Zifferblatt.
+      const caseD = Math.hypot(x - clockCx, y - clockCy) - clockR;
+      col = mixColor(col, [0, 0, 0], smoothstep(0.1 * S, -0.02 * S, caseD - 0.012 * S) * 0.16);
+      col = mixColor(col, PRINT_SLATE, smoothstep(aa, -aa, caseD));
+      const faceD = Math.hypot(x - clockCx, y - clockCy) - clockR * 0.88;
+      const faceCov = smoothstep(aa, -aa, faceD);
+      if (faceCov > 0) {
+        col = mixColor(col, [255, 253, 248], faceCov);
+        // Zwölf Striche, die vollen Stunden etwas länger.
+        for (let m = 0; m < 12; m += 1) {
+          const a = (m / 12) * Math.PI * 2 - Math.PI / 2;
+          const long = m % 3 === 0;
+          const inner = clockR * (long ? 0.62 : 0.7);
+          const outer = clockR * 0.78;
+          const tickD =
+            sdSegment(
+              x,
+              y,
+              clockCx + Math.cos(a) * inner,
+              clockCy + Math.sin(a) * inner,
+              clockCx + Math.cos(a) * outer,
+              clockCy + Math.sin(a) * outer,
+            ) - (long ? 0.011 : 0.006) * S;
+          col = mixColor(col, PRINT_SLATE, smoothstep(aa, -aa, tickD) * faceCov);
+        }
+        // Stundenzeiger kurz und kräftig, Minutenzeiger lang und schlank.
+        const hourD =
+          sdSegment(x, y, clockCx, clockCy, clockCx + Math.cos(hourAngle) * clockR * 0.42, clockCy + Math.sin(hourAngle) * clockR * 0.42) -
+          0.014 * S;
+        col = mixColor(col, PRINT_SLATE, smoothstep(aa, -aa, hourD) * faceCov);
+        const minuteD =
+          sdSegment(x, y, clockCx, clockCy, clockCx + Math.cos(minuteAngle) * clockR * 0.66, clockCy + Math.sin(minuteAngle) * clockR * 0.66) -
+          0.009 * S;
+        col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, minuteD) * faceCov);
+        const pinD = Math.hypot(x - clockCx, y - clockCy) - 0.022 * S;
+        col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, pinD) * faceCov);
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [52, 52, 64], smoothstep(0.46, 0.94, vig) * 0.15);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A1 „De compras“: Marktstand mit Markise und Kisten. */
+function renderSceneMarketStall(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const stallCx = 0.5 * WIDTH;
+  const counterY = 0.68 * S;
+  const groundY = 0.9 * S;
+  const awningY = 0.28 * S;
+  const halfW = 0.34 * WIDTH;
+
+  const CRATES = [
+    { cx: stallCx - halfW * 0.6, fruit: [198, 90, 70] },
+    { cx: stallCx, fruit: [226, 162, 66] },
+    { cx: stallCx + halfW * 0.6, fruit: [126, 158, 104] },
+  ];
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [243, 236, 224], [219, 210, 195], 0.5, 0.18, 0.55);
+      col = mixColor(col, [199, 190, 176], smoothstep(groundY - aa, groundY + aa, y));
+
+      // Die beiden Pfosten stehen hinter allem anderen.
+      for (const px of [stallCx - halfW, stallCx + halfW]) {
+        const postD = sdRoundRect(x - px, y - (awningY + groundY) / 2, 0.011 * S, (groundY - awningY) / 2, 0.004 * S);
+        col = mixColor(col, OCHRE, smoothstep(aa, -aa, postD));
+      }
+
+      // Markise: gerades Dach mit gewellter Kante, rot-weiß gestreift.
+      const scallop = 0.018 * S * Math.abs(Math.sin(((x - (stallCx - halfW)) / (0.075 * S)) * Math.PI));
+      const awningD = sdRoundRect(x - stallCx, y - (awningY + 0.045 * S), halfW + 0.012 * S, 0.045 * S + scallop, 0.01 * S);
+      const awningCov = smoothstep(aa, -aa, awningD);
+      if (awningCov > 0) {
+        const stripe = Math.floor((x - (stallCx - halfW)) / (0.075 * S)) % 2 === 0;
+        col = mixColor(col, stripe ? PRINT_RED : [252, 248, 242], awningCov);
+      }
+      col = mixColor(col, [0, 0, 0], smoothstep(0.07 * S, 0, Math.abs(y - (awningY + 0.1 * S))) * smoothstep(halfW + aa, halfW - aa, Math.abs(x - stallCx)) * 0.08);
+
+      // Ladentisch.
+      const counterD = sdRoundRect(x - stallCx, y - (counterY + 0.05 * S), halfW * 0.96, 0.05 * S, 0.008 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.06 * S, -0.01 * S, counterD - 0.01 * S) * 0.15);
+      col = mixColor(col, [229, 216, 197], smoothstep(aa, -aa, counterD));
+
+      // Kisten auf dem Tisch, jede mit einer Lage Früchte darin.
+      for (const crate of CRATES) {
+        const crateHalfW = 0.085 * S;
+        const crateCy = counterY - 0.045 * S;
+        const crateD = sdRoundRect(x - crate.cx, y - crateCy, crateHalfW, 0.045 * S, 0.006 * S);
+        const crateCov = smoothstep(aa, -aa, crateD);
+        if (crateCov > 0) {
+          col = mixColor(col, [206, 176, 134], crateCov);
+          // Zwei waagerechte Fugen deuten die Bretter an.
+          for (const fy of [-0.012, 0.018]) {
+            const slatD = Math.abs(y - (crateCy + fy * S)) - 0.003 * S;
+            col = mixColor(col, [186, 154, 112], smoothstep(aa, -aa, slatD) * crateCov);
+          }
+        }
+        for (const fx of [-0.048, 0, 0.048]) {
+          const fruitD = Math.hypot(x - (crate.cx + fx * S), y - (crateCy - 0.052 * S)) - 0.023 * S;
+          col = mixColor(col, crate.fruit, smoothstep(aa, -aa, fruitD));
+          const glossD = Math.hypot(x - (crate.cx + fx * S - 0.007 * S), y - (crateCy - 0.06 * S)) - 0.008 * S;
+          col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, glossD) * 0.4);
+        }
+      }
+
+      // Preisschild an der linken Ecke des Tischs.
+      const tagD = sdRoundRect(x - (stallCx - halfW * 0.86), y - (counterY + 0.05 * S), 0.045 * S, 0.028 * S, 0.006 * S);
+      const tagCov = smoothstep(aa, -aa, tagD);
+      if (tagCov > 0) {
+        col = mixColor(col, [255, 253, 248], tagCov);
+        for (const ly of [-0.008, 0.006]) {
+          const lineD = sdRoundRect(x - (stallCx - halfW * 0.86), y - (counterY + 0.05 * S + ly * S), 0.026 * S, 0.0035 * S, 0.0035 * S);
+          col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, lineD) * tagCov);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.44) * 0.85);
+      col = mixColor(col, [62, 50, 38], smoothstep(0.44, 0.92, vig) * 0.16);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A1 „De compras“: zwei volle Einkaufstaschen mit Kassenzettel. */
+function renderSceneShoppingBags(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const groundY = 0.84 * S;
+  const BAGS = [
+    { cx: 0.36 * WIDTH, halfW: 0.13 * S, halfH: 0.17 * S, color: [193, 106, 86] },
+    { cx: 0.58 * WIDTH, halfW: 0.115 * S, halfH: 0.145 * S, color: [126, 150, 168] },
+  ];
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [246, 242, 233], [222, 215, 203], 0.45, 0.2, 0.55);
+      col = mixColor(col, [204, 196, 183], smoothstep(groundY - aa, groundY + aa, y));
+
+      for (const bag of BAGS) {
+        const bagCy = groundY - bag.halfH;
+        // Henkel: zwei Bögen aus je drei Segmenten, hinter der Tasche.
+        for (const side of [-1, 1]) {
+          const hx = bag.cx + side * bag.halfW * 0.45;
+          const topY = bagCy - bag.halfH - 0.055 * S;
+          const handleD =
+            Math.min(
+              sdSegment(x, y, hx - bag.halfW * 0.22, bagCy - bag.halfH, hx - bag.halfW * 0.16, topY),
+              sdSegment(x, y, hx - bag.halfW * 0.16, topY, hx + bag.halfW * 0.16, topY),
+              sdSegment(x, y, hx + bag.halfW * 0.16, topY, hx + bag.halfW * 0.22, bagCy - bag.halfH),
+            ) - 0.007 * S;
+          col = mixColor(col, mixColor(bag.color, [0, 0, 0], 0.25), smoothstep(aa, -aa, handleD));
+        }
+
+        const bodyD = sdRoundRect(x - bag.cx, y - bagCy, bag.halfW, bag.halfH, 0.012 * S);
+        col = mixColor(col, [0, 0, 0], smoothstep(0.08 * S, -0.01 * S, bodyD - 0.012 * S) * 0.16);
+        const cov = smoothstep(aa, -aa, bodyD);
+        if (cov > 0) {
+          // Licht von links: die rechte Kante der Tasche läuft dunkler aus.
+          const lightT = clamp((x - (bag.cx - bag.halfW)) / (bag.halfW * 2), 0, 1);
+          col = mixColor(col, mixColor(bag.color, mixColor(bag.color, [0, 0, 0], 0.22), lightT), cov);
+          const foldD = Math.abs(x - bag.cx) - 0.004 * S;
+          col = mixColor(col, mixColor(bag.color, [0, 0, 0], 0.14), smoothstep(aa, -aa, foldD) * cov * 0.6);
+          const rimD = Math.abs(y - (bagCy - bag.halfH + 0.022 * S)) - 0.008 * S;
+          col = mixColor(col, mixColor(bag.color, [255, 255, 255], 0.3), smoothstep(aa, -aa, rimD) * cov);
+        }
+
+        // Was oben herausschaut: Brot in der großen, Grünzeug in der kleinen Tasche.
+        if (bag.halfH > 0.16 * S) {
+          const loafD = sdRoundRect(...toLocal(x, y, bag.cx + bag.halfW * 0.3, bagCy - bag.halfH - 0.03 * S, -0.35), 0.055 * S, 0.02 * S, 0.02 * S);
+          col = mixColor(col, [211, 168, 110], smoothstep(aa, -aa, loafD));
+        } else {
+          for (const lx of [-0.035, 0, 0.032]) {
+            const leafD = Math.hypot(x - (bag.cx + lx * S), y - (bagCy - bag.halfH - 0.028 * S)) - 0.026 * S;
+            col = mixColor(col, [124, 158, 108], smoothstep(aa, -aa, leafD));
+          }
+        }
+      }
+
+      // Kassenzettel rechts, leicht gedreht, mit angedeuteten Zeilen.
+      const [rx, ry] = toLocal(x, y, 0.79 * WIDTH, 0.73 * S, 0.14);
+      const receiptD = sdRoundRect(rx, ry, 0.062 * S, 0.11 * S, 0.006 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.05 * S, -0.01 * S, receiptD - 0.008 * S) * 0.14);
+      const receiptCov = smoothstep(aa, -aa, receiptD);
+      if (receiptCov > 0) {
+        col = mixColor(col, [255, 253, 248], receiptCov);
+        for (let line = 0; line < 6; line += 1) {
+          const ly = -0.072 * S + line * 0.026 * S;
+          const lineHalfW = line === 5 ? 0.02 * S : 0.042 * S - (line % 3) * 0.006 * S;
+          const lineD = sdRoundRect(rx + (line === 5 ? 0.02 * S : 0), ry - ly, lineHalfW, 0.004 * S, 0.004 * S);
+          col = mixColor(col, line === 5 ? PRINT_RED : [176, 170, 160], smoothstep(aa, -aa, lineD) * receiptCov);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.44) * 0.85);
+      col = mixColor(col, [58, 52, 44], smoothstep(0.44, 0.92, vig) * 0.16);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A1 „En el restaurante“: gedeckter Tisch von oben. */
+function renderSceneRestaurantTable(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const plateCx = 0.42 * WIDTH;
+  const plateCy = 0.56 * S;
+  const plateR = 0.2 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      // Tischplatte aus Holz: Grundton plus weiche Maserung.
+      let col = paintBackdrop(nx, ny, [190, 152, 112], [160, 122, 86], 0.4, 0.15, 0.6);
+      const grain = valueNoise(nx * 3.2, ny * 22);
+      col = mixColor(col, [146, 110, 76], grain * 0.18);
+
+      // Serviette unter dem Besteck, leicht gedreht.
+      const [sx, sy] = toLocal(x, y, 0.72 * WIDTH, 0.58 * S, -0.06);
+      const napkinD = sdRoundRect(sx, sy, 0.11 * S, 0.17 * S, 0.008 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.05 * S, -0.01 * S, napkinD) * 0.14);
+      const napkinCov = smoothstep(aa, -aa, napkinD);
+      col = mixColor(col, [238, 231, 220], napkinCov);
+      col = mixColor(col, [220, 211, 198], smoothstep(aa, -aa, Math.abs(sx - 0.03 * S) - 0.002 * S) * napkinCov);
+
+      // Teller mit Rand.
+      const plateD = Math.hypot(x - plateCx, y - plateCy) - plateR;
+      col = mixColor(col, [0, 0, 0], smoothstep(0.09 * S, -0.02 * S, plateD - 0.012 * S) * 0.18);
+      const plateCov = smoothstep(aa, -aa, plateD);
+      if (plateCov > 0) {
+        col = mixColor(col, [252, 250, 246], plateCov);
+        const rimD = Math.hypot(x - plateCx, y - plateCy) - plateR * 0.74;
+        col = mixColor(col, [226, 220, 210], smoothstep(aa, -aa, rimD) * plateCov * 0.7);
+        const innerD = Math.hypot(x - plateCx, y - plateCy) - plateR * 0.68;
+        col = mixColor(col, [255, 254, 251], smoothstep(aa, -aa, innerD) * plateCov);
+      }
+
+      // Gabel links vom Teller: Stiel und drei Zinken.
+      const forkCx = plateCx - plateR * 1.4;
+      const forkD = sdRoundRect(x - forkCx, y - (plateCy + 0.03 * S), 0.009 * S, 0.075 * S, 0.008 * S);
+      let cutlery = forkD;
+      for (const tx of [-0.016, 0, 0.016]) {
+        cutlery = Math.min(
+          cutlery,
+          sdRoundRect(x - (forkCx + tx * S), y - (plateCy - 0.085 * S), 0.004 * S, 0.035 * S, 0.004 * S),
+        );
+      }
+      // Messer rechts: Griff plus schmaler werdende Klinge.
+      const knifeCx = plateCx + plateR * 1.36;
+      cutlery = Math.min(cutlery, sdRoundRect(x - knifeCx, y - (plateCy + 0.06 * S), 0.011 * S, 0.055 * S, 0.01 * S));
+      cutlery = Math.min(
+        cutlery,
+        sdTriangle(x, y, [knifeCx - 0.009 * S, plateCy + 0.01 * S], [knifeCx + 0.009 * S, plateCy + 0.01 * S], [knifeCx, plateCy - 0.11 * S]),
+      );
+      col = mixColor(col, [0, 0, 0], smoothstep(0.035 * S, -0.005 * S, cutlery - 0.006 * S) * 0.16);
+      col = mixColor(col, [198, 203, 209], smoothstep(aa, -aa, cutlery));
+      col = mixColor(col, [235, 238, 242], smoothstep(aa, -aa, cutlery + 0.004 * S) * 0.5);
+
+      // Weinglas oben rechts: Kelch, Stiel, Fuß.
+      const glassCx = 0.87 * WIDTH;
+      const glassCy = 0.34 * S;
+      const bowlD = Math.hypot(x - glassCx, (y - glassCy) * 0.8) - 0.055 * S;
+      const glassCov = smoothstep(aa, -aa, bowlD);
+      col = mixColor(col, [225, 231, 236], glassCov * 0.8);
+      // Der Wein füllt den Kelch nur bis zur Hälfte: Kelch geschnitten mit der
+      // Halbebene unterhalb der Füllhöhe.
+      const wineD = Math.max(bowlD + 0.006 * S, glassCy + 0.012 * S - y);
+      col = mixColor(col, [141, 48, 54], smoothstep(aa, -aa, wineD) * 0.85);
+      const rimRingD = Math.abs(bowlD + 0.003 * S) - 0.0035 * S;
+      col = mixColor(col, [178, 186, 195], smoothstep(aa, -aa, rimRingD) * 0.9);
+      const stemD = sdRoundRect(x - glassCx, y - (glassCy + 0.085 * S), 0.005 * S, 0.04 * S, 0.004 * S);
+      col = mixColor(col, [225, 231, 236], smoothstep(aa, -aa, stemD) * 0.85);
+      const footD = Math.hypot((x - glassCx) * 0.35, y - (glassCy + 0.13 * S)) - 0.014 * S;
+      col = mixColor(col, [225, 231, 236], smoothstep(aa, -aa, footD) * 0.85);
+
+      // Aufgeschlagene Karte links unten, angeschnitten.
+      const [mx, my] = toLocal(x, y, 0.12 * WIDTH, 0.8 * S, 0.1);
+      const menuD = sdRoundRect(mx, my, 0.13 * S, 0.16 * S, 0.008 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.06 * S, -0.01 * S, menuD - 0.01 * S) * 0.15);
+      const menuCov = smoothstep(aa, -aa, menuD);
+      if (menuCov > 0) {
+        col = mixColor(col, [250, 245, 236], menuCov);
+        for (let line = 0; line < 5; line += 1) {
+          const ly = -0.1 * S + line * 0.032 * S;
+          const lineD = sdRoundRect(mx + 0.01 * S, my - ly, line === 0 ? 0.045 * S : 0.085 * S, 0.005 * S, 0.005 * S);
+          col = mixColor(col, line === 0 ? PRINT_RED : [182, 172, 158], smoothstep(aa, -aa, lineD) * menuCov);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [48, 32, 20], smoothstep(0.42, 0.92, vig) * 0.2);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „El fin de semana pasado“: Kalenderblatt mit markiertem Wochenende. */
+function renderSceneCalendarWeekend(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const sheetCx = 0.5 * WIDTH;
+  const sheetCy = 0.54 * S;
+  const halfW = 0.3 * WIDTH;
+  const halfH = 0.33 * S;
+  const headerH = 0.1 * S;
+
+  // Sieben Spalten, vier Zeilen; die letzten beiden Spalten sind das Wochenende.
+  const gridLeft = sheetCx - halfW + 0.045 * S;
+  const gridTop = sheetCy - halfH + headerH + 0.08 * S;
+  const stepX = (2 * halfW - 0.09 * S) / 6;
+  const stepY = 0.098 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [240, 236, 228], [216, 210, 198], 0.5, 0.2, 0.55);
+
+      // Zwei Ringbinder-Ösen über dem Blatt.
+      for (const rx of [-0.11, 0.11]) {
+        const ringD = Math.abs(Math.hypot(x - (sheetCx + rx * WIDTH), y - (sheetCy - halfH - 0.012 * S)) - 0.02 * S) - 0.006 * S;
+        col = mixColor(col, [150, 156, 164], smoothstep(aa, -aa, ringD));
+      }
+
+      const sheetD = sdRoundRect(x - sheetCx, y - sheetCy, halfW, halfH, 0.016 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.1 * S, -0.02 * S, sheetD - 0.014 * S) * 0.17);
+      const sheetCov = smoothstep(aa, -aa, sheetD);
+      if (sheetCov > 0) {
+        col = mixColor(col, [255, 253, 249], sheetCov);
+
+        // Kopfzeile mit Monatsbalken.
+        const headD = sdRoundRect(x - sheetCx, y - (sheetCy - halfH + headerH / 2), halfW, headerH / 2, 0.016 * S);
+        col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, headD) * sheetCov);
+        const titleD = sdRoundRect(x - (sheetCx - halfW * 0.42), y - (sheetCy - halfH + headerH / 2), 0.075 * S, 0.011 * S, 0.011 * S);
+        col = mixColor(col, [255, 240, 238], smoothstep(aa, -aa, titleD) * sheetCov);
+
+        for (let row = 0; row < 5; row += 1) {
+          for (let cell = 0; cell < 7; cell += 1) {
+            const cx = gridLeft + cell * stepX;
+            const cy = gridTop + row * stepY;
+            const weekend = cell >= 5;
+            // Die letzte Woche ist die vergangene: dort sind Samstag und
+            // Sonntag ausgefüllt, sonst nur als heller Kasten angedeutet.
+            const marked = weekend && row === 3;
+            const d = sdRoundRect(x - cx, y - cy, 0.03 * S, 0.03 * S, 0.008 * S);
+            const cov = smoothstep(aa, -aa, d) * sheetCov;
+            if (cov <= 0) continue;
+            if (marked) col = mixColor(col, PRINT_RED, cov);
+            else col = mixColor(col, weekend ? [236, 225, 222] : [232, 234, 238], cov);
+          }
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [58, 50, 44], smoothstep(0.44, 0.92, vig) * 0.16);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „Cuando era niño“: Bauklötze, Ball und Teddy. */
+function renderSceneChildhoodToys(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const groundY = 0.82 * S;
+  const blockS = 0.105 * S;
+  const stackCx = 0.3 * WIDTH;
+  const BLOCKS = [
+    { cy: groundY - blockS / 2, color: PRINT_RED },
+    { cy: groundY - blockS * 1.5, color: [214, 166, 78] },
+    { cy: groundY - blockS * 2.5, color: [108, 138, 168] },
+  ];
+
+  const bearCx = 0.68 * WIDTH;
+  const bearHeadCy = groundY - 0.27 * S;
+  const bearFur = [178, 142, 106];
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [242, 234, 224], [219, 206, 192], 0.5, 0.22, 0.55);
+      // Teppichkante statt harter Bodenlinie.
+      col = mixColor(col, [203, 186, 170], smoothstep(groundY - aa, groundY + aa, y));
+
+      for (const block of BLOCKS) {
+        const d = sdRoundRect(x - stackCx, y - block.cy, blockS / 2, blockS / 2, 0.01 * S);
+        col = mixColor(col, [0, 0, 0], smoothstep(0.05 * S, -0.01 * S, d - 0.01 * S) * 0.14);
+        const cov = smoothstep(aa, -aa, d);
+        if (cov > 0) {
+          const lightT = clamp((x - (stackCx - blockS / 2)) / blockS, 0, 1);
+          col = mixColor(col, mixColor(block.color, mixColor(block.color, [0, 0, 0], 0.2), lightT), cov);
+          // Helles Feld in der Mitte, wie der Buchstabe auf einem Klotz.
+          const faceD = sdRoundRect(x - stackCx, y - block.cy, blockS * 0.22, blockS * 0.22, 0.006 * S);
+          col = mixColor(col, [250, 245, 236], smoothstep(aa, -aa, faceD) * cov * 0.9);
+        }
+      }
+
+      // Ball vor dem Turm.
+      const ballCx = 0.46 * WIDTH;
+      const ballR = 0.088 * S;
+      const ballD = Math.hypot(x - ballCx, y - (groundY - ballR)) - ballR;
+      col = mixColor(col, [0, 0, 0], smoothstep(0.06 * S, -0.01 * S, ballD - 0.01 * S) * 0.14);
+      const ballCov = smoothstep(aa, -aa, ballD);
+      if (ballCov > 0) {
+        col = mixColor(col, [226, 224, 216], ballCov);
+        const bandD = Math.abs(y - (groundY - ballR)) - 0.016 * S;
+        col = mixColor(col, [96, 134, 160], smoothstep(aa, -aa, bandD) * ballCov);
+        const glossD = Math.hypot(x - (ballCx - ballR * 0.35), y - (groundY - ballR * 1.35)) - ballR * 0.22;
+        col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, glossD) * ballCov * 0.5);
+      }
+
+      // Teddy: Ohren, Kopf, Körper, zwei Beine.
+      let bearD = Math.hypot(x - bearCx, y - (groundY - 0.105 * S)) - 0.12 * S;
+      bearD = Math.min(bearD, Math.hypot(x - bearCx, y - bearHeadCy) - 0.088 * S);
+      for (const ex of [-0.07, 0.07]) {
+        bearD = Math.min(bearD, Math.hypot(x - (bearCx + ex * S), y - (bearHeadCy - 0.064 * S)) - 0.034 * S);
+      }
+      for (const lx of [-0.07, 0.07]) {
+        bearD = Math.min(bearD, Math.hypot(x - (bearCx + lx * S), y - (groundY - 0.03 * S)) - 0.038 * S);
+      }
+      col = mixColor(col, [0, 0, 0], smoothstep(0.07 * S, -0.01 * S, bearD - 0.012 * S) * 0.15);
+      const bearCov = smoothstep(aa, -aa, bearD);
+      if (bearCov > 0) {
+        const lightT = clamp((x - (bearCx - 0.13 * S)) / (0.26 * S), 0, 1);
+        col = mixColor(col, mixColor(bearFur, mixColor(bearFur, [0, 0, 0], 0.18), lightT), bearCov);
+        // Schnauze und Augen.
+        const muzzleD = Math.hypot(x - bearCx, (y - (bearHeadCy + 0.026 * S)) * 1.25) - 0.037 * S;
+        col = mixColor(col, [225, 205, 180], smoothstep(aa, -aa, muzzleD) * bearCov);
+        for (const ex of [-0.031, 0.031]) {
+          const eyeD = Math.hypot(x - (bearCx + ex * S), y - (bearHeadCy - 0.012 * S)) - 0.01 * S;
+          col = mixColor(col, PRINT_SLATE, smoothstep(aa, -aa, eyeD) * bearCov);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [60, 46, 34], smoothstep(0.44, 0.92, vig) * 0.16);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „Salud y cuerpo“: Stethoskop, Thermometer und Karteikarte. */
+function renderSceneDoctorVisit(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const chestCx = 0.36 * WIDTH;
+  const chestCy = 0.68 * S;
+  const steel = [156, 166, 176];
+  const tube = [70, 96, 122];
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [238, 242, 244], [214, 224, 228], 0.45, 0.2, 0.55);
+
+      // Karteikarte im Hintergrund, leicht gedreht.
+      const [cx, cy] = toLocal(x, y, 0.66 * WIDTH, 0.55 * S, -0.07);
+      const cardD = sdRoundRect(cx, cy, 0.145 * S, 0.19 * S, 0.01 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.07 * S, -0.01 * S, cardD - 0.012 * S) * 0.15);
+      const cardCov = smoothstep(aa, -aa, cardD);
+      if (cardCov > 0) {
+        col = mixColor(col, [255, 253, 249], cardCov);
+        const barD = sdRoundRect(cx, cy + 0.155 * S, 0.145 * S, 0.035 * S, 0.01 * S);
+        col = mixColor(col, [223, 233, 238], smoothstep(aa, -aa, barD) * cardCov);
+        for (let line = 0; line < 5; line += 1) {
+          const ly = -0.135 * S + line * 0.042 * S;
+          const lineD = sdRoundRect(cx + 0.012 * S, cy - ly, line === 0 ? 0.055 * S : 0.1 * S, 0.006 * S, 0.006 * S);
+          col = mixColor(col, line === 0 ? PRINT_RED : [186, 192, 198], smoothstep(aa, -aa, lineD) * cardCov);
+        }
+      }
+
+      // Thermometer, quer über der Karte.
+      const [tx, ty] = toLocal(x, y, 0.72 * WIDTH, 0.84 * S, 0.34);
+      const thermoD = sdRoundRect(tx, ty, 0.115 * S, 0.014 * S, 0.014 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.04 * S, -0.005 * S, thermoD - 0.008 * S) * 0.15);
+      const thermoCov = smoothstep(aa, -aa, thermoD);
+      if (thermoCov > 0) {
+        col = mixColor(col, [250, 250, 248], thermoCov);
+        const mercuryD = sdRoundRect(tx + 0.055 * S, ty, 0.055 * S, 0.006 * S, 0.006 * S);
+        col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, mercuryD) * thermoCov);
+      }
+
+      // Stethoskop: Bruststück, Schlauch in drei Bögen, zwei Ohrbügel.
+      const hoseD =
+        Math.min(
+          sdSegment(x, y, chestCx, chestCy - 0.05 * S, chestCx - 0.03 * WIDTH, 0.46 * S),
+          sdSegment(x, y, chestCx - 0.03 * WIDTH, 0.46 * S, chestCx - 0.005 * WIDTH, 0.3 * S),
+          sdSegment(x, y, chestCx - 0.005 * WIDTH, 0.3 * S, chestCx - 0.07 * WIDTH, 0.2 * S),
+          sdSegment(x, y, chestCx - 0.005 * WIDTH, 0.3 * S, chestCx + 0.06 * WIDTH, 0.2 * S),
+        ) - 0.011 * S;
+      col = mixColor(col, [0, 0, 0], smoothstep(0.045 * S, -0.005 * S, hoseD - 0.008 * S) * 0.14);
+      col = mixColor(col, tube, smoothstep(aa, -aa, hoseD));
+
+      for (const [ex, ey] of [[-0.07, 0.2], [0.06, 0.2]]) {
+        const tipD = Math.hypot(x - (chestCx + ex * WIDTH), y - ey * S) - 0.019 * S;
+        col = mixColor(col, steel, smoothstep(aa, -aa, tipD));
+      }
+
+      const chestD = Math.hypot(x - chestCx, y - chestCy) - 0.075 * S;
+      col = mixColor(col, [0, 0, 0], smoothstep(0.07 * S, -0.015 * S, chestD - 0.012 * S) * 0.18);
+      const chestCov = smoothstep(aa, -aa, chestD);
+      if (chestCov > 0) {
+        const lightT = clamp((x - (chestCx - 0.075 * S)) / (0.15 * S), 0, 1);
+        col = mixColor(col, mixColor([196, 204, 212], [138, 148, 158], lightT), chestCov);
+        const membraneD = Math.hypot(x - chestCx, y - chestCy) - 0.055 * S;
+        col = mixColor(col, [232, 236, 240], smoothstep(aa, -aa, membraneD) * chestCov);
+        const glossD = Math.hypot(x - (chestCx - 0.022 * S), y - (chestCy - 0.024 * S)) - 0.016 * S;
+        col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, glossD) * chestCov * 0.55);
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [40, 56, 68], smoothstep(0.44, 0.92, vig) * 0.15);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „Planes de viaje“: Zug am Bahnsteig mit Anzeigetafel und Koffer. */
+function renderSceneTrainPlatform(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const platformY = 0.78 * S;
+  const railY = 0.9 * S;
+  const trainTop = 0.28 * S;
+  const trainCx = 0.56 * WIDTH;
+  const trainHalfW = 0.4 * WIDTH;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [230, 236, 240], [203, 214, 222], 0.55, 0.18, 0.55);
+
+      // Gleisbett unter dem Zug, Bahnsteig davor.
+      col = mixColor(col, [176, 178, 180], smoothstep(railY - aa, railY + aa, y));
+
+      // Wagen: langer Kasten mit Fensterband und Türfuge.
+      const bodyD = sdRoundRect(x - trainCx, y - (trainTop + railY) / 2, trainHalfW, (railY - trainTop) / 2, 0.03 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.1 * S, -0.02 * S, bodyD - 0.014 * S) * 0.16);
+      const bodyCov = smoothstep(aa, -aa, bodyD);
+      if (bodyCov > 0) {
+        const lightT = clamp((y - trainTop) / (railY - trainTop), 0, 1);
+        col = mixColor(col, mixColor([248, 249, 250], [206, 212, 218], lightT), bodyCov);
+        // Farbband auf Höhe der Fenster.
+        const stripeD = sdRoundRect(x - trainCx, y - (trainTop + 0.2 * S), trainHalfW, 0.016 * S, 0.006 * S);
+        col = mixColor(col, PRINT_RED, smoothstep(aa, -aa, stripeD) * bodyCov);
+        for (let w = 0; w < 9; w += 1) {
+          const wx = trainCx - trainHalfW + 0.09 * S + w * 0.148 * S;
+          const winD = sdRoundRect(x - wx, y - (trainTop + 0.1 * S), 0.055 * S, 0.042 * S, 0.012 * S);
+          const winCov = smoothstep(aa, -aa, winD) * bodyCov;
+          col = mixColor(col, [96, 122, 142], winCov);
+          const glassD = sdRoundRect(x - wx, y - (trainTop + 0.088 * S), 0.045 * S, 0.018 * S, 0.008 * S);
+          col = mixColor(col, [150, 176, 194], smoothstep(aa, -aa, glassD) * winCov);
+        }
+        // Tür rechts außen.
+        const doorD = Math.abs(x - (trainCx + trainHalfW * 0.55)) - 0.004 * S;
+        col = mixColor(col, [178, 186, 194], smoothstep(aa, -aa, doorD) * bodyCov * smoothstep(trainTop + 0.24 * S, trainTop + 0.26 * S, y));
+      }
+
+      // Bahnsteigkante mit gelbem Sicherheitsstreifen.
+      const platD = sdRoundRect(x - 0.5 * WIDTH, y - (platformY + 0.11 * S), 0.6 * WIDTH, 0.11 * S, 0.004 * S);
+      col = mixColor(col, [214, 210, 202], smoothstep(aa, -aa, platD));
+      const warnD = sdRoundRect(x - 0.5 * WIDTH, y - (platformY + 0.016 * S), 0.6 * WIDTH, 0.008 * S, 0.003 * S);
+      col = mixColor(col, [226, 176, 70], smoothstep(aa, -aa, warnD));
+
+      // Anzeigetafel links, an einem Mast.
+      const boardCx = 0.13 * WIDTH;
+      const boardCy = 0.3 * S;
+      const mastD = sdRoundRect(x - boardCx, y - (boardCy + 0.24 * S), 0.008 * S, 0.22 * S, 0.004 * S);
+      col = mixColor(col, [150, 156, 162], smoothstep(aa, -aa, mastD));
+      const boardD = sdRoundRect(x - boardCx, y - boardCy, 0.095 * S, 0.06 * S, 0.008 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.06 * S, -0.01 * S, boardD - 0.01 * S) * 0.16);
+      const boardCov = smoothstep(aa, -aa, boardD);
+      if (boardCov > 0) {
+        col = mixColor(col, PRINT_SLATE, boardCov);
+        for (let line = 0; line < 3; line += 1) {
+          const ly = -0.03 * S + line * 0.03 * S;
+          const lineD = sdRoundRect(x - (boardCx - 0.02 * S), y - (boardCy + ly), 0.055 * S, 0.006 * S, 0.006 * S);
+          col = mixColor(col, [226, 176, 70], smoothstep(aa, -aa, lineD) * boardCov);
+        }
+      }
+
+      // Koffer auf dem Bahnsteig.
+      const caseCx = 0.3 * WIDTH;
+      const caseCy = platformY - 0.055 * S;
+      const handleD = Math.min(
+        sdSegment(x, y, caseCx - 0.022 * S, caseCy - 0.055 * S, caseCx - 0.022 * S, caseCy - 0.085 * S),
+        sdSegment(x, y, caseCx - 0.022 * S, caseCy - 0.085 * S, caseCx + 0.022 * S, caseCy - 0.085 * S),
+        sdSegment(x, y, caseCx + 0.022 * S, caseCy - 0.085 * S, caseCx + 0.022 * S, caseCy - 0.055 * S),
+      ) - 0.005 * S;
+      col = mixColor(col, [92, 78, 66], smoothstep(aa, -aa, handleD));
+      const caseD = sdRoundRect(x - caseCx, y - caseCy, 0.05 * S, 0.055 * S, 0.008 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.05 * S, -0.01 * S, caseD - 0.01 * S) * 0.16);
+      const caseCov = smoothstep(aa, -aa, caseD);
+      if (caseCov > 0) {
+        col = mixColor(col, OCHRE, caseCov);
+        for (const by of [-0.02, 0.02]) {
+          const beltD = Math.abs(y - (caseCy + by * S)) - 0.004 * S;
+          col = mixColor(col, [104, 66, 36], smoothstep(aa, -aa, beltD) * caseCov);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [44, 56, 66], smoothstep(0.44, 0.92, vig) * 0.16);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „Mi casa, mi barrio“: Wohnzimmer mit Sofa, Lampe und Fenster. */
+function renderSceneLivingRoom(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const floorY = 0.74 * S;
+  const sofaCx = 0.44 * WIDTH;
+  const sofaCy = floorY - 0.075 * S;
+  const sofaHalfW = 0.21 * WIDTH;
+  const sofaColor = [122, 138, 156];
+
+  const windowCx = 0.82 * WIDTH;
+  const windowCy = 0.34 * S;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      // Wand oben, Boden unten.
+      let col = paintBackdrop(nx, ny, [240, 234, 224], [225, 216, 203], 0.75, 0.25, 0.5);
+      col = mixColor(col, [196, 174, 148], smoothstep(floorY - aa, floorY + aa, y));
+
+      // Fenster mit Kreuzsprosse; von dort kommt das Licht.
+      const winD = sdRoundRect(x - windowCx, y - windowCy, 0.1 * S, 0.13 * S, 0.008 * S);
+      const winCov = smoothstep(aa, -aa, winD);
+      if (winCov > 0) {
+        col = mixColor(col, mixColor([214, 230, 240], [242, 235, 214], clamp((y - (windowCy - 0.13 * S)) / (0.26 * S), 0, 1)), winCov);
+        const barV = Math.abs(x - windowCx) - 0.005 * S;
+        const barH = Math.abs(y - windowCy) - 0.005 * S;
+        col = mixColor(col, [250, 248, 244], smoothstep(aa, -aa, Math.min(barV, barH)) * winCov);
+      }
+      const frameD = Math.abs(sdRoundRect(x - windowCx, y - windowCy, 0.1 * S, 0.13 * S, 0.008 * S)) - 0.008 * S;
+      col = mixColor(col, [246, 243, 238], smoothstep(aa, -aa, frameD));
+
+      // Teppich als flache Ellipse auf dem Boden.
+      const rugD = Math.hypot((x - 0.46 * WIDTH) * 0.42, y - (floorY + 0.11 * S)) - 0.1 * S;
+      col = mixColor(col, [188, 158, 128], smoothstep(2 * aa, -2 * aa, rugD) * 0.8);
+
+      // Sofa: Rückenlehne, Sitzfläche, zwei Armlehnen, zwei Kissen.
+      const backD = sdRoundRect(x - sofaCx, y - (sofaCy - 0.05 * S), sofaHalfW, 0.055 * S, 0.018 * S);
+      const seatD = sdRoundRect(x - sofaCx, y - (sofaCy + 0.035 * S), sofaHalfW, 0.04 * S, 0.014 * S);
+      let armD = 1e9;
+      for (const ax of [-1, 1]) {
+        armD = Math.min(armD, sdRoundRect(x - (sofaCx + ax * sofaHalfW), y - sofaCy, 0.022 * S, 0.075 * S, 0.016 * S));
+      }
+      const sofaD = Math.min(backD, seatD, armD);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.09 * S, -0.015 * S, sofaD - 0.012 * S) * 0.17);
+      const sofaCov = smoothstep(aa, -aa, sofaD);
+      if (sofaCov > 0) {
+        const lightT = clamp((y - (sofaCy - 0.11 * S)) / (0.22 * S), 0, 1);
+        col = mixColor(col, mixColor(sofaColor, mixColor(sofaColor, [0, 0, 0], 0.24), lightT), sofaCov);
+      }
+      // Naht zwischen Lehne und Sitzfläche, sonst liest sich das Sofa als Kasten.
+      const seamD = sdRoundRect(x - sofaCx, y - (sofaCy - 0.002 * S), sofaHalfW - 0.026 * S, 0.0035 * S, 0.0035 * S);
+      col = mixColor(col, mixColor(sofaColor, [0, 0, 0], 0.32), smoothstep(aa, -aa, seamD));
+
+      for (const px of [-0.09, 0.09]) {
+        const pillowD = sdRoundRect(x - (sofaCx + px * WIDTH), y - (sofaCy - 0.045 * S), 0.035 * S, 0.033 * S, 0.012 * S);
+        col = mixColor(col, [216, 178, 142], smoothstep(aa, -aa, pillowD));
+      }
+      // Beine.
+      for (const lx of [-0.8, 0.8]) {
+        const legD = sdRoundRect(x - (sofaCx + lx * sofaHalfW), y - (floorY + 0.008 * S), 0.008 * S, 0.018 * S, 0.004 * S);
+        col = mixColor(col, [96, 74, 56], smoothstep(aa, -aa, legD));
+      }
+
+      // Stehlampe links: Fuß, Stange, Schirm.
+      const lampCx = 0.14 * WIDTH;
+      const baseD = sdRoundRect(x - lampCx, y - (floorY + 0.012 * S), 0.045 * S, 0.012 * S, 0.008 * S);
+      const poleD = sdRoundRect(x - lampCx, y - (floorY - 0.13 * S), 0.006 * S, 0.14 * S, 0.004 * S);
+      col = mixColor(col, [104, 96, 88], smoothstep(aa, -aa, Math.min(baseD, poleD)));
+      // Trapez statt Dreieck: ein Lampenschirm ist oben schmal, nicht spitz.
+      const shadeD = taperedBox(x, y, lampCx, floorY - 0.36 * S, floorY - 0.26 * S, 0.034 * S, 0.062 * S, 0.006 * S);
+      col = mixColor(col, [0, 0, 0], smoothstep(0.06 * S, -0.01 * S, shadeD - 0.01 * S) * 0.14);
+      const shadeCov = smoothstep(aa, -aa, shadeD);
+      col = mixColor(col, mixColor([246, 226, 186], [222, 196, 152], clamp((y - (floorY - 0.36 * S)) / (0.1 * S), 0, 1)), shadeCov);
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [58, 44, 34], smoothstep(0.44, 0.92, vig) * 0.17);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
+/** A2 „Fiestas y tradiciones“: Wimpelkette und Lampions am Abendhimmel. */
+function renderSceneFiestaLights(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const FLAGS = [PRINT_RED, [226, 176, 70], [108, 150, 112], [108, 138, 168], [198, 120, 70]];
+  const LANTERNS = [
+    { cx: 0.2 * WIDTH, cy: 0.56 * S, r: 0.055 * S, color: [232, 176, 96] },
+    { cx: 0.44 * WIDTH, cy: 0.63 * S, r: 0.045 * S, color: [216, 122, 96] },
+    { cx: 0.68 * WIDTH, cy: 0.58 * S, r: 0.05 * S, color: [238, 198, 118] },
+    { cx: 0.88 * WIDTH, cy: 0.66 * S, r: 0.04 * S, color: [214, 140, 104] },
+  ];
+
+  /** Höhe der durchhängenden Schnur an der Stelle x. */
+  const ropeY = (px, top, sag) => top + sag * Math.sin((px / WIDTH) * Math.PI);
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      // Abendhimmel: warm am Horizont, kühl nach oben.
+      let col = paintBackdrop(nx, ny, [72, 82, 118], [206, 154, 122], 0.5, 1.0, 0.7);
+
+      // Zwei Schnüre mit Wimpeln, die zweite tiefer und kleiner.
+      for (const line of [
+        { top: 0.16 * S, sag: 0.1 * S, size: 0.055 * S, count: 9 },
+        { top: 0.3 * S, sag: 0.08 * S, size: 0.042 * S, count: 11 },
+      ]) {
+        const ry = ropeY(x, line.top, line.sag);
+        col = mixColor(col, [238, 232, 220], smoothstep(0.004 * S, 0, Math.abs(y - ry)) * 0.8);
+
+        const step = WIDTH / line.count;
+        const index = Math.floor(x / step);
+        const anchorX = (index + 0.5) * step;
+        const anchorY = ropeY(anchorX, line.top, line.sag);
+        const flagD = sdTriangle(
+          x,
+          y,
+          [anchorX - line.size * 0.5, anchorY],
+          [anchorX + line.size * 0.5, anchorY],
+          [anchorX, anchorY + line.size],
+        );
+        col = mixColor(col, FLAGS[index % FLAGS.length], smoothstep(aa, -aa, flagD) * 0.95);
+      }
+
+      // Lampions: Kugel mit Aufhängung und warmem Schein.
+      for (const lamp of LANTERNS) {
+        const glow = Math.hypot(x - lamp.cx, y - lamp.cy) - lamp.r;
+        col = mixColor(col, mixColor(lamp.color, [255, 240, 210], 0.4), smoothstep(lamp.r * 2.2, 0, glow) * 0.22);
+        // Die Schnur endet nicht in der Luft, sondern an der unteren Leine.
+        const cordD = sdSegment(x, y, lamp.cx, lamp.cy - lamp.r, lamp.cx, ropeY(lamp.cx, 0.3 * S, 0.08 * S)) - 0.0025 * S;
+        col = mixColor(col, [226, 220, 208], smoothstep(aa, -aa, cordD) * 0.7);
+        const bodyD = Math.hypot(x - lamp.cx, (y - lamp.cy) * 1.15) - lamp.r;
+        const cov = smoothstep(aa, -aa, bodyD);
+        if (cov > 0) {
+          col = mixColor(col, lamp.color, cov);
+          // Zwei Rippen und ein Glanzpunkt geben dem Papier Form.
+          for (const rx of [-0.45, 0.45]) {
+            const ribD = Math.abs(x - (lamp.cx + rx * lamp.r)) - 0.0035 * S;
+            col = mixColor(col, mixColor(lamp.color, [0, 0, 0], 0.18), smoothstep(aa, -aa, ribD) * cov);
+          }
+          const glossD = Math.hypot(x - (lamp.cx - lamp.r * 0.35), y - (lamp.cy - lamp.r * 0.4)) - lamp.r * 0.2;
+          col = mixColor(col, [255, 246, 226], smoothstep(aa, -aa, glossD) * cov * 0.5);
+        }
+      }
+
+      const vig = Math.hypot(nx - 0.5, (ny - 0.45) * 0.85);
+      col = mixColor(col, [26, 28, 46], smoothstep(0.42, 0.94, vig) * 0.22);
+
+      canvas.blend(i, col, 1);
+    }
+  }
+
+  return canvas;
+}
+
 /** Neutrales Motiv für Einheiten ohne eigenes Bildthema: aufgeschlagenes Buch. */
 function renderSceneGenericBook(WIDTH, HEIGHT) {
   const canvas = new Canvas(WIDTH, HEIGHT);
@@ -2455,6 +3344,16 @@ const COVERS = [
   { file: 'mobile/assets/covers/scene-city-street.png', width: 720, height: 450, render: renderSceneCityStreet },
   { file: 'mobile/assets/covers/scene-city-map.png', width: 720, height: 450, render: renderSceneCityMap },
   { file: 'mobile/assets/covers/scene-signpost.png', width: 720, height: 450, render: renderSceneSignpost },
+  { file: 'mobile/assets/covers/scene-clock-day.png', width: 720, height: 450, render: renderSceneClockDay },
+  { file: 'mobile/assets/covers/scene-market-stall.png', width: 720, height: 450, render: renderSceneMarketStall },
+  { file: 'mobile/assets/covers/scene-shopping-bags.png', width: 720, height: 450, render: renderSceneShoppingBags },
+  { file: 'mobile/assets/covers/scene-restaurant-table.png', width: 720, height: 450, render: renderSceneRestaurantTable },
+  { file: 'mobile/assets/covers/scene-calendar-weekend.png', width: 720, height: 450, render: renderSceneCalendarWeekend },
+  { file: 'mobile/assets/covers/scene-childhood-toys.png', width: 720, height: 450, render: renderSceneChildhoodToys },
+  { file: 'mobile/assets/covers/scene-doctor-visit.png', width: 720, height: 450, render: renderSceneDoctorVisit },
+  { file: 'mobile/assets/covers/scene-train-platform.png', width: 720, height: 450, render: renderSceneTrainPlatform },
+  { file: 'mobile/assets/covers/scene-living-room.png', width: 720, height: 450, render: renderSceneLivingRoom },
+  { file: 'mobile/assets/covers/scene-fiesta-lights.png', width: 720, height: 450, render: renderSceneFiestaLights },
   { file: 'mobile/assets/covers/scene-generic-book.png', width: 720, height: 450, render: renderSceneGenericBook },
 ];
 

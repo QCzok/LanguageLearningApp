@@ -46,6 +46,20 @@ export class GrammarQuestionDto {
   question!: string;
 }
 
+export class TranslateDto {
+  @ApiProperty({ example: 'se me olvidó', description: 'Markiertes Wort oder markierte Wendung' })
+  @IsString()
+  @Length(1, 300)
+  text!: string;
+
+  /** Der Satz oder Absatz, in dem das Markierte steht – macht Mehrdeutiges eindeutig. */
+  @ApiPropertyOptional({ maxLength: 1000 })
+  @IsOptional()
+  @IsString()
+  @Length(0, 1000)
+  context?: string;
+}
+
 export class GenerateVocabDeckDto {
   @ApiProperty({ example: 'Kochen', description: 'Thema, zu dem 30 Vokabeln generiert werden' })
   @IsString()

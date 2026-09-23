@@ -16,9 +16,10 @@ import { GRAMMAR_CURRICULUM } from './grammar-curriculum';
  * das ist die Sicht, in der ein Lehrplan geschrieben wird; die Zählung im Buch
  * entsteht daraus (siehe `CURRICULUM`).
  *
- * Ausgearbeitet sind Beginner Kapitel 1 (siehe chapter-beginner-1.ts) und
- * Grammatik Kapitel 1 (siehe chapter-grammar-1.ts); die übrigen Kapitel stehen
- * als Gerüst bereit und sind noch nicht veröffentlicht.
+ * Ausgearbeitet sind die Stufen A1 und A2: der ganze Beginner-Band
+ * (chapter-beginner-1.ts bis chapter-beginner-12.ts) und Grammatik Kapitel 1
+ * bis 6 (chapter-grammar-1.ts bis chapter-grammar-6.ts); die übrigen Kapitel
+ * stehen als Gerüst bereit und sind noch nicht veröffentlicht.
  */
 export interface ChapterSeed {
   book: WorkbookBook;

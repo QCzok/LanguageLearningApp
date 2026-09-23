@@ -25,6 +25,7 @@ import {
   GenerateVocabDeckDto,
   GrammarQuestionDto,
   SendMessageDto,
+  TranslateDto,
 } from './dto/ai.dto';
 
 @ApiTags('ai')
@@ -132,6 +133,14 @@ export class AiController {
   @ApiOperation({ summary: 'Premium: Grammatik, Vokabeln oder Fehler erklären lassen' })
   grammar(@CurrentUser('id') userId: string, @Body() dto: GrammarQuestionDto) {
     return this.ai.explainGrammar(userId, dto);
+  }
+
+  /** Markiertes Wort oder markierte Wendung aus Lehrwerk und Bibliothek übersetzen. */
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('translate')
+  @ApiOperation({ summary: 'Wort oder Wendung im Zusammenhang übersetzen' })
+  translate(@CurrentUser('id') userId: string, @Body() dto: TranslateDto) {
+    return this.ai.translate(userId, dto);
   }
 
   @Throttle({ default: { limit: 10, ttl: 300_000 } })

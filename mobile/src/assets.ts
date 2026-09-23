@@ -34,6 +34,16 @@ import sceneBirthday from '../assets/covers/scene-birthday.png';
 import sceneCityStreet from '../assets/covers/scene-city-street.png';
 import sceneCityMap from '../assets/covers/scene-city-map.png';
 import sceneSignpost from '../assets/covers/scene-signpost.png';
+import sceneClockDay from '../assets/covers/scene-clock-day.png';
+import sceneMarketStall from '../assets/covers/scene-market-stall.png';
+import sceneShoppingBags from '../assets/covers/scene-shopping-bags.png';
+import sceneRestaurantTable from '../assets/covers/scene-restaurant-table.png';
+import sceneCalendarWeekend from '../assets/covers/scene-calendar-weekend.png';
+import sceneChildhoodToys from '../assets/covers/scene-childhood-toys.png';
+import sceneDoctorVisit from '../assets/covers/scene-doctor-visit.png';
+import sceneTrainPlatform from '../assets/covers/scene-train-platform.png';
+import sceneLivingRoom from '../assets/covers/scene-living-room.png';
+import sceneFiestaLights from '../assets/covers/scene-fiesta-lights.png';
 import sceneGenericBook from '../assets/covers/scene-generic-book.png';
 
 export {
@@ -64,6 +74,16 @@ export {
   sceneCityStreet,
   sceneCityMap,
   sceneSignpost,
+  sceneClockDay,
+  sceneMarketStall,
+  sceneShoppingBags,
+  sceneRestaurantTable,
+  sceneCalendarWeekend,
+  sceneChildhoodToys,
+  sceneDoctorVisit,
+  sceneTrainPlatform,
+  sceneLivingRoom,
+  sceneFiestaLights,
   sceneGenericBook,
 };
 

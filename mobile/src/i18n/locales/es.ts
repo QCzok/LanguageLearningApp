@@ -659,4 +659,14 @@ export const es: TranslationDictionary = {
   profileAddLanguage: '+ Añadir un idioma',
   profileChangeAvatar: 'Cambiar icono',
   profileChooseAvatar: 'Elige un icono de perfil',
+
+  translateTitle: 'Traducir',
+  translateOpen: 'Traducir una palabra o expresión',
+  translateAction: 'Traducir',
+  translatePlaceholder: 'Escribe una palabra o expresión',
+  translateAlso: 'También',
+  translateHintWeb: 'Consejo: selecciona una palabra o expresión en la página y aparecerá «Traducir» justo al lado.',
+  translateHintNative: 'Consejo: mantén pulsada una palabra en la página, cópiala y pégala aquí.',
+  translateFailed: 'La traducción no ha funcionado. Inténtalo de nuevo en un momento.',
+  translateQuota: 'Has agotado tu cupo de IA de este mes.',
 };

@@ -658,4 +658,14 @@ export const en: TranslationDictionary = {
   profileAddLanguage: '+ Add a language',
   profileChangeAvatar: 'Change icon',
   profileChooseAvatar: 'Choose a profile icon',
+
+  translateTitle: 'Translate',
+  translateOpen: 'Translate a word or phrase',
+  translateAction: 'Translate',
+  translatePlaceholder: 'Enter a word or phrase',
+  translateAlso: 'Also',
+  translateHintWeb: 'Tip: Select a word or phrase on the page and “Translate” appears right next to it.',
+  translateHintNative: 'Tip: Press and hold a word on the page, copy it and paste it here.',
+  translateFailed: 'The translation didn’t work. Please try again in a moment.',
+  translateQuota: 'You’ve used up your AI allowance for this month.',
 };

@@ -22,6 +22,7 @@ import type {
   NotebookAnalysisDto,
   NotebookPageContent,
   RecommendationDto,
+  TranslationDto,
   VocabDeckDto,
 } from '@lingua/shared';
 import { aiConfig } from '../../config/configuration';
@@ -34,6 +35,7 @@ import {
   correctionSchema,
   grammarSchema,
   recommendationSchema,
+  translationSchema,
   vocabDeckGenerationSchema,
   VOCAB_DECK_GENERATION_COUNT,
 } from './ai.schemas';
@@ -45,6 +47,7 @@ import {
   GRAMMAR_INSTRUCTIONS,
   learnerContext,
   RECOMMENDATION_INSTRUCTIONS,
+  TRANSLATION_INSTRUCTIONS,
   TUTOR_SYSTEM_PREFIX,
   vocabDeckInstructions,
 } from './prompts';
@@ -54,6 +57,7 @@ import {
   GenerateVocabDeckDto,
   GrammarQuestionDto,
   SendMessageDto,
+  TranslateDto,
 } from './dto/ai.dto';
 
 import { ERR, t, type MessageLanguage } from '../../common/i18n/messages';
@@ -430,6 +434,48 @@ export class AiService {
 
     await this.recordUsage(userId, AiFeature.GRAMMAR_EXPLANATION, usage);
     return parsed;
+  }
+
+  /**
+   * Übersetzt, was der Lernende in Lehrwerk oder Bibliothek markiert hat.
+   * Bewusst mit wenig Aufwand (`effort: 'low'`): Man wartet mitten im Lesen
+   * darauf, und für ein Wort im Satz braucht es kein langes Nachdenken.
+   */
+  async translate(userId: string, dto: TranslateDto): Promise<TranslationDto> {
+    const text = dto.text.trim();
+    if (!text) throw new BadRequestException(ERR['ai.text_too_short']);
+    await this.assertQuota(userId);
+
+    const [user, profile] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { nativeLanguage: true },
+      }),
+      this.users.getActiveProfileOrThrow(userId),
+    ]);
+
+    const context = dto.context?.trim();
+    const userContent =
+      context && context !== text ? `Markiert: ${text}
+
+Kontext: ${context}` : `Markiert: ${text}`;
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: translationSchema,
+      systemPrefix: TUTOR_SYSTEM_PREFIX,
+      systemSuffix: `${learnerContext({
+        targetLanguage: profile.language.nativeName,
+        nativeLanguage: user.nativeLanguage,
+        level: profile.level as CefrLevel,
+      })}
+
+${TRANSLATION_INSTRUCTIONS}`,
+      userContent,
+      maxTokens: 400,
+      effort: 'low',
+    });
+
+    await this.recordUsage(userId, AiFeature.TRANSLATION, usage);
+    return { text, ...parsed };
   }
 
   /**

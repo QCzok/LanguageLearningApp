@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { READER_THEME_NAMES, fontFamily, radius, reading, readerThemes, spacing } from '../../theme';
 import type { ReaderThemeName } from '../../theme';
+import { TranslateButton } from '../translate/TranslateButton';
 import { ArrowLeftIcon, CheckIcon, LineSpacingGlyph, MarginGlyph } from './ReaderIcons';
 import { useReaderSettings } from './ReaderSettings';
 
@@ -25,7 +26,7 @@ import { useReaderSettings } from './ReaderSettings';
 // -------------------------------------------------------------- Kopfleiste
 
 /**
- * Die Kopfleiste über dem Text: zurück, Titel, „Aa“.
+ * Die Kopfleiste über dem Text: zurück, Titel, Übersetzen, „Aa“.
  *
  * Sie liegt über der Seite statt über ihr zu stehen – deshalb absolut
  * positioniert und nicht im Fluss: Wenn sie beim Lesen verschwindet, soll der
@@ -35,10 +36,12 @@ import { useReaderSettings } from './ReaderSettings';
 export function ReaderTopBar({
   title,
   onBack,
+  onTranslate,
   onOpenSettings,
 }: {
   title: string;
   onBack: () => void;
+  onTranslate: () => void;
   onOpenSettings: () => void;
 }) {
   const { t } = useTranslation();
@@ -69,6 +72,8 @@ export function ReaderTopBar({
       <Text style={[barTitle, { color: c.inkSoft }]} numberOfLines={1}>
         {title}
       </Text>
+
+      <TranslateButton color={c.ink} onPress={onTranslate} />
 
       <Pressable
         accessibilityRole="button"

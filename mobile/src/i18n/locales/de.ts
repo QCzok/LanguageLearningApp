@@ -670,4 +670,15 @@ export const de = {
   profileAddLanguage: '+ Sprache hinzufügen',
   profileChangeAvatar: 'Icon ändern',
   profileChooseAvatar: 'Profil-Icon wählen',
+
+  // ----------------------------------------------------------- Übersetzen
+  translateTitle: 'Übersetzen',
+  translateOpen: 'Wort oder Wendung übersetzen',
+  translateAction: 'Übersetzen',
+  translatePlaceholder: 'Wort oder Wendung eingeben',
+  translateAlso: 'Auch',
+  translateHintWeb: 'Tipp: Markiere ein Wort oder eine Wendung auf der Seite – dann erscheint „Übersetzen“ direkt daneben.',
+  translateHintNative: 'Tipp: Halte ein Wort auf der Seite gedrückt, kopiere es und füge es hier ein.',
+  translateFailed: 'Die Übersetzung hat nicht geklappt. Versuch es gleich noch einmal.',
+  translateQuota: 'Dein KI-Kontingent für diesen Monat ist aufgebraucht.',
 } as const;

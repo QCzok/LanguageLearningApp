@@ -15,6 +15,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "seed": "ts-node --transpile-only prisma/seed.ts",
+    "seed:workbook": "ts-node --transpile-only prisma/seed-workbook.ts",
     "videos:refresh": "ts-node --transpile-only scripts/refresh-video-catalog.ts",
     "videos:seed": "ts-node --transpile-only scripts/seed-videos.ts"
   },

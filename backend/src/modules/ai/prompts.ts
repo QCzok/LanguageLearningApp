@@ -149,6 +149,21 @@ export const GRAMMAR_INSTRUCTIONS = `Erkläre das angefragte Grammatikthema für
 - commonMistakes: typische Fehler von Lernenden mit dieser Muttersprache.
 - relatedTopics: 2–4 sinnvolle Anschlussthemen.`;
 
+/**
+ * Übersetzung eines markierten Worts oder einer Wendung aus Lehrwerk und
+ * Bibliothek. Der umgebende Satz geht mit, weil ein Wort allein oft mehrdeutig
+ * ist – übersetzt werden soll, was es *an dieser Stelle* heißt. Die Richtung
+ * steht nicht fest: Die Seiten des Spanischkurses tragen auch deutsche
+ * Erklärungen, und wer die markiert, will die Zielsprache sehen.
+ */
+export const TRANSLATION_INSTRUCTIONS = `Übersetze das markierte Wort oder die markierte Wendung.
+
+- Steht das Markierte in der Zielsprache, übersetze in die Muttersprache. Steht es in der Muttersprache, übersetze in die Zielsprache.
+- Ist ein Kontext angegeben, übersetze so, wie das Markierte dort gemeint ist – nicht die erste Wörterbuchbedeutung.
+- translation: nur die Übersetzung, ohne Anführungszeichen, ohne Erklärung. Ist eine Redewendung markiert, gib die sinngemäße Entsprechung, nicht die wörtliche.
+- alternatives: höchstens drei weitere gängige Bedeutungen, die sich deutlich von translation unterscheiden; sonst leer.
+- note: ein kurzer Satz, nur wenn er beim Lernen hilft – etwa Grundform bei einer gebeugten Form, Genus eines Nomens, oder dass es eine feste Wendung ist. Sonst null.`;
+
 export function vocabDeckInstructions(topic: string, count: number): string {
   return [
     `Erstelle einen Vokabelstapel mit genau ${count} Vokabeln zum Thema "${topic}".`,

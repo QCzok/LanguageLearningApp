@@ -35,6 +35,8 @@ import {
 } from './blocks/ContentBlocks';
 import { Choice, Cloze, Matching, Ordering, Writing } from './blocks/ExerciseBlocks';
 import type { NotebookStackParamList } from '../../navigation/types';
+import { TranslateLayer } from '../translate/TranslateLayer';
+import { useTranslateHeaderButton } from '../translate/TranslateButton';
 
 type Props = NativeStackScreenProps<NotebookStackParamList, 'Unit'>;
 
@@ -62,6 +64,7 @@ export default function UnitScreen({ route, navigation }: Props) {
   const { unitId } = route.params;
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const translator = useTranslateHeaderButton(navigation);
 
   // Verfügbare Breite des Anzeigebereichs – im Web die von `WebLayout`
   // gemessene Spalte statt der vollen Fensterbreite (siehe dort für den
@@ -449,6 +452,8 @@ export default function UnitScreen({ route, navigation }: Props) {
           goToUnit(unit);
         }}
       />
+
+      <TranslateLayer ref={translator} />
     </SafeAreaView>
   );
 }

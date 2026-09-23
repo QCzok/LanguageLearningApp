@@ -3,15 +3,25 @@ import { Image } from 'react-native';
 import {
   sceneAlphabetNumbers,
   sceneBelongings,
+  sceneCalendarWeekend,
+  sceneChildhoodToys,
   sceneBirthday,
   sceneCityMap,
   sceneCityStreet,
+  sceneClockDay,
+  sceneDoctorVisit,
   sceneFamilyTree,
   sceneGenericBook,
   sceneGreetingOffice,
   sceneIntroduction,
+  sceneLivingRoom,
+  sceneMarketStall,
   scenePortraits,
+  sceneRestaurantTable,
+  sceneFiestaLights,
+  sceneShoppingBags,
   sceneSignpost,
+  sceneTrainPlatform,
   sceneWorldMap,
 } from '../../../assets';
 
@@ -58,6 +68,17 @@ const SCENES: Record<string, number> = {
   'city-street': sceneCityStreet,
   'city-map': sceneCityMap,
   signpost: sceneSignpost,
+  'clock-day': sceneClockDay,
+  'market-stall': sceneMarketStall,
+  'shopping-bags': sceneShoppingBags,
+  'restaurant-table': sceneRestaurantTable,
+  // Ab hier die Motive der Stufe A2.
+  'calendar-weekend': sceneCalendarWeekend,
+  'childhood-toys': sceneChildhoodToys,
+  'doctor-visit': sceneDoctorVisit,
+  'train-platform': sceneTrainPlatform,
+  'living-room': sceneLivingRoom,
+  'fiesta-lights': sceneFiestaLights,
 };
 
 /** Löst den `illustration:<key>`-Schlüssel aus `ImageBlock.url` auf. */

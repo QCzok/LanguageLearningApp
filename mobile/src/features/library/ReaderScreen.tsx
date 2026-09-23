@@ -27,6 +27,8 @@ import { ReadingSection } from './ReadingSection';
 import type { GlossaryAnchor } from './ReadingSection';
 import { ReaderSettingsSheet, ReaderStatusLine, ReaderTopBar } from './ReaderChrome';
 import { ReaderSettingsProvider, useReaderSettings } from './ReaderSettings';
+import { TranslateLayer } from '../translate/TranslateLayer';
+import type { TranslateLayerHandle } from '../translate/TranslateLayer';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Reader'>;
 
@@ -90,6 +92,7 @@ function Reader({ route, navigation }: Props) {
   const queryClient = useQueryClient();
   const lastSaved = useRef(0);
   const startedAt = useRef(Date.now());
+  const translator = useRef<TranslateLayerHandle>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['library', contentId],
@@ -337,6 +340,7 @@ function Reader({ route, navigation }: Props) {
         <ReaderTopBar
           title={data.title}
           onBack={() => navigation.goBack()}
+          onTranslate={() => translator.current?.open()}
           onOpenSettings={() => setSettingsOpen(true)}
         />
       ) : null}
@@ -358,6 +362,10 @@ function Reader({ route, navigation }: Props) {
       {/* Die Worterklärung liegt über der ganzen Seite, nicht im Absatz –
           nur so kann sie den Satzspiegel verlassen und neben dem Wort stehen. */}
       <GlossaryPopover anchor={anchor} onClose={() => setAnchor(null)} />
+
+      {/* Markiertes übersetzen – im Browser per Knopf an der Markierung, sonst
+          über das Zeichen in der Kopfleiste. */}
+      <TranslateLayer ref={translator} palette={c} />
     </View>
   );
 }

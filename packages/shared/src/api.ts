@@ -436,6 +436,15 @@ export interface GrammarExplanationDto {
   relatedTopics: string[];
 }
 
+/** Übersetzung eines markierten Worts oder einer Wendung (siehe `POST /ai/translate`). */
+export interface TranslationDto {
+  /** Das Markierte, so wie es übersetzt wurde (ohne Rand-Leerzeichen). */
+  text: string;
+  translation: string;
+  alternatives: string[];
+  note: string | null;
+}
+
 export interface RecommendationDto {
   focusAreas: string[];
   summary: string;

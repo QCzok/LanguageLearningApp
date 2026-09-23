@@ -93,6 +93,7 @@ enum AiFeature {
   RECOMMENDATIONS
   VOCAB_GENERATION
   VOICE_TRANSCRIPTION
+  TRANSLATION
 }
 
 enum PageBackground {
