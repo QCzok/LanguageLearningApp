@@ -3,6 +3,7 @@ import {
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -23,6 +24,7 @@ import { fontFamily, radius, reading, spacing } from '../../theme';
 import type { LibraryStackParamList } from '../../navigation/types';
 import { libraryCoverSource } from './LibraryCovers';
 import { GlossaryPopover } from './GlossaryPopover';
+import { PageTapProvider, useTapWithoutResponder } from './pageTap';
 import { ReadingSection } from './ReadingSection';
 import type { GlossaryAnchor } from './ReadingSection';
 import { ReaderSettingsSheet, ReaderStatusLine, ReaderTopBar } from './ReaderChrome';
@@ -93,6 +95,8 @@ function Reader({ route, navigation }: Props) {
   const lastSaved = useRef(0);
   const startedAt = useRef(Date.now());
   const translator = useRef<TranslateLayerHandle>(null);
+  const toggleChrome = useCallback(() => setChromeVisible((visible) => !visible), []);
+  const pageTap = useTapWithoutResponder(toggleChrome);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['library', contentId],
@@ -228,112 +232,116 @@ function Reader({ route, navigation }: Props) {
             Wer gerade Text markiert, meint damit keinen Tipp auf die Seite:
             Im Browser endet das Markieren mit einem Klick genau hier, und
             ohne die Abfrage spränge bei jedem Kopieren die Kopfleiste um
-            (siehe `hasTextSelection`). */}
-        <Pressable
-          onPress={() => {
-            if (hasTextSelection()) return;
-            setChromeVisible((visible) => !visible);
-          }}
-        >
-          <View
-            style={[
-              page,
-              { paddingHorizontal: spacing.lg + settings.margin },
-            ]}
+            (siehe `hasTextSelection`).
+
+            Auf Android darf die Fläche kein `Pressable` sein – sonst lässt sich
+            darin nichts markieren (siehe `PageTapArea`). */}
+        <PageTapProvider value={pageTap.claim}>
+          <PageTapArea
+            onTap={() => {
+              if (hasTextSelection()) return;
+              toggleChrome();
+            }}
+            handlers={pageTap.handlers}
           >
-            {/* Die Titelseite: Deckel, Kicker, Titel, Verfasser, Vorspann. */}
-            <View style={titlePage}>
-              <View style={[coverFrame, { backgroundColor: c.paperDeep, shadowColor: c.ink }]}>
-                <Image
-                  source={libraryCoverSource(data)}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                  fadeDuration={0}
-                  accessibilityIgnoresInvertColors
-                />
+            <View style={[page, { paddingHorizontal: spacing.lg + settings.margin }]}>
+              {/* Die Titelseite: Deckel, Kicker, Titel, Verfasser, Vorspann. */}
+              <View style={titlePage}>
+                <View style={[coverFrame, { backgroundColor: c.paperDeep, shadowColor: c.ink }]}>
+                  <Image
+                    source={libraryCoverSource(data)}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                    fadeDuration={0}
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
+
+                <Text style={[titleKicker, { color: c.inkFaint }]}>
+                  {typeLabel} · {data.level} · {data.estimatedMinutes} {t('commonMinutesShort')} ·{' '}
+                  {t('readerWords', { count: data.wordCount })}
+                </Text>
+
+                <Text selectable style={[bookTitle, { color: c.ink }]}>
+                  {data.title}
+                </Text>
+
+                {data.author ? (
+                  <Text selectable style={[bookAuthor, { color: c.inkSoft }]}>
+                    {t('readerBy', { author: data.author })}
+                  </Text>
+                ) : null}
+
+                <Text selectable style={[lead, { color: c.inkSoft }]}>
+                  {data.summary}
+                </Text>
+
+                <View style={[titleRule, { backgroundColor: c.accent }]} />
               </View>
 
-              <Text style={[titleKicker, { color: c.inkFaint }]}>
-                {typeLabel} · {data.level} · {data.estimatedMinutes} {t('commonMinutesShort')} ·{' '}
-                {t('readerWords', { count: data.wordCount })}
-              </Text>
-
-              <Text selectable style={[bookTitle, { color: c.ink }]}>
-                {data.title}
-              </Text>
-
-              {data.author ? (
-                <Text selectable style={[bookAuthor, { color: c.inkSoft }]}>
-                  {t('readerBy', { author: data.author })}
-                </Text>
+              {/* Einmal gesagt, wozu die farbigen Wörter da sind – danach erklärt
+                sich der Verweis von selbst. */}
+              {hasGlossary ? (
+                <Text style={[hint, { color: c.inkFaint }]}>{t('readingHint')}</Text>
               ) : null}
 
-              <Text selectable style={[lead, { color: c.inkSoft }]}>
-                {data.summary}
-              </Text>
-
-              <View style={[titleRule, { backgroundColor: c.accent }]} />
-            </View>
-
-            {/* Einmal gesagt, wozu die farbigen Wörter da sind – danach erklärt
-                sich der Verweis von selbst. */}
-            {hasGlossary ? (
-              <Text style={[hint, { color: c.inkFaint }]}>{t('readingHint')}</Text>
-            ) : null}
-
-            {/* Abschnitte einzeln rendern: jeder trägt seine eigene Übersetzung
+              {/* Abschnitte einzeln rendern: jeder trägt seine eigene Übersetzung
                 und sein eigenes Glossar, statt einen einzigen Textblock. */}
-            <View style={{ gap: spacing.md }}>
-              {data.body?.map((section, index) => (
-                <ReadingSection
-                  key={section.id}
-                  section={section}
-                  dropCap={index === 0}
-                  activeTermId={anchor?.id}
-                  onTermPress={setAnchor}
-                />
-              ))}
-            </View>
+              <View style={{ gap: spacing.md }}>
+                {data.body?.map((section, index) => (
+                  <ReadingSection
+                    key={section.id}
+                    section={section}
+                    dropCap={index === 0}
+                    activeTermId={anchor?.id}
+                    onTermPress={setAnchor}
+                  />
+                ))}
+              </View>
 
-            {/* Schlussvignette – das gedruckte Zeichen dafür, dass der Text hier
+              {/* Schlussvignette – das gedruckte Zeichen dafür, dass der Text hier
                 endet und darunter nur noch Zugaben stehen. */}
-            <View style={endMark}>
-              <View style={[endRule, { backgroundColor: c.rule }]} />
-              <Text style={{ fontSize: 13, color: c.accent }}>✦</Text>
-              <View style={[endRule, { backgroundColor: c.rule }]} />
-            </View>
+              <View style={endMark}>
+                <View style={[endRule, { backgroundColor: c.rule }]} />
+                <Text style={{ fontSize: 13, color: c.accent }}>✦</Text>
+                <View style={[endRule, { backgroundColor: c.rule }]} />
+              </View>
 
-            {data.exerciseCount > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => navigation.navigate('Exercises', { contentId, title })}
-                style={({ pressed }) => [
-                  exerciseBox,
-                  {
-                    backgroundColor: c.paperDeep,
-                    borderColor: c.edge,
-                    borderLeftColor: c.accent,
-                  },
-                  pressed && { opacity: 0.9 },
-                ]}
-              >
-                <Text style={[exerciseLabel, { color: c.accent }]}>{t('readerToTheText')}</Text>
-                <Text style={[exerciseTitle, { color: c.ink }]}>{t('readerUnderstood')}</Text>
-                <Text style={[exerciseHint, { color: c.inkSoft }]}>
-                  {data.exerciseCount === 1
-                    ? t('readerExerciseCountOne')
-                    : t('readerExerciseCount', { count: data.exerciseCount })}
-                  {data.userProgress?.bestScore != null
-                    ? ` · ${t('readerBestResult', { percent: data.userProgress.bestScore })}`
-                    : ''}
-                </Text>
-                <Text style={[exerciseAction, { color: c.accent }]}>
-                  {t('readerStartExercises')} →
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        </Pressable>
+              {data.exerciseCount > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    pageTap.claim();
+                    navigation.navigate('Exercises', { contentId, title });
+                  }}
+                  style={({ pressed }) => [
+                    exerciseBox,
+                    {
+                      backgroundColor: c.paperDeep,
+                      borderColor: c.edge,
+                      borderLeftColor: c.accent,
+                    },
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  <Text style={[exerciseLabel, { color: c.accent }]}>{t('readerToTheText')}</Text>
+                  <Text style={[exerciseTitle, { color: c.ink }]}>{t('readerUnderstood')}</Text>
+                  <Text style={[exerciseHint, { color: c.inkSoft }]}>
+                    {data.exerciseCount === 1
+                      ? t('readerExerciseCountOne')
+                      : t('readerExerciseCount', { count: data.exerciseCount })}
+                    {data.userProgress?.bestScore != null
+                      ? ` · ${t('readerBestResult', { percent: data.userProgress.bestScore })}`
+                      : ''}
+                  </Text>
+                  <Text style={[exerciseAction, { color: c.accent }]}>
+                    {t('readerStartExercises')} →
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </PageTapArea>
+        </PageTapProvider>
       </ScrollView>
 
       {chromeVisible ? (
@@ -368,6 +376,28 @@ function Reader({ route, navigation }: Props) {
       <TranslateLayer ref={translator} palette={c} />
     </View>
   );
+}
+
+/**
+ * Die Fläche, die auf einen Tipp die Leisten schaltet.
+ *
+ * Im Browser und auf iOS ein gewöhnliches `Pressable`. Auf Android nicht: Dort
+ * reißt ein `Pressable` jede Berührung an sich, und der markierbare Text darin
+ * bekäme das lange Drücken nie zu sehen (siehe `useTapWithoutResponder`). Die
+ * Fläche hört dort nur zu; Knöpfe im Text beanspruchen ihren Tipp über
+ * `useClaimPageTap`, damit die Leisten dabei stehen bleiben.
+ */
+function PageTapArea({
+  onTap,
+  handlers,
+  children,
+}: {
+  onTap: () => void;
+  handlers: ReturnType<typeof useTapWithoutResponder>['handlers'];
+  children: React.ReactNode;
+}) {
+  if (Platform.OS === 'android') return <View {...handlers}>{children}</View>;
+  return <Pressable onPress={onTap}>{children}</Pressable>;
 }
 
 /** Der Satzspiegel: begrenzte Zeilenbreite, auf breiten Schirmen zentriert. */

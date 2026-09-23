@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { GestureResponderEvent, Pressable, Text, View } from 'react-native';
+import { GestureResponderEvent, Platform, Pressable, Text, View } from 'react-native';
 import type { LibraryGlossaryEntry, LibrarySection } from '@lingua/shared';
 import { useTranslation } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
@@ -7,6 +7,7 @@ import { asTranslatableLanguage } from '../../utils/translation';
 import { fontFamily, radius, spacing } from '../../theme';
 import { hasTextSelection } from '../../utils/selection';
 import { useReaderSettings } from './ReaderSettings';
+import { useClaimPageTap, useTapWithoutResponder } from './pageTap';
 
 /** Das angetippte Wort samt Druckstelle – daraus setzt `GlossaryPopover` den Zettel. */
 export type GlossaryAnchor = {
@@ -37,11 +38,38 @@ const SMALL_CAPS_MAX = 20;
  * volle Wörterbuchform probiert.
  */
 const ARTICLES = new Set([
-  'der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen', 'einem', 'einer',
-  'the', 'a', 'an', 'to',
-  'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
-  'le', 'les', 'du', 'de',
-  'il', 'lo', 'gli', 'i', 'uno',
+  'der',
+  'die',
+  'das',
+  'den',
+  'dem',
+  'des',
+  'ein',
+  'eine',
+  'einen',
+  'einem',
+  'einer',
+  'the',
+  'a',
+  'an',
+  'to',
+  'el',
+  'la',
+  'los',
+  'las',
+  'un',
+  'una',
+  'unos',
+  'unas',
+  'le',
+  'les',
+  'du',
+  'de',
+  'il',
+  'lo',
+  'gli',
+  'i',
+  'uno',
 ]);
 
 /**
@@ -103,6 +131,26 @@ export function ReadingSection({
   // Der Schalter im Einstellblatt setzt alle Absätze gleichzeitig; danach kann
   // jeder Absatz wieder für sich auf- und zugeklappt werden.
   useEffect(() => setTranslationOpen(settings.translations), [settings.translations]);
+
+  const claimPageTap = useClaimPageTap();
+  const translationTap = useTapWithoutResponder(() => {
+    claimPageTap();
+    setTranslationOpen(false);
+  });
+
+  /**
+   * Hält einen Tipp im Absatz, statt ihn nach oben weiterzugeben.
+   *
+   * Nötig fürs Web: Dort reicht React Native ein Ereignis an die umgebende
+   * Schaltfläche weiter (den Bildschirm, der die Leisten schaltet), auf dem
+   * Gerät fängt es der innere Knopf allein ab. Auf Android hört die Seite nur
+   * mit (siehe `useTapWithoutResponder`) – dort muss der Tipp ausdrücklich
+   * beansprucht werden.
+   */
+  function stopBubbling(event: GestureResponderEvent) {
+    event.stopPropagation?.();
+    claimPageTap();
+  }
 
   const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
@@ -221,9 +269,11 @@ export function ReadingSection({
 
       {translation ? (
         translationOpen ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ expanded: true }}
+          // Auf Android kein `Pressable`: Es nähme dem Text darin das lange
+          // Drücken zum Markieren (siehe `useTapWithoutResponder`).
+          <TranslationBox
+            android={Platform.OS === 'android'}
+            touchHandlers={translationTap.handlers}
             accessibilityLabel={t('blockHideTranslation')}
             onPress={(event) => {
               stopBubbling(event);
@@ -252,7 +302,7 @@ export function ReadingSection({
             >
               {translation}
             </Text>
-          </Pressable>
+          </TranslationBox>
         ) : (
           <Pressable
             accessibilityRole="button"
@@ -276,15 +326,42 @@ export function ReadingSection({
 }
 
 /**
- * Hält einen Tipp im Absatz, statt ihn nach oben weiterzugeben.
- *
- * Nötig fürs Web: Dort reicht React Native ein Ereignis an die umgebende
- * Schaltfläche weiter (den Bildschirm, der die Leisten schaltet), auf dem Gerät
- * fängt es der innere Knopf allein ab. Ein Aufruf, der auf beiden Seiten
- * funktioniert, spart die Plattformabfrage.
+ * Der aufgeklappte Übersetzungskasten – ein Tipp klappt ihn zu. Im Browser und
+ * auf iOS ein `Pressable`, auf Android eine Fläche, die nur mithört.
  */
-function stopBubbling(event: GestureResponderEvent) {
-  event.stopPropagation?.();
+function TranslationBox({
+  android,
+  touchHandlers,
+  accessibilityLabel,
+  onPress,
+  style,
+  children,
+}: {
+  android: boolean;
+  touchHandlers: ReturnType<typeof useTapWithoutResponder>['handlers'];
+  accessibilityLabel: string;
+  onPress: (event: GestureResponderEvent) => void;
+  style: React.ComponentProps<typeof View>['style'];
+  children: React.ReactNode;
+}) {
+  if (android) {
+    return (
+      <View {...touchHandlers} accessibilityLabel={accessibilityLabel} style={style}>
+        {children}
+      </View>
+    );
+  }
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: true }}
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={style}
+    >
+      {children}
+    </Pressable>
+  );
 }
 
 type Segment =
@@ -362,7 +439,8 @@ function findWord(text: string, lower: string, needle: string) {
  */
 function markTerms(text: string, glossary: LibraryGlossaryEntry[], dropCap: boolean) {
   const lower = text.toLowerCase();
-  const hits: Array<{ start: number; end: number; entry: LibraryGlossaryEntry; index: number }> = [];
+  const hits: Array<{ start: number; end: number; entry: LibraryGlossaryEntry; index: number }> =
+    [];
   const unmatched: Array<{ entry: LibraryGlossaryEntry; index: number }> = [];
 
   glossary.forEach((entry, index) => {

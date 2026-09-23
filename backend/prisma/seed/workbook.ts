@@ -12,12 +12,24 @@ import { BEGINNER_9_UNITS } from './chapter-beginner-9';
 import { BEGINNER_10_UNITS } from './chapter-beginner-10';
 import { BEGINNER_11_UNITS } from './chapter-beginner-11';
 import { BEGINNER_12_UNITS } from './chapter-beginner-12';
+import { INTERMEDIATE_1_UNITS } from './chapter-intermediate-1';
+import { INTERMEDIATE_2_UNITS } from './chapter-intermediate-2';
+import { INTERMEDIATE_3_UNITS } from './chapter-intermediate-3';
+import { INTERMEDIATE_4_UNITS } from './chapter-intermediate-4';
+import { INTERMEDIATE_5_UNITS } from './chapter-intermediate-5';
+import { INTERMEDIATE_6_UNITS } from './chapter-intermediate-6';
 import { GRAMMAR_1_UNITS } from './chapter-grammar-1';
 import { GRAMMAR_2_UNITS } from './chapter-grammar-2';
 import { GRAMMAR_3_UNITS } from './chapter-grammar-3';
 import { GRAMMAR_4_UNITS } from './chapter-grammar-4';
 import { GRAMMAR_5_UNITS } from './chapter-grammar-5';
 import { GRAMMAR_6_UNITS } from './chapter-grammar-6';
+import { GRAMMAR_7_UNITS } from './chapter-grammar-7';
+import { GRAMMAR_8_UNITS } from './chapter-grammar-8';
+import { GRAMMAR_9_UNITS } from './chapter-grammar-9';
+import { GRAMMAR_10_UNITS } from './chapter-grammar-10';
+import { GRAMMAR_11_UNITS } from './chapter-grammar-11';
+import { GRAMMAR_12_UNITS } from './chapter-grammar-12';
 import { SPANISH_CURRICULUM } from './spanish-curriculum';
 import { SPANISH_BEGINNER_1_UNITS } from './spanish-chapter-beginner-1';
 import { SPANISH_BEGINNER_2_UNITS } from './spanish-chapter-beginner-2';
@@ -99,8 +111,9 @@ const WORKBOOKS: WorkbookSeed[] = [
     curriculum: CURRICULUM,
     showcase: [
       // Der Beginner-Band ist vollständig: A1 stellt die Kapitel 1 bis 6,
-      // A2 die Kapitel 7 bis 12. Im Grammatikbuch sind die A1- und
-      // A2-Kapitel (1 bis 6) ausgearbeitet.
+      // A2 die Kapitel 7 bis 12. Im Intermediate-Band ist die B1-Hälfte
+      // (Kapitel 1 bis 6) ausgearbeitet. Das Grammatikbuch ist vollständig
+      // (Kapitel 1 bis 12).
       { book: WorkbookBook.BEGINNER, order: 1, units: BEGINNER_1_UNITS },
       { book: WorkbookBook.BEGINNER, order: 2, units: BEGINNER_2_UNITS },
       { book: WorkbookBook.BEGINNER, order: 3, units: BEGINNER_3_UNITS },
@@ -113,12 +126,24 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.BEGINNER, order: 10, units: BEGINNER_10_UNITS },
       { book: WorkbookBook.BEGINNER, order: 11, units: BEGINNER_11_UNITS },
       { book: WorkbookBook.BEGINNER, order: 12, units: BEGINNER_12_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 1, units: INTERMEDIATE_1_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 2, units: INTERMEDIATE_2_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 3, units: INTERMEDIATE_3_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 4, units: INTERMEDIATE_4_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 5, units: INTERMEDIATE_5_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 6, units: INTERMEDIATE_6_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: GRAMMAR_2_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 3, units: GRAMMAR_3_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 4, units: GRAMMAR_4_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 5, units: GRAMMAR_5_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 6, units: GRAMMAR_6_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 7, units: GRAMMAR_7_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 8, units: GRAMMAR_8_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 9, units: GRAMMAR_9_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 10, units: GRAMMAR_10_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 11, units: GRAMMAR_11_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 12, units: GRAMMAR_12_UNITS },
     ],
   },
   {
