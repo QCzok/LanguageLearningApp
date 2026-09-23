@@ -162,15 +162,54 @@ async function main(): Promise<void> {
     // Gleiche Daten wie in seed/workbook.ts – idempotent per upsert über den
     // Code, deshalb spielt es keine Rolle, welcher der beiden Seed-Läufe die
     // Sprache zuerst anlegt.
-    { code: 'de', name: 'Deutsch', nativeName: 'Deutsch', flagEmoji: '🇩🇪', sortOrder: 0 },
-    { code: 'en', name: 'Englisch', nativeName: 'English', flagEmoji: '🇬🇧', sortOrder: 1 },
-    { code: 'es', name: 'Spanisch', nativeName: 'Español', flagEmoji: '🇪🇸', sortOrder: 2 },
-    { code: 'fr', name: 'Französisch', nativeName: 'Français', flagEmoji: '🇫🇷', sortOrder: 3 },
-    { code: 'it', name: 'Italienisch', nativeName: 'Italiano', flagEmoji: '🇮🇹', sortOrder: 4 },
+    //
+    // Lernen lassen sich nur Deutsch, Englisch und Spanisch. `isLearnable`
+    // steht bei allen Sprachen ausdrücklich da, damit ein erneuter Seed-Lauf
+    // den Stand in einer bestehenden Datenbank auch wieder umstellt.
+    {
+      code: 'de',
+      name: 'Deutsch',
+      nativeName: 'Deutsch',
+      flagEmoji: '🇩🇪',
+      sortOrder: 0,
+      isLearnable: true,
+    },
+    {
+      code: 'en',
+      name: 'Englisch',
+      nativeName: 'English',
+      flagEmoji: '🇬🇧',
+      sortOrder: 1,
+      isLearnable: true,
+    },
+    {
+      code: 'es',
+      name: 'Spanisch',
+      nativeName: 'Español',
+      flagEmoji: '🇪🇸',
+      sortOrder: 2,
+      isLearnable: true,
+    },
     // Nur als Muttersprache wählbar (siehe `isLearnable`): Für sie gibt es
     // keinen eigenen Kurs – kein Kapitel, kein Vokabelstapel, kein
     // Einstufungstest –, deshalb dürfen sie in der Lernsprachen-Auswahl
     // nicht auftauchen.
+    {
+      code: 'fr',
+      name: 'Französisch',
+      nativeName: 'Français',
+      flagEmoji: '🇫🇷',
+      sortOrder: 3,
+      isLearnable: false,
+    },
+    {
+      code: 'it',
+      name: 'Italienisch',
+      nativeName: 'Italiano',
+      flagEmoji: '🇮🇹',
+      sortOrder: 4,
+      isLearnable: false,
+    },
     {
       code: 'uk',
       name: 'Ukrainisch',

@@ -18,6 +18,12 @@ import { INTERMEDIATE_3_UNITS } from './chapter-intermediate-3';
 import { INTERMEDIATE_4_UNITS } from './chapter-intermediate-4';
 import { INTERMEDIATE_5_UNITS } from './chapter-intermediate-5';
 import { INTERMEDIATE_6_UNITS } from './chapter-intermediate-6';
+import { INTERMEDIATE_7_UNITS } from './chapter-intermediate-7';
+import { INTERMEDIATE_8_UNITS } from './chapter-intermediate-8';
+import { INTERMEDIATE_9_UNITS } from './chapter-intermediate-9';
+import { INTERMEDIATE_10_UNITS } from './chapter-intermediate-10';
+import { INTERMEDIATE_11_UNITS } from './chapter-intermediate-11';
+import { INTERMEDIATE_12_UNITS } from './chapter-intermediate-12';
 import { GRAMMAR_1_UNITS } from './chapter-grammar-1';
 import { GRAMMAR_2_UNITS } from './chapter-grammar-2';
 import { GRAMMAR_3_UNITS } from './chapter-grammar-3';
@@ -111,9 +117,9 @@ const WORKBOOKS: WorkbookSeed[] = [
     curriculum: CURRICULUM,
     showcase: [
       // Der Beginner-Band ist vollständig: A1 stellt die Kapitel 1 bis 6,
-      // A2 die Kapitel 7 bis 12. Im Intermediate-Band ist die B1-Hälfte
-      // (Kapitel 1 bis 6) ausgearbeitet. Das Grammatikbuch ist vollständig
-      // (Kapitel 1 bis 12).
+      // A2 die Kapitel 7 bis 12. Der Intermediate-Band ist ebenfalls
+      // vollständig: B1 stellt die Kapitel 1 bis 6, B2 die Kapitel 7 bis 12.
+      // Das Grammatikbuch ist vollständig (Kapitel 1 bis 12).
       { book: WorkbookBook.BEGINNER, order: 1, units: BEGINNER_1_UNITS },
       { book: WorkbookBook.BEGINNER, order: 2, units: BEGINNER_2_UNITS },
       { book: WorkbookBook.BEGINNER, order: 3, units: BEGINNER_3_UNITS },
@@ -132,6 +138,12 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.INTERMEDIATE, order: 4, units: INTERMEDIATE_4_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 5, units: INTERMEDIATE_5_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 6, units: INTERMEDIATE_6_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 7, units: INTERMEDIATE_7_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 8, units: INTERMEDIATE_8_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 9, units: INTERMEDIATE_9_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 10, units: INTERMEDIATE_10_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 11, units: INTERMEDIATE_11_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 12, units: INTERMEDIATE_12_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: GRAMMAR_2_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 3, units: GRAMMAR_3_UNITS },

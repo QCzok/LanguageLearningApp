@@ -27,8 +27,8 @@ export default function ProfileScreen() {
   const user = useAuthStore((state) => state.user);
   const signOut = useAuthStore((state) => state.signOut);
   const deleteProfile = useAuthStore((state) => state.deleteProfile);
-  const hasOtherProfiles = useAuthStore(
-    (state) => state.profiles.some((profile) => profile.userId !== state.user?.id),
+  const hasOtherProfiles = useAuthStore((state) =>
+    state.profiles.some((profile) => profile.userId !== state.user?.id),
   );
   const refreshUser = useAuthStore((state) => state.refreshUser);
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -93,7 +93,10 @@ export default function ProfileScreen() {
         {pickingAvatar ? (
           <View>
             <Caption>{t('profileChooseAvatar')}</Caption>
-            <Row gap={spacing.xs} style={{ flexWrap: 'wrap', justifyContent: 'center', marginTop: spacing.xs }}>
+            <Row
+              gap={spacing.xs}
+              style={{ flexWrap: 'wrap', justifyContent: 'center', marginTop: spacing.xs }}
+            >
               {AVATAR_ICONS.map((icon) => {
                 const active = icon.id === user.avatarIcon;
                 return (
@@ -138,39 +141,17 @@ export default function ProfileScreen() {
           />
         ))}
         {activeProfile ? (
-          <Caption>
-            {t('profileDailyGoal', { minutes: activeProfile.dailyGoalMinutes })}
-          </Caption>
+          <Caption>{t('profileDailyGoal', { minutes: activeProfile.dailyGoalMinutes })}</Caption>
         ) : null}
         <AddLanguageSection languages={languages.data ?? []} existingProfiles={user.profiles} />
       </Card>
 
-      <Card>
-        <Heading>{t('profileNativeLanguage')}</Heading>
-        <Caption>{t('profileNativeLanguageHint')}</Caption>
-        <Row gap={spacing.sm} style={{ flexWrap: 'wrap', marginTop: spacing.xs }}>
-          {(languages.data ?? []).map((language) => {
-            const active = language.code === user.nativeLanguage;
-            return (
-              <Card
-                key={language.id}
-                onPress={active ? undefined : () => setNativeLanguage.mutate(language.code)}
-                style={[
-                  { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 0 },
-                  active
-                    ? { borderColor: colors.primary, borderWidth: 2, backgroundColor: colors.primarySoft }
-                    : { borderWidth: 1 },
-                ]}
-              >
-                <Row gap={spacing.xs}>
-                  <Text style={{ fontSize: 18 }}>{language.flagEmoji}</Text>
-                  <Body>{language.nativeName}</Body>
-                </Row>
-              </Card>
-            );
-          })}
-        </Row>
-      </Card>
+      <NativeLanguageSection
+        languages={languages.data ?? []}
+        current={user.nativeLanguage}
+        isPending={setNativeLanguage.isPending}
+        onSelect={(code) => setNativeLanguage.mutate(code)}
+      />
 
       {/* Kein Abmelden, sondern ein Wechsel: Das Profil bleibt auf dem Gerät
           und steht beim nächsten Start wieder in der Auswahl. Wirklich
@@ -205,6 +186,93 @@ export default function ProfileScreen() {
         />
       </Card>
     </Screen>
+  );
+}
+
+/**
+ * Die Muttersprache – zugeklappt, weil man sie einmal einstellt und dann kaum
+ * wieder anfasst. Zu sehen ist nur die gewählte Sprache; ein Tipp auf die
+ * Kopfzeile klappt die Auswahl samt Erklärung auf, die Wahl einer Sprache
+ * klappt sie wieder zu.
+ */
+function NativeLanguageSection({
+  languages,
+  current,
+  isPending,
+  onSelect,
+}: {
+  languages: LanguageDto[];
+  current: string | null | undefined;
+  isPending: boolean;
+  onSelect: (code: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const selected = languages.find((language) => language.code === current);
+
+  return (
+    <Card>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((value) => !value)}
+        hitSlop={8}
+      >
+        <Row gap={spacing.sm}>
+          <View style={{ flex: 1 }}>
+            <Heading>{t('profileNativeLanguage')}</Heading>
+          </View>
+          {selected ? (
+            <Row gap={spacing.xs}>
+              <Text style={{ fontSize: 18 }}>{selected.flagEmoji}</Text>
+              <Body>{selected.nativeName}</Body>
+            </Row>
+          ) : null}
+          <Text style={[collapseChevron, { transform: [{ rotate: open ? '180deg' : '0deg' }] }]}>
+            ▾
+          </Text>
+        </Row>
+      </Pressable>
+
+      {open ? (
+        <>
+          <Caption>{t('profileNativeLanguageHint')}</Caption>
+          <Row gap={spacing.sm} style={{ flexWrap: 'wrap', marginTop: spacing.xs }}>
+            {languages.map((language) => {
+              const active = language.code === current;
+              return (
+                <Card
+                  key={language.id}
+                  onPress={
+                    active || isPending
+                      ? undefined
+                      : () => {
+                          onSelect(language.code);
+                          setOpen(false);
+                        }
+                  }
+                  style={[
+                    { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, gap: 0 },
+                    active
+                      ? {
+                          borderColor: colors.primary,
+                          borderWidth: 2,
+                          backgroundColor: colors.primarySoft,
+                        }
+                      : { borderWidth: 1 },
+                  ]}
+                >
+                  <Row gap={spacing.xs}>
+                    <Text style={{ fontSize: 18 }}>{language.flagEmoji}</Text>
+                    <Body>{language.nativeName}</Body>
+                  </Row>
+                </Card>
+              );
+            })}
+          </Row>
+        </>
+      ) : null}
+    </Card>
   );
 }
 
@@ -293,7 +361,9 @@ function LanguageProfileCard({
                 onPress={() => setLevel.mutate(level)}
                 style={[levelChip, active && levelChipActive]}
               >
-                <Text style={[typography.label, { color: active ? colors.textInverse : colors.text }]}>
+                <Text
+                  style={[typography.label, { color: active ? colors.textInverse : colors.text }]}
+                >
                   {level}
                 </Text>
               </Pressable>
@@ -358,9 +428,7 @@ function AddLanguageSection({
         }}
         hitSlop={8}
       >
-        <Text style={changeLevelLink}>
-          {open ? t('commonCancel') : t('profileAddLanguage')}
-        </Text>
+        <Text style={changeLevelLink}>{open ? t('commonCancel') : t('profileAddLanguage')}</Text>
       </Pressable>
 
       {open
@@ -370,14 +438,18 @@ function AddLanguageSection({
               <View key={language.id} style={{ gap: spacing.xs }}>
                 <Card
                   onPress={() => setPickingLanguageId(picking ? null : language.id)}
-                  style={picking ? { borderColor: colors.primary, borderWidth: 2 } : { borderWidth: 1 }}
+                  style={
+                    picking ? { borderColor: colors.primary, borderWidth: 2 } : { borderWidth: 1 }
+                  }
                 >
                   <Row gap={spacing.md}>
                     <Text style={{ fontSize: 24 }}>{language.flagEmoji}</Text>
                     <View style={{ flex: 1 }}>
                       <Body>{tLanguage(language.code, language.name)}</Body>
                     </View>
-                    <Text style={{ fontSize: 20, color: colors.textMuted }}>{picking ? '−' : '+'}</Text>
+                    <Text style={{ fontSize: 20, color: colors.textMuted }}>
+                      {picking ? '−' : '+'}
+                    </Text>
                   </Row>
                 </Card>
 
@@ -402,6 +474,11 @@ function AddLanguageSection({
     </View>
   );
 }
+
+const collapseChevron = {
+  fontSize: 16,
+  color: colors.textMuted,
+};
 
 const changeLevelLink = {
   ...typography.caption,

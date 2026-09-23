@@ -129,7 +129,10 @@ const avatarCircle = {
   width: 56,
   height: 56,
   borderRadius: radius.full,
-  backgroundColor: colors.primarySoft,
+  // Weiß auf der weißen Karte – der Rand hält den Kreis sichtbar.
+  backgroundColor: colors.surface,
+  borderWidth: 1,
+  borderColor: colors.border,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
 };

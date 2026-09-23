@@ -17,8 +17,8 @@ import { GRAMMAR_CURRICULUM } from './grammar-curriculum';
  * entsteht daraus (siehe `CURRICULUM`).
  *
  * Ausgearbeitet sind der ganze Beginner-Band (chapter-beginner-1.ts bis
- * chapter-beginner-12.ts), die B1-Hälfte des Intermediate-Bands
- * (chapter-intermediate-1.ts bis chapter-intermediate-6.ts) und das ganze
+ * chapter-beginner-12.ts), der ganze Intermediate-Band
+ * (chapter-intermediate-1.ts bis chapter-intermediate-12.ts) und das ganze
  * Grammatikbuch (chapter-grammar-1.ts bis chapter-grammar-12.ts);
  * die übrigen Kapitel stehen als Gerüst bereit und sind noch nicht
  * veröffentlicht.
