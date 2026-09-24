@@ -21,6 +21,8 @@ import DeckDetailScreen from '../features/vocabulary/DeckDetailScreen';
 import ReviewScreen from '../features/vocabulary/ReviewScreen';
 import VocabStatsScreen from '../features/vocabulary/VocabStatsScreen';
 import MatchGameScreen from '../features/vocabulary/MatchGameScreen';
+import StudyHomeScreen from '../features/study/StudyHomeScreen';
+import StudySessionScreen from '../features/study/StudySessionScreen';
 import BookshelfScreen from '../features/workbook/BookshelfScreen';
 import BookContentsScreen from '../features/workbook/BookContentsScreen';
 import UnitScreen from '../features/workbook/UnitScreen';
@@ -41,7 +43,7 @@ import type {
   LibraryStackParamList,
   MainTabParamList,
   VideoStackParamList,
-  NotebookStackParamList,
+  StudyStackParamList,
   OnboardingStackParamList,
   RootStackParamList,
   VocabularyStackParamList,
@@ -151,37 +153,47 @@ function VocabularyNavigator() {
   );
 }
 
-const NotebookStack = createNativeStackNavigator<NotebookStackParamList>();
-function NotebookNavigator() {
+const StudyStack = createNativeStackNavigator<StudyStackParamList>();
+function StudyNavigator() {
   const { t, tBookLabel } = useTranslation();
   return (
-    <NotebookStack.Navigator screenOptions={defaultStackOptions}>
-      <NotebookStack.Screen
+    <StudyStack.Navigator screenOptions={defaultStackOptions}>
+      <StudyStack.Screen
+        name="StudyHome"
+        component={StudyHomeScreen}
+        options={{ title: t('studyHome') }}
+      />
+      <StudyStack.Screen
+        name="StudySession"
+        component={StudySessionScreen}
+        options={({ route }) => ({ title: tBookLabel(route.params.book) })}
+      />
+      <StudyStack.Screen
         name="Bookshelf"
         component={BookshelfScreen}
         options={{ title: t('notebookBookshelf') }}
       />
-      <NotebookStack.Screen
+      <StudyStack.Screen
         name="BookContents"
         component={BookContentsScreen}
         options={({ route }) => ({ title: tBookLabel(route.params.book) })}
       />
-      <NotebookStack.Screen
+      <StudyStack.Screen
         name="Unit"
         component={UnitScreen}
         options={({ route }) => ({ title: route.params.title })}
       />
-      <NotebookStack.Screen
+      <StudyStack.Screen
         name="NotebookList"
         component={NotebookListScreen}
         options={{ title: t('notebookList') }}
       />
-      <NotebookStack.Screen
+      <StudyStack.Screen
         name="NotebookEditor"
         component={NotebookEditorScreen}
         options={({ route }) => ({ title: route.params.title })}
       />
-    </NotebookStack.Navigator>
+    </StudyStack.Navigator>
   );
 }
 
@@ -264,7 +276,7 @@ const Tabs = createBottomTabNavigator<MainTabParamList>();
 const tabIcons: Record<keyof MainTabParamList, string> = {
   Home: '🏠',
   Vocabulary: '🗂️',
-  Notebook: '📓',
+  Study: '🎯',
   Library: '📚',
   Videos: '🎧',
   Assistant: '✨',
@@ -319,7 +331,7 @@ function MainNavigator() {
           deshalb im Root-Stack (siehe `RootNavigator`), nicht hier. */}
       <Tabs.Screen name="Home" component={HomeScreen} options={{ title: t('tabHome') }} />
       <Tabs.Screen name="Vocabulary" component={VocabularyNavigator} options={{ title: t('tabVocabulary') }} />
-      <Tabs.Screen name="Notebook" component={NotebookNavigator} options={{ title: t('tabNotebook') }} />
+      <Tabs.Screen name="Study" component={StudyNavigator} options={{ title: t('tabStudy') }} />
       <Tabs.Screen name="Library" component={LibraryNavigator} options={{ title: t('tabLibrary') }} />
       <Tabs.Screen name="Videos" component={VideoNavigator} options={{ title: t('tabVideos') }} />
       <Tabs.Screen name="Assistant" component={AiNavigator} options={{ title: t('tabAssistant') }} />

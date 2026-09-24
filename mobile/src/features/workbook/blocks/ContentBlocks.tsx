@@ -50,14 +50,18 @@ export function Heading({ block, accent }: BlockProps<HeadingBlock>) {
   );
 }
 
-export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: CefrLevel }) {
+export function Paragraph({
+  block,
+  level,
+  translatable = level === 'A1',
+}: BlockProps<TextBlock> & { level?: CefrLevel; translatable?: boolean }) {
   const [open, setOpen] = useState(false);
 
   const { t, tLanguage } = useTranslation();
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
   const languageLabel = language ? tLanguage(language) : '';
-  const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
+  const translation = translatable && language ? block.translations?.[language] : undefined;
 
   return (
     <View style={{ gap: 8 }}>
@@ -93,7 +97,15 @@ export function Paragraph({ block, level }: BlockProps<TextBlock> & { level?: Ce
  * `InfoBlock.translations`). Die Tabelle bleibt deutsch, sie enthält den zu
  * lernenden Stoff selbst.
  */
-export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLevel }) {
+export function Info({
+  block,
+  level,
+  translatable = level === 'A1',
+}: BlockProps<InfoBlock> & {
+  level?: CefrLevel;
+  /** Übersetzung anbieten – im Buch nur auf A1, auf den Theoriekarten der Lernsitzungen immer. */
+  translatable?: boolean;
+}) {
   const style = INFO_STYLES[block.variant];
   const [open, setOpen] = useState(false);
 
@@ -101,7 +113,7 @@ export function Info({ block, level }: BlockProps<InfoBlock> & { level?: CefrLev
   const nativeLanguage = useAuthStore((state) => state.user?.nativeLanguage);
   const language = asTranslatableLanguage(nativeLanguage);
   const languageLabel = language ? tLanguage(language) : '';
-  const translation = level === 'A1' && language ? block.translations?.[language] : undefined;
+  const translation = translatable && language ? block.translations?.[language] : undefined;
 
   return (
     <View style={[infoBox, { backgroundColor: style.background, borderLeftColor: style.accent }]}>

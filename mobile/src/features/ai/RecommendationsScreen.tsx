@@ -77,7 +77,7 @@ export default function RecommendationsScreen() {
         } as never);
         break;
       case 'NOTEBOOK':
-        navigation.navigate('Notebook', { screen: 'NotebookList' });
+        navigation.navigate('Study', { screen: 'NotebookList' });
         break;
       case 'AI_CHAT':
         navigation.navigate('Assistant', { screen: 'AiHub' });

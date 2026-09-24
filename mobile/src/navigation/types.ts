@@ -42,8 +42,12 @@ export type VocabularyStackParamList = {
   Match: { deckId?: string; title?: string };
 };
 
-export type NotebookStackParamList = {
-  /** Einstieg: das Regal mit den vier Büchern. */
+export type StudyStackParamList = {
+  /** Einstieg: Punktestand und Lernsitzungen; die Bücher sind eine Option darunter. */
+  StudyHome: undefined;
+  /** Eine Lernsitzung: Theorie-, Aufgaben- und Lösungskarten aus einem Buch. */
+  StudySession: { book: WorkbookBook };
+  /** Das Regal mit den vier Büchern. */
   Bookshelf: undefined;
   /** Das Inhaltsverzeichnis eines Buchs – Kapitel mit allen Seiten. */
   BookContents: { book: WorkbookBook };
@@ -73,7 +77,7 @@ export type AiStackParamList = {
 export type MainTabParamList = {
   Home: undefined;
   Vocabulary: NavigatorScreenParams<VocabularyStackParamList>;
-  Notebook: NavigatorScreenParams<NotebookStackParamList>;
+  Study: NavigatorScreenParams<StudyStackParamList>;
   Library: NavigatorScreenParams<LibraryStackParamList>;
   Videos: NavigatorScreenParams<VideoStackParamList>;
   Assistant: NavigatorScreenParams<AiStackParamList>;

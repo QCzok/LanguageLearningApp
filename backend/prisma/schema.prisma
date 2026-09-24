@@ -156,6 +156,7 @@ model User {
   aiUsage           AiUsage[]
   dailyActivities   DailyActivity[]
   unitProgress      UnitProgress[]
+  studyProgress     StudyExerciseProgress[]
 
   @@map("users")
 }
@@ -468,7 +469,8 @@ model ChapterUnit {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  progress UnitProgress[]
+  progress      UnitProgress[]
+  studyProgress StudyExerciseProgress[]
 
   @@unique([chapterId, order])
   @@index([chapterId])
@@ -495,6 +497,27 @@ model UnitProgress {
   @@unique([userId, unitId])
   @@index([userId, status])
   @@map("unit_progress")
+}
+
+/// Stand einer Aufgabe in den Lernsitzungen – getrennt vom Buch, damit eine
+/// Sitzung keine Seite halb ausfüllt und umgekehrt.
+model StudyExerciseProgress {
+  id             String      @id @default(cuid())
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           ChapterUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  blockId        String
+  /// Bestes Ergebnis in Prozent.
+  bestScore      Int
+  /// Bisher mit dieser Aufgabe verdiente Punkte (siehe `studyPointsFor`).
+  points         Int         @default(0)
+  attempts       Int         @default(0)
+  lastAnsweredAt DateTime    @default(now())
+
+  @@unique([userId, unitId, blockId])
+  @@index([userId])
+  @@map("study_exercise_progress")
 }
 
 // ============================================================ Bibliothek

@@ -10,9 +10,9 @@ import { useTranslation } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
 import { book, bookFont, bookLabel, bookSans, colors, radius, spacing } from '../../theme';
 import { BookMark, PlusIcon, TrashIcon } from '../workbook/BookIcons';
-import type { NotebookStackParamList } from '../../navigation/types';
+import type { StudyStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookList'>;
+type Props = NativeStackScreenProps<StudyStackParamList, 'NotebookList'>;
 
 /**
  * Das Regal mit den eigenen Heften.

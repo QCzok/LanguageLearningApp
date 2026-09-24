@@ -101,7 +101,7 @@ export default function HomeScreen() {
       label: t('homeTileNotebook'),
       subtitle: t('homeTileNotebookSubtitle'),
       accent: colors.warning,
-      onPress: () => navigation.navigate('Notebook', { screen: 'Bookshelf' }),
+      onPress: () => navigation.navigate('Study', { screen: 'StudyHome' }),
     },
     {
       key: 'library',

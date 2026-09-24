@@ -19,9 +19,9 @@ import {
 } from '../workbook/BookIcons';
 import Canvas from './Canvas';
 import { DEFAULT_TOOL, ToolDock, ToolState } from './ToolDock';
-import type { NotebookStackParamList } from '../../navigation/types';
+import type { StudyStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<NotebookStackParamList, 'NotebookEditor'>;
+type Props = NativeStackScreenProps<StudyStackParamList, 'NotebookEditor'>;
 
 /** Wartezeit nach der letzten Änderung, bevor gespeichert wird. */
 const AUTOSAVE_DELAY_MS = 1500;

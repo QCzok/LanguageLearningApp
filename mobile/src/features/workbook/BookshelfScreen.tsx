@@ -13,9 +13,9 @@ import { useActiveProfile } from '../../store/auth.store';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { BookMark, ChevronRightIcon } from './BookIcons';
 import { BookCover } from './BookCovers';
-import type { NotebookStackParamList } from '../../navigation/types';
+import type { StudyStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<NotebookStackParamList, 'Bookshelf'>;
+type Props = NativeStackScreenProps<StudyStackParamList, 'Bookshelf'>;
 
 /**
  * Das Regal – der Einstieg ins Lehrwerk.

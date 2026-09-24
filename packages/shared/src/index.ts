@@ -4,4 +4,5 @@ export * from './notebook';
 export * from './srs';
 export * from './video';
 export * from './workbook';
+export * from './study';
 export * from './api';

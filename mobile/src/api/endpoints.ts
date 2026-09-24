@@ -42,6 +42,10 @@ import type {
   VocabStatsDto,
   SubmitReviewResultDto,
   WorkbookBook,
+  BlockAnswer,
+  StudyAnswerResultDto,
+  StudyOverviewDto,
+  StudySessionDto,
 } from '@lingua/shared';
 import { api } from './client';
 
@@ -206,6 +210,15 @@ export const workbookApi = {
       .post<{ status: string; xpEarned: number }>(`/workbook/units/${id}/complete`)
       .then((r) => r.data),
   reset: (id: string) => api.post(`/workbook/units/${id}/reset`),
+};
+
+export const studyApi = {
+  /** Punktestand und Themenfortschritt je Buch. */
+  overview: () => api.get<StudyOverviewDto>('/workbook/study').then((r) => r.data),
+  session: (book: WorkbookBook) =>
+    api.get<StudySessionDto>(`/workbook/study/${book}/session`).then((r) => r.data),
+  answer: (body: { unitId: string; blockId: string; answer: BlockAnswer }) =>
+    api.post<StudyAnswerResultDto>('/workbook/study/answer', body).then((r) => r.data),
 };
 
 export const libraryApi = {

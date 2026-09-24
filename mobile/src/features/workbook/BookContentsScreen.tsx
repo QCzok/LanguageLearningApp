@@ -10,9 +10,9 @@ import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { book, bookColors, bookFont, bookLabel, bookSans, colors, spacing } from '../../theme';
 import { ChevronRightIcon, LockMark } from './BookIcons';
-import type { NotebookStackParamList } from '../../navigation/types';
+import type { StudyStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<NotebookStackParamList, 'BookContents'>;
+type Props = NativeStackScreenProps<StudyStackParamList, 'BookContents'>;
 
 /**
  * Das Inhaltsverzeichnis eines Buchs.

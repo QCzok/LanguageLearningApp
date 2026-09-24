@@ -34,11 +34,11 @@ import {
   VocabList,
 } from './blocks/ContentBlocks';
 import { Choice, Cloze, Matching, Ordering, Writing } from './blocks/ExerciseBlocks';
-import type { NotebookStackParamList } from '../../navigation/types';
+import type { StudyStackParamList } from '../../navigation/types';
 import { TranslateLayer } from '../translate/TranslateLayer';
 import { useTranslateHeaderButton } from '../translate/TranslateButton';
 
-type Props = NativeStackScreenProps<NotebookStackParamList, 'Unit'>;
+type Props = NativeStackScreenProps<StudyStackParamList, 'Unit'>;
 
 const AUTOSAVE_DELAY_MS = 1200;
 /** Seitenrand links und rechts neben dem Papier. */

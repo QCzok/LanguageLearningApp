@@ -18,13 +18,45 @@ import {
   ListBooksQueryDto,
   SaveAnnotationsDto,
   SaveAnswersDto,
+  StudyAnswerDto,
+  StudySessionQueryDto,
 } from './dto/workbook.dto';
+import { StudyService } from './study.service';
 import { WorkbookService } from './workbook.service';
 
 @ApiTags('workbook')
 @Controller('workbook')
 export class WorkbookController {
-  constructor(private readonly workbook: WorkbookService) {}
+  constructor(
+    private readonly workbook: WorkbookService,
+    private readonly study: StudyService,
+  ) {}
+
+  // ------------------------------------------------------ Lernsitzungen
+
+  @Get('study')
+  @ApiOperation({ summary: 'Punktestand und Themenfortschritt je Buch' })
+  studyOverview(@CurrentUser('id') userId: string) {
+    return this.study.overview(userId);
+  }
+
+  @Get('study/:book/session')
+  @ApiOperation({ summary: 'Nächste Themen eines Buchs als Kartenfolge (ohne Lösungen)' })
+  studySession(
+    @CurrentUser('id') userId: string,
+    @Param('book', new ParseEnumPipe(WorkbookBook)) book: WorkbookBook,
+    @Query() query: StudySessionQueryDto,
+  ) {
+    return this.study.session(userId, book, query.size);
+  }
+
+  @Post('study/answer')
+  @ApiOperation({ summary: 'Eine Aufgabe der Sitzung auswerten und Punkte vergeben' })
+  studyAnswer(@CurrentUser('id') userId: string, @Body() dto: StudyAnswerDto) {
+    return this.study.answer(userId, dto);
+  }
+
+  // ------------------------------------------------------------ Bücher
 
   @Get('books')
   @ApiOperation({ summary: 'Die vier Bücher mit Stand und Einstiegsseite' })
