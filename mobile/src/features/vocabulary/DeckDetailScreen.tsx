@@ -23,26 +23,19 @@ import {
   spacing,
   typography,
 } from '../../theme';
-import { DeckStack, STACK_LABEL_KEYS, type QueueType } from './DeckStack';
-import { MATCH_MIN_WORDS } from './MatchGameScreen';
-import { TrainerOptions } from './TrainerOptions';
+import { useTrainerSettings } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
 import { MAX_WIDTH } from '../../navigation/WebLayout';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckDetail'>;
 
 /**
- * Ein Thema von innen: der Arbeitsplatz eines Stapels.
+ * Eine Kategorie von innen: ihre Wortliste.
  *
- * Hier – und nur hier – fällt die Wahl, *wie* geübt wird: „Neue Vokabeln"
- * zeigt unbekannte Wörter als Auswahl mit fünf Bedeutungsvorschlägen, eine
- * falsche Antwort schickt die Karte sofort nach „Wiederholen", eine richtige
- * nach „Gelernt" zum Auffrischen. Jeder Stapel erscheint nur, wenn dort auch
- * etwas liegt (die Zahlen hängen an der letzten Antwort, nicht am SM-2-Timer
- * – siehe `VocabularyService.getReviewQueue`).
- *
- * Darunter steht die Wortliste des Themas, jedes Wort mit seinem Lernstand
- * als Punkt: So ist ein Stapel auch ohne Sitzung nachschlagbar – wer wissen
+ * Geübt wird auf der Startseite des Trainers (`DeckListScreen`) – der Knopf
+ * hier wählt nur die Kategorie dafür aus. Darunter steht die Wortliste,
+ * jedes Wort mit seinem Lernstand als Punkt: So ist eine Kategorie auch ohne
+ * Sitzung nachschlagbar – wer wissen
  * will, was in „Arbeit & Beruf" steckt, muss ihn nicht erst durchlernen.
  */
 export default function DeckDetailScreen({ route, navigation }: Props) {
@@ -50,6 +43,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const { t, tLanguage } = useTranslation();
   const nativeCode = useAuthStore((state) => state.user?.nativeLanguage);
   const queryClient = useQueryClient();
+  const setDeckId = useTrainerSettings((state) => state.setDeckId);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // `null` = Formular zu, `'new'` = neues Wort, sonst das Wort, das bearbeitet wird.
   const [wordForm, setWordForm] = useState<DeckItemDto | 'new' | null>(null);
@@ -159,8 +153,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const progress = deck.progress;
   const learned = progress?.learned ?? 0;
   const percent = deck.itemCount > 0 ? Math.round((learned / deck.itemCount) * 100) : 0;
-  const newCount = progress?.new ?? deck.itemCount;
-  const repeatCount = progress?.needsRepeat ?? 0;
 
   function toggleWord(itemId: string) {
     setExpanded((prev) => {
@@ -171,12 +163,10 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     });
   }
 
-  function startSession(queueType: QueueType) {
-    navigation.navigate('Review', {
-      deckId,
-      queueType,
-      title: `${deck.title} · ${t(STACK_LABEL_KEYS[queueType])}`,
-    });
+  /** Wählt die Kategorie auf der Startseite des Trainers – dort fällt die Wahl der Übungsart. */
+  function practiceHere() {
+    setDeckId(deckId);
+    navigation.navigate('DeckList');
   }
 
   return (
@@ -205,76 +195,11 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           <Caption>{t('deckWordsLearned', { learned, total: deck.itemCount })}</Caption>
         </View>
 
-        <View style={{ gap: spacing.md }}>
-          <SectionRule label={t('deckPracticeHeading')} />
-
-          {deck.itemCount > 0 ? <TrainerOptions /> : null}
-
-          {deck.isSystem ? (
-            newCount > 0 || repeatCount > 0 || learned > 0 ? (
-              /* Drei Wege zu lernen, als Stapel nebeneinander – jeder nur, wenn dort etwas liegt. */
-              <Row gap={spacing.md} style={{ alignItems: 'flex-start' }}>
-                {newCount > 0 ? (
-                  <DeckStack
-                    count={newCount}
-                    label={t('vocabStackNew')}
-                    hint={t('vocabHintNew')}
-                    accent={colors.primary}
-                    onPress={() => startSession('NEW')}
-                  />
-                ) : null}
-                {repeatCount > 0 ? (
-                  <DeckStack
-                    count={repeatCount}
-                    label={t('vocabStackRepeat')}
-                    hint={t('vocabHintRepeat')}
-                    accent={colors.warning}
-                    onPress={() => startSession('DUE')}
-                  />
-                ) : null}
-                {learned > 0 ? (
-                  <DeckStack
-                    count={learned}
-                    label={t('vocabStackLearned')}
-                    hint={t('vocabHintLearned')}
-                    accent={colors.success}
-                    onPress={() => startSession('MASTERED')}
-                  />
-                ) : null}
-              </Row>
-            ) : (
-              <Caption>{t('vocabNothingToDoTopic')}</Caption>
-            )
-          ) : deck.itemCount > 0 ? (
-            // Eigene Decks bleiben ein einziges Deck – keine Aufteilung in
-            // neu/wiederholen/gelernt, und immer zum Umdrehen statt einer
-            // Mehrfachauswahl (siehe `VocabularyService.ownDeckQueue`).
-            <DeckStack
-              count={deck.itemCount}
-              label={t('vocabPracticeDeck')}
-              hint={t('vocabPracticeDeckHint')}
-              accent={accent}
-              onPress={() => startSession('ALL')}
-            />
-          ) : (
-            <Caption>{t('vocabDeckEmptyHint')}</Caption>
-          )}
-
-          {deck.items.length >= MATCH_MIN_WORDS ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate('Match', { deckId, title: deck.title })}
-              style={({ pressed }) => [gameCard, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
-            >
-              <Text style={{ fontSize: 28 }}>🧩</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={gameTitle}>{t('matchTitle')}</Text>
-                <Text style={gameHint}>{t('matchTeaser')}</Text>
-              </View>
-              <Text style={[gameTitle, { color: colors.primary }]}>▶</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {deck.itemCount > 0 ? (
+          <Button label={`▶ ${t('trainerPracticeCategory')}`} onPress={practiceHere} />
+        ) : !deck.isSystem ? (
+          <Caption>{t('vocabDeckEmptyHint')}</Caption>
+        ) : null}
 
         <View style={{ gap: spacing.sm }}>
           <SectionRule label={t('deckAllWords')} trailing={`${deck.items.length}`} />
@@ -623,26 +548,4 @@ const sheetStyle = {
   borderTopRightRadius: radius.xl,
   padding: spacing.lg,
   maxHeight: '85%' as const,
-};
-
-const gameCard = {
-  flexDirection: 'row' as const,
-  alignItems: 'center' as const,
-  gap: spacing.md,
-  padding: spacing.md,
-  borderRadius: radius.md,
-  backgroundColor: colors.premiumSoft,
-  borderWidth: 1,
-  borderBottomWidth: 3,
-  borderColor: colors.premium,
-};
-
-const gameTitle = {
-  ...typography.bodyStrong,
-  color: colors.text,
-};
-
-const gameHint = {
-  ...typography.caption,
-  color: colors.textMuted,
 };

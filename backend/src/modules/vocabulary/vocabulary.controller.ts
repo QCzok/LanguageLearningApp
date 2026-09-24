@@ -80,7 +80,7 @@ export class VocabularyController {
   }
 
   @Get('review/queue')
-  @ApiOperation({ summary: 'Fällige und neue Karten für die nächste Lernsitzung' })
+  @ApiOperation({ summary: 'Zufällige Karten aus allen oder einer Kategorie – oder nur die falsch beantworteten' })
   queue(@CurrentUser('id') userId: string, @Query() query: ReviewQueueQueryDto) {
     return this.vocabulary.getReviewQueue(userId, query);
   }

@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { CefrLevel, WorkbookBook } from '@lingua/shared';
+import type { TrainerMode } from '../features/vocabulary/trainerSettings';
 
 /** Zentrale Routen-Typen – jede navigation.navigate()-Nutzung ist damit typgeprüft. */
 
@@ -21,26 +22,24 @@ export type OnboardingStackParamList = {
 };
 
 export type VocabularyStackParamList = {
+  /** Startseite des Trainers: Kategorie wählen (oder alle) und direkt loslegen. */
   DeckList: undefined;
+  /** Die Wortliste einer Kategorie – bei eigenen Kategorien auch zum Bearbeiten. */
   DeckDetail: { deckId: string; title: string };
   /**
-   * Ohne `deckId` gilt die Sitzung für ein ganzes Niveau. `queueType` legt
-   * fest, welchen der drei Stapel der Nutzer gewählt hat: neue Vokabeln
-   * (fünf Bedeutungsvorschläge je Wort), den Wiederholen-Stapel (fällige
-   * Karten) oder den Gelernt-Stapel (bereits gemeisterte Karten zum
-   * Auffrischen). `ALL` gilt nur für eigene Decks: das ganze Deck auf einmal
-   * (siehe `VocabularyService.ownDeckQueue`). Richtung und Modus kommen aus
-   * den Trainer-Einstellungen (`useTrainerSettings`).
+   * Eine Lernsitzung. Ohne `deckId` werden die Karten zufällig aus allen
+   * Kategorien gezogen, mit `mistakesOnly` nur aus den falsch beantworteten.
+   * Paare (`MATCHING`) laufen über `Match`, nicht hierüber.
    */
   Review: {
+    mode: Exclude<TrainerMode, 'MATCHING'>;
     deckId?: string;
-    level?: CefrLevel;
-    queueType?: 'NEW' | 'DUE' | 'MASTERED' | 'ALL';
+    mistakesOnly?: boolean;
     title?: string;
   };
   VocabStats: undefined;
-  /** Paare finden – Begriffe und Übersetzungen eines Stapels gegen die Uhr zuordnen. */
-  Match: { deckId: string; title: string };
+  /** Paare finden – Begriffe und Übersetzungen gegen die Uhr zuordnen. */
+  Match: { deckId?: string; title?: string };
 };
 
 export type NotebookStackParamList = {

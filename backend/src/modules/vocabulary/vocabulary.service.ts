@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CardStatus, Prisma, VocabMode } from '@prisma/client';
-import { reviewCard, SRS_DEFAULTS, shuffleSeedFree } from './srs.helper';
+import { reviewCard, SRS_DEFAULTS } from './srs.helper';
 import { addUtcDays, shuffle, startOfUtcDay, toDateKey } from '../../common/utils/date.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -29,8 +29,8 @@ import { ERR } from '../../common/i18n/messages';
 
 /** XP pro korrekt beantworteter Karte. */
 const XP_PER_CORRECT_REVIEW = 2;
-/** Maximale Anzahl neuer Karten, die pro Sitzung eingeführt werden. */
-const DEFAULT_NEW_LIMIT = 10;
+/** Karten je Sitzung, wenn die App nichts anderes verlangt. */
+const DEFAULT_SESSION_SIZE = 15;
 /**
  * Mindestzahl unterschiedlicher Distraktoren, ab der eine Mehrfachauswahl noch
  * eine echte Auswahl ist. Reicht der Vorrat nicht, wird die Karte zum
@@ -234,202 +234,90 @@ export class VocabularyService {
   // ----------------------------------------------------------- Lernsitzung
 
   /**
-   * Stellt die Lernwarteschlange zusammen: zuerst fällige Karten (älteste zuerst),
-   * danach neue Karten bis zum Limit. Für jede Karte werden Lernrichtung und
-   * Lernmodus gewählt und – wo nötig – Distraktoren aus demselben Deck gezogen.
+   * Stellt die Lernwarteschlange zusammen – zufällig gezogen, ohne Stapel.
+   *
+   * Der Umfang ist entweder eine Kategorie (`deckId`) oder alles, was der
+   * Nutzer gerade lernen kann: die Systemkategorien seines Profil-Niveaus plus
+   * seine eigenen Kategorien derselben Sprache. `onlyNeedsRepeat` zieht statt
+   * aus allen Wörtern nur aus denen, deren letzte Antwort falsch war.
    */
   async getReviewQueue(userId: string, query: ReviewQueueQueryDto): Promise<ReviewCardDto[]> {
-    const native = await this.nativeLanguage(userId);
+    const [profile, native] = await Promise.all([
+      this.users.getActiveProfileOrThrow(userId),
+      this.nativeLanguage(userId),
+    ]);
     const options: CardOptions = { native, mode: query.mode, direction: query.direction };
+    const limit = query.limit ?? DEFAULT_SESSION_SIZE;
 
-    // Eigene Decks bleiben ein einziges Deck: keine Aufteilung in neu/
-    // wiederholen/gelernt wie bei den 50 Wörter großen Systemdecks – jede
-    // Runde zeigt das ganze Deck (siehe `ownDeckQueue`).
+    let scope: Prisma.VocabItemWhereInput;
     if (query.deckId) {
-      const deck = await this.prisma.vocabDeck.findUnique({
-        where: { id: query.deckId },
-        select: { isSystem: true },
-      });
-      if (deck && !deck.isSystem) {
-        return this.ownDeckQueue(userId, query.deckId, options);
+      const deck = await this.prisma.vocabDeck.findUnique({ where: { id: query.deckId } });
+      if (!deck) throw new NotFoundException(ERR['notfound.deck']);
+      if (!deck.isSystem && deck.ownerId !== userId) {
+        throw new ForbiddenException(ERR['forbidden.deck_other_user']);
       }
+      scope = { deckId: deck.id };
+    } else {
+      // Bewusst `profile.level` statt eines Parameters: Systemkategorien eines
+      // höheren Niveaus bleiben gesperrt, bis das Profil-Niveau dort ankommt.
+      scope = {
+        deck: {
+          languageId: profile.languageId,
+          OR: [{ isSystem: true, level: profile.level }, { ownerId: userId }],
+        },
+      };
     }
 
-    const profile = await this.users.getActiveProfileOrThrow(userId);
-    const limit = query.limit ?? 20;
-    const now = new Date();
-
-    // Eine Sitzung ohne `deckId` gilt für ein ganzes Niveau – dort zählen nur
-    // Systemdecks. Eigene Decks (KI-generiert oder manuell) haben ihren
-    // eigenen Platz in der App und werden ausschließlich über ihre `deckId`
-    // gelernt, sonst würden ihre Karten unsichtbar in der Niveau-Summe
-    // aufgehen statt als eigener Stapel zu erscheinen (siehe DeckListScreen).
-    //
-    // Bewusst `profile.level` statt `query.level`: Systemdecks eines höheren
-    // Niveaus dürfen erst lernbar sein, wenn das Profil-Niveau dort ankommt –
-    // ein von außen mitgegebenes `level` dürfte diese Sperre sonst umgehen.
-    const deckFilter: Prisma.VocabItemWhereInput = query.deckId
-      ? { deckId: query.deckId }
-      : {
-          deck: {
-            languageId: profile.languageId,
-            level: profile.level,
-            isSystem: true,
-          },
-        };
-
-    // Wiederholen-Stapel: die letzte Antwort war falsch. Das steht eindeutig
-    // fest, sobald `status = LEARNING` bei `repetitions = 0` ist – nur der
+    // Fehler-Stapel: die letzte Antwort war falsch. Das steht eindeutig fest,
+    // sobald `status = LEARNING` bei `repetitions = 0` ist – nur der
     // Fehler-Zweig von `reviewCard()` setzt beides zusammen (ein erster
-    // *richtiger* Versuch erhöht `repetitions` immer auf mindestens 1). Bewusst
-    // unabhängig von `dueAt`: die Karte soll sofort im Stapel erscheinen, ohne
-    // auf den SM-2-Timer zu warten.
-    if (query.onlyNeedsRepeat) {
-      return this.queueFromWhere(
-        { userId, status: CardStatus.LEARNING, repetitions: 0, vocabItem: deckFilter },
-        limit,
-        options,
-      );
-    }
-
-    // Gelernt-Stapel: die letzte Antwort war richtig (`repetitions >= 1`) –
-    // unabhängig vom tatsächlichen SM-2-Status oder Intervall. Wer hier etwas
-    // falsch beantwortet, fällt regulär über `submitReview` zurück in den
-    // Wiederholen-Stapel (Status wechselt zu LEARNING, repetitions auf 0).
-    if (query.onlyLearned) {
-      return this.queueFromWhere(
-        { userId, repetitions: { gte: 1 }, vocabItem: deckFilter },
-        limit,
-        options,
-      );
-    }
-
-    // `dueLimit: 0` blendet den Wiederholen-Stapel bewusst aus – für eine
-    // Sitzung, die ausschließlich neue Vokabeln zeigt.
-    const due = await this.prisma.vocabProgress.findMany({
-      where: { userId, dueAt: { lte: now }, vocabItem: deckFilter },
-      include: { vocabItem: true },
-      orderBy: { dueAt: 'asc' },
-      take: query.dueLimit ?? limit,
+    // *richtiger* Versuch erhöht `repetitions` immer auf mindestens 1).
+    const candidates = await this.prisma.vocabItem.findMany({
+      where: query.onlyNeedsRepeat
+        ? {
+            ...scope,
+            progress: { some: { userId, status: CardStatus.LEARNING, repetitions: 0 } },
+          }
+        : scope,
+      select: { id: true },
     });
+    if (candidates.length === 0) return [];
 
-    const remaining = Math.max(0, limit - due.length);
-    const newLimit = Math.min(remaining, query.newLimit ?? DEFAULT_NEW_LIMIT);
+    const pickedIds = shuffle(candidates)
+      .slice(0, limit)
+      .map((item) => item.id);
 
-    let fresh: ItemRow[] = [];
-    if (newLimit > 0) {
-      // Karten ohne Progress-Eintrag = noch nie gesehen. Bewusst OHNE hier
-      // schon eine Progress-Zeile anzulegen: nur weil eine Karte ausgeliefert
-      // wurde, heißt das nicht, dass sie bearbeitet wurde – bricht die Sitzung
-      // vorher ab, soll die Karte weiterhin als "neu" zählen (siehe
-      // `submitReview`, das die Zeile erst bei der ersten Bewertung anlegt).
-      fresh = await this.prisma.vocabItem.findMany({
-        where: { ...deckFilter, progress: { none: { userId } } },
-        take: newLimit,
-        orderBy: { sortOrder: 'asc' },
-      });
-    }
-
-    const cards: QueueCard[] = [
-      ...due.map((entry) => ({
-        cardId: entry.id,
-        item: entry.vocabItem,
-        status: entry.status,
-        dueAt: entry.dueAt,
-      })),
-      // `cardId` ist hier die VocabItem-ID, nicht die einer Progress-Zeile –
-      // `submitReview` erkennt das und legt die Zeile bei Bedarf selbst an.
-      ...fresh.map((item) => ({
-        cardId: item.id,
-        item,
-        status: CardStatus.NEW,
-        dueAt: now,
-      })),
-    ];
-
-    if (cards.length === 0) return [];
-
-    const pool = await this.distractorPool(
-      cards.map((card) => card.item.deckId),
-      native,
-    );
-
-    // Alle Stapel sind durchmischt – die Reihenfolge (älteste Fälligkeit
-    // zuerst, dann neue Karten) ist keine feste Abarbeitungsliste.
-    return shuffle(cards).map((card) => this.buildCard(card, pool, options));
-  }
-
-  /** Lädt Karten anhand eines Progress-Filters (statt dueAt/newLimit-Kombination) und baut sie durchmischt auf. */
-  private async queueFromWhere(
-    where: Prisma.VocabProgressWhereInput,
-    limit: number,
-    options: CardOptions,
-  ): Promise<ReviewCardDto[]> {
-    const rows = await this.prisma.vocabProgress.findMany({
-      where,
-      include: { vocabItem: true },
-      take: limit,
-    });
-    if (rows.length === 0) return [];
-
-    const pool = await this.distractorPool(
-      rows.map((entry) => entry.vocabItem.deckId),
-      options.native,
-    );
-    return shuffle(rows).map((entry) =>
-      this.buildCard(
-        { cardId: entry.id, item: entry.vocabItem, status: entry.status, dueAt: entry.dueAt },
-        pool,
-        options,
-      ),
-    );
-  }
-
-  /**
-   * Die Lernwarteschlange eines eigenen Decks: immer das ganze Deck,
-   * durchmischt. Anders als bei Systemdecks gibt es hier kein "fällig" oder
-   * "neu" – jede Runde zeigt alle Wörter, und eine falsch beantwortete Karte
-   * kommt über `submitReview`/SM-2 in der nächsten Runde früher dran.
-   *
-   * Kleine Decks haben selten genug Wörter für eine echte Auswahl. Dann
-   * stammen die falschen Antworten zusätzlich aus den Systemstapeln derselben
-   * Sprache und desselben Niveaus – so funktioniert auch ein Deck mit drei
-   * eigenen Wörtern als Auswahlübung.
-   */
-  private async ownDeckQueue(
-    userId: string,
-    deckId: string,
-    options: CardOptions,
-  ): Promise<ReviewCardDto[]> {
-    const deck = await this.prisma.vocabDeck.findUniqueOrThrow({
-      where: { id: deckId },
-      include: { items: { orderBy: { sortOrder: 'asc' } } },
-    });
-    if (deck.ownerId !== userId) throw new ForbiddenException(ERR['forbidden.deck_other_user']);
-    if (deck.items.length === 0) return [];
-
-    const progressRows = await this.prisma.vocabProgress.findMany({
-      where: { userId, vocabItemId: { in: deck.items.map((item) => item.id) } },
-    });
+    const [items, progressRows] = await Promise.all([
+      this.prisma.vocabItem.findMany({ where: { id: { in: pickedIds } } }),
+      this.prisma.vocabProgress.findMany({ where: { userId, vocabItemId: { in: pickedIds } } }),
+    ]);
     const progressByItem = new Map(progressRows.map((row) => [row.vocabItemId, row]));
     const now = new Date();
 
-    let pool: PoolEntry[] = deck.items.map((item) => toPoolEntry(item, options.native));
+    // Falsche Antworten stammen aus denselben Kategorien. Reicht das nicht
+    // (eine kleine eigene Kategorie, ein einzelner Fehler), kommen Wörter
+    // aus den Systemkategorien des Niveaus dazu.
+    let pool = await this.distractorPool(
+      items.map((item) => item.deckId),
+      native,
+    );
     if (pool.length <= MIN_DISTRACTORS_FOR_CHOICES + 1) {
       const extra = await this.prisma.vocabItem.findMany({
-        where: { deck: { languageId: deck.languageId, level: deck.level, isSystem: true } },
+        where: { deck: { languageId: profile.languageId, level: profile.level, isSystem: true } },
+        select: { id: true, term: true, translation: true, translations: true },
         take: 60,
       });
-      pool = [...pool, ...extra.map((item) => toPoolEntry(item, options.native))];
+      pool = [...pool, ...extra.map((item) => toPoolEntry(item, native))];
     }
 
-    return shuffle(deck.items).map((item) => {
+    return shuffle(items).map((item) => {
       const progress = progressByItem.get(item.id);
       return this.buildCard(
         {
           // Ohne Progress-Zeile ist die VocabItem-ID der Platzhalter, den
           // `submitReview` beim ersten Bewerten in eine Progress-Zeile
-          // überführt – dieselbe Konvention wie bei Systemdecks.
+          // überführt – nur weil eine Karte ausgeliefert wurde, heißt das
+          // nicht, dass sie bearbeitet wurde.
           cardId: progress?.id ?? item.id,
           item,
           status: progress?.status ?? CardStatus.NEW,
@@ -442,18 +330,26 @@ export class VocabularyService {
   }
 
   /**
-   * Baut eine Karte: Richtung, Modus und – bei Auswahlmodi – fünf Vorschläge.
+   * Baut eine Karte: Richtung, Modus und – wo möglich – fünf Vorschläge.
    *
    * FORWARD fragt den Begriff ab, die Vorschläge sind Übersetzungen in der
    * Muttersprache. REVERSE zeigt die Übersetzung, die Vorschläge sind Begriffe
    * der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
    * Stapel gezogen; gleichlautende werden vorher entfernt, sonst stünde die
    * richtige Antwort zweimal da und eine davon würde als falsch gewertet.
+   *
+   * Vorschläge gibt es für jede Karte, nicht nur für Auswahlkarten: Paare
+   * und Aussprechen fallen in der App darauf zurück, wenn eine Paar-Runde zu
+   * klein wird oder das Gerät keine Spracherkennung hat.
    */
   private buildCard(card: QueueCard, pool: PoolEntry[], options: CardOptions): ReviewCardDto {
     const item = toVocabItemDto(card.item, options.native);
-    const direction = pickDirection(options.direction);
-    const mode = pickMode(card.status, options.mode, direction);
+    const mode = pickMode(options.mode);
+    // Paare und Aussprechen zeigen immer den Begriff – eine Richtung haben sie nicht.
+    const direction =
+      mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING
+        ? pickDirection(options.direction)
+        : 'FORWARD';
 
     const answerOf = (entry: { term: string; translation: string }) =>
       direction === 'FORWARD' ? entry.translation : entry.term;
@@ -467,23 +363,21 @@ export class VocabularyService {
           .filter((answer) => answer !== correct),
       ),
     ];
+    const hasChoices = alternatives.length >= MIN_DISTRACTORS_FOR_CHOICES;
 
-    // Ein Auswahlmodus braucht genug andere Wörter, sonst wäre die "Auswahl"
-    // nur die offensichtlich richtige Antwort – dann wird die Karte umgedreht.
+    // Eine Auswahl ohne genug andere Wörter wäre nur die offensichtlich
+    // richtige Antwort – dann wird die Karte umgedreht.
     const wantsChoices = mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING;
-    const effectiveMode =
-      wantsChoices && alternatives.length < MIN_DISTRACTORS_FOR_CHOICES ? VocabMode.FLASHCARD : mode;
-
     const base: ReviewCardDto = {
       cardId: card.cardId,
       item,
-      mode: effectiveMode,
+      mode: wantsChoices && !hasChoices ? VocabMode.FLASHCARD : mode,
       direction,
       status: card.status,
       dueAt: card.dueAt.toISOString(),
     };
 
-    if (effectiveMode === VocabMode.MULTIPLE_CHOICE || effectiveMode === VocabMode.LISTENING) {
+    if (hasChoices) {
       const choices = shuffle([correct, ...shuffle(alternatives).slice(0, CHOICE_DISTRACTORS)]);
       base.choices = choices;
       base.correctChoiceIndex = choices.indexOf(correct);
@@ -742,29 +636,16 @@ function pickDirection(requested?: VocabDirection): CardDirection {
 }
 
 /**
- * Modusauswahl, wenn der Nutzer keinen festen Modus gewählt hat: Neue und
- * gerade falsch beantwortete Karten kommen als Auswahl (erkennen ist
- * leichter als abrufen), gefestigte Karten wechseln zwischen Auswahl,
- * Eintippen, Hören und Lernkarte. Hören geht nur vorwärts – vorgelesen wird
- * der Begriff in der Lernsprache.
+ * Der Modus einer Karte. Ohne Vorgabe ist die Sitzung gemischt: meist
+ * Auswahl, dazwischen Paare (die App fasst sie zu einer Runde zusammen) und
+ * Aussprechen.
  */
-function pickMode(status: CardStatus, requested: VocabMode | undefined, direction: CardDirection): VocabMode {
-  const mode =
-    requested ??
-    (status === CardStatus.NEW || status === CardStatus.LEARNING
-      ? Math.random() < 0.2
-        ? VocabMode.LISTENING
-        : VocabMode.MULTIPLE_CHOICE
-      : shuffleSeedFree([
-          VocabMode.MULTIPLE_CHOICE,
-          VocabMode.TYPING,
-          VocabMode.LISTENING,
-          VocabMode.FLASHCARD,
-        ]));
-  if (mode === VocabMode.LISTENING && direction === 'REVERSE') return VocabMode.MULTIPLE_CHOICE;
-  // Zuordnen ist ein eigenes Spiel über mehrere Karten, keine Einzelkarte.
-  if (mode === VocabMode.MATCHING) return VocabMode.MULTIPLE_CHOICE;
-  return mode;
+function pickMode(requested: VocabMode | undefined): VocabMode {
+  if (requested) return requested;
+  const roll = Math.random();
+  if (roll < 0.5) return VocabMode.MULTIPLE_CHOICE;
+  if (roll < 0.75) return VocabMode.MATCHING;
+  return VocabMode.SPEAKING;
 }
 
 // ------------------------------------------------------------ Umwandlungen

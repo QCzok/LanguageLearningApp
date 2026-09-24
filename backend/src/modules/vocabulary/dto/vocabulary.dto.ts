@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CefrLevel, VocabMode } from '@prisma/client';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { VOCAB_DIRECTIONS, type VocabDirection } from '@lingua/shared';
 import {
   IsArray,
@@ -32,20 +32,18 @@ export class ListDecksQueryDto {
 }
 
 export class ReviewQueueQueryDto {
-  @ApiPropertyOptional({ description: 'Nur Karten dieses Decks' })
+  @ApiPropertyOptional({
+    description:
+      'Nur Vokabeln dieser Kategorie. Ohne: zufällig aus allen Kategorien des Profil-Niveaus plus den eigenen.',
+  })
   @IsOptional()
   @IsString()
   deckId?: string;
 
   @ApiPropertyOptional({
-    enum: CefrLevel,
-    description: 'Ohne `deckId` wird ignoriert – Systemdecks folgen stets dem Profil-Niveau.',
+    enum: VocabMode,
+    description: 'Erzwingt einen Lernmodus. Ohne: gemischt aus Auswahl, Paaren und Aussprechen.',
   })
-  @IsOptional()
-  @IsEnum(CefrLevel)
-  level?: CefrLevel;
-
-  @ApiPropertyOptional({ enum: VocabMode, description: 'Erzwingt einen Lernmodus' })
   @IsOptional()
   @IsEnum(VocabMode)
   mode?: VocabMode;
@@ -60,7 +58,7 @@ export class ReviewQueueQueryDto {
   @IsIn(VOCAB_DIRECTIONS)
   direction?: VocabDirection;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ default: 15, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -68,44 +66,13 @@ export class ReviewQueueQueryDto {
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ default: 10, minimum: 0, maximum: 50 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(50)
-  newLimit?: number;
-
   @ApiPropertyOptional({
-    minimum: 0,
-    maximum: 100,
-    description:
-      'Wie viele fällige Karten geladen werden (Standard: `limit`). 0 blendet den Wiederholen-Stapel aus – für eine Sitzung mit ausschließlich neuen Vokabeln.',
+    description: 'Nur Vokabeln, deren letzte Antwort falsch war – der Fehler-Stapel.',
   })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  @Max(100)
-  dueLimit?: number;
-
-  @ApiPropertyOptional({
-    description:
-      'Nur Karten laden, deren letzte Antwort falsch war (Wiederholen-Stapel) – unabhängig von `dueAt`.',
-  })
-  @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ value }) => value === true || value === 'true' || value === '1')
   @IsBoolean()
   onlyNeedsRepeat?: boolean;
-
-  @ApiPropertyOptional({
-    description:
-      'Nur Karten laden, deren letzte Antwort richtig war (Gelernt-Stapel) – unabhängig vom Mastery-Intervall.',
-  })
-  @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  onlyLearned?: boolean;
 }
 
 export class SubmitReviewDto {

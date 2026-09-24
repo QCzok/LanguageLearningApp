@@ -9,6 +9,11 @@ const SPEECH_LOCALES: Record<string, string> = {
   it: 'it-IT',
 };
 
+/** Das BCP-47-Tag einer Lernsprache – für Sprachausgabe und Spracherkennung. */
+export function speechLocale(languageCode: string | undefined): string {
+  return SPEECH_LOCALES[languageCode ?? ''] ?? 'en-GB';
+}
+
 /**
  * Liest einen Begriff vor. Klammerzusätze wie „(Plural)" oder „(colour)"
  * sind Lesehilfen der Wortliste und werden nicht mitgesprochen.
@@ -18,7 +23,7 @@ export async function speakTerm(text: string, languageCode: string | undefined):
   if (!spoken) return;
   try {
     await Speech.stop();
-    Speech.speak(spoken, { language: SPEECH_LOCALES[languageCode ?? ''] ?? 'en-GB', rate: 0.9 });
+    Speech.speak(spoken, { language: speechLocale(languageCode), rate: 0.9 });
   } catch {
     // Keine Sprachausgabe auf dem Gerät – das Üben geht auch ohne.
   }

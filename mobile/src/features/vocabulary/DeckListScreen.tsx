@@ -20,7 +20,7 @@ import { aiApi, vocabularyApi } from '../../api/endpoints';
 import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
-import { useActiveProfile } from '../../store/auth.store';
+import { useActiveProfile, useAuthStore } from '../../store/auth.store';
 import {
   colors,
   flashcard,
@@ -32,21 +32,20 @@ import {
   spacing,
   typography,
 } from '../../theme';
-import { nextStack, STACK_LABEL_KEYS } from './DeckStack';
+import { canRecognizeSpeech } from './SpeakingCard';
+import { TRAINER_DIRECTIONS, TRAINER_MODES, useTrainerSettings, type TrainerMode } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
 import { MAX_WIDTH } from '../../navigation/WebLayout';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'DeckList'>;
 
 /**
- * Der Vokabeltrainer als Karteikasten: ein Fach je Thema.
+ * Die Startseite des Vokabeltrainers: Übungsart antippen, loslegen.
  *
- * Die Wörter eines Niveaus sind fachlich längst in Themen sortiert („Arbeit &
- * Beruf", „Reisen & Verkehr", je rund 50 Vokabeln) – sichtbar war davon
- * nichts, solange die Übersicht alle Stapel eines Niveaus zu einer einzigen
- * Zahlenreihe zusammenzog. Hier steht deshalb jedes Thema als eigene
- * Karteikarte im Regal: Zeichen, Titel, Umfang und der eigene Fortschritt.
- * Erst im Thema (siehe `DeckDetailScreen`) fällt die Wahl, *wie* geübt wird.
+ * Geübt wird ohne Stapel – die Wörter kommen zufällig aus allen Kategorien
+ * des eigenen Niveaus (plus den eigenen Kategorien), oder, wer will, aus
+ * einer gewählten. Die Wahl bleibt gespeichert. Daneben steht der Weg zu
+ * den Fehlern: alle Wörter, deren letzte Antwort falsch war.
  *
  * Sichtbar ist nur das eigene Niveau – höhere Stufen bleiben gesperrt, bis
  * das Profil-Niveau dort ankommt (das Backend hält dieselbe Grenze, siehe
@@ -56,6 +55,8 @@ export default function DeckListScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const profile = useActiveProfile();
   const queryClient = useQueryClient();
+  const { deckId: storedDeckId, setDeckId } = useTrainerSettings();
+  const [speechAvailable] = useState(canRecognizeSpeech);
   const decks = useQuery({
     queryKey: ['decks'],
     queryFn: () => vocabularyApi.decks(),
@@ -66,14 +67,18 @@ export default function DeckListScreen({ navigation }: Props) {
   const [topic, setTopic] = useState('');
   const [manualTitle, setManualTitle] = useState('');
 
+  function openNewCategory(deck: VocabDeckDto) {
+    setDeckId(deck.id);
+    navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title });
+  }
+
   const generateDeck = useMutation({
     mutationFn: (value: string) => aiApi.generateVocabDeck(value),
     onSuccess: async (deck) => {
       await queryClient.invalidateQueries({ queryKey: ['decks'] });
       setShowGenerate(false);
       setTopic('');
-      // Direkt in den neuen Stapel – er ist der Grund, warum der Nutzer hier war.
-      navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title });
+      openNewCategory(deck);
     },
   });
 
@@ -88,16 +93,9 @@ export default function DeckListScreen({ navigation }: Props) {
       await queryClient.invalidateQueries({ queryKey: ['decks'] });
       setShowGenerate(false);
       setManualTitle('');
-      navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title });
+      openNewCategory(deck);
     },
   });
-
-  function openGenerator() {
-    // Ohne Bezahlstufe führt die Kachel direkt in den Themen-Dialog, statt
-    // erst auf einen Hinweis, dass man sie nicht benutzen darf.
-    setCreateMode('ai');
-    setShowGenerate(true);
-  }
 
   function closeGenerator() {
     if (generateDeck.isPending || createDeck.isPending) return;
@@ -108,22 +106,15 @@ export default function DeckListScreen({ navigation }: Props) {
     createDeck.reset();
   }
 
-  // Kein blindes `refetch` beim Fokus mehr: Die Mutationen, die diesen Stand
-  // ändern, entwerten den Schlüssel gezielt. Blind nachladen hiess, bei jedem
-  // Zurückkommen erneut drei bis fünf Sekunden auf den Server zu warten.
-
   if (decks.isLoading) return <Loading />;
   if (decks.isError || !decks.data) {
     return <ErrorState message={t('vocabDecksError')} onRetry={decks.refetch} />;
   }
 
-  // Eigene Stapel (KI-generiert oder manuell angelegt) stehen in einem eigenen
-  // Fach – sie gehören zu keinem Niveau-Thema und werden ausschließlich über
-  // ihre `deckId` gelernt (siehe Backend, `getReviewQueue`).
-  const topicDecks = decks.data.filter((deck) => deck.isSystem);
-  const ownDecks = decks.data.filter((deck) => !deck.isSystem);
+  const allDecks = decks.data;
+  const topicDecks = allDecks.filter((deck) => deck.isSystem);
 
-  if (topicDecks.length === 0 && ownDecks.length === 0) {
+  if (allDecks.length === 0) {
     return (
       <EmptyState
         emoji="🗂️"
@@ -133,33 +124,32 @@ export default function DeckListScreen({ navigation }: Props) {
     );
   }
 
+  // Eine gespeicherte Kategorie, die es nicht mehr gibt (gelöscht, anderes
+  // Niveau), fällt stillschweigend auf „alle" zurück.
+  const selected = allDecks.find((deck) => deck.id === storedDeckId) ?? null;
+  const inScope = selected ? [selected] : allDecks;
+  const wordCount = inScope.reduce((sum, deck) => sum + deck.itemCount, 0);
+  const mistakes = inScope.reduce((sum, deck) => sum + (deck.progress?.needsRepeat ?? 0), 0);
+  const scopeTitle = selected ? selected.title : t('trainerAllCategories');
+
   const totalWords = topicDecks.reduce((sum, deck) => sum + deck.itemCount, 0);
-  const learnedWords = topicDecks.reduce((sum, deck) => sum + learnedIn(deck), 0);
+  const learnedWords = topicDecks.reduce((sum, deck) => sum + (deck.progress?.learned ?? 0), 0);
 
-  // Angefangen, aber nicht fertig: der Stapel, den die Übersicht oben zum
-  // Weitermachen anbietet, statt ihn im Regal wiederfinden zu lassen. Bei
-  // mehreren gewinnt, wer die meisten Fehler offen hat – die liegen am
-  // längsten quer.
-  const continueDeck = [...topicDecks, ...ownDecks]
-    .filter((deck) => isStarted(deck) && !isComplete(deck))
-    .sort(
-      (a, b) =>
-        (b.progress?.needsRepeat ?? 0) - (a.progress?.needsRepeat ?? 0) ||
-        learnedIn(b) - learnedIn(a),
-    )[0];
-
-  function openDeck(deck: VocabDeckDto) {
-    navigation.navigate('DeckDetail', { deckId: deck.id, title: deck.title });
+  function start(mode: TrainerMode) {
+    const title = `${t(MODE_KEYS[mode].title)} · ${scopeTitle}`;
+    if (mode === 'MATCHING') {
+      navigation.navigate('Match', { deckId: selected?.id, title });
+    } else {
+      navigation.navigate('Review', { mode, deckId: selected?.id, title });
+    }
   }
 
-  function continueLearning(deck: VocabDeckDto) {
-    // Eigene Decks kennen keine Aufteilung in neu/wiederholen/gelernt – siehe
-    // `DeckDetailScreen`.
-    const queueType = deck.isSystem ? nextStack(deck.progress) : 'ALL';
+  function repeatMistakes() {
     navigation.navigate('Review', {
-      deckId: deck.id,
-      queueType,
-      title: `${deck.title} · ${t(STACK_LABEL_KEYS[queueType])}`,
+      mode: 'MIX',
+      deckId: selected?.id,
+      mistakesOnly: true,
+      title: `${t('trainerMistakesTitle')} · ${scopeTitle}`,
     });
   }
 
@@ -181,45 +171,69 @@ export default function DeckListScreen({ navigation }: Props) {
           />
         </Row>
 
-        {profile ? (
-          <LevelSummary
-            level={profile.level}
-            topics={topicDecks.length}
-            learned={learnedWords}
-            total={totalWords}
-          />
-        ) : null}
+        {profile ? <LevelSummary level={profile.level} learned={learnedWords} total={totalWords} /> : null}
 
-        {continueDeck ? (
-          <View style={{ gap: spacing.sm }}>
-            <SectionRule label={t('vocabContinueHeading')} />
-            <ContinueCard deck={continueDeck} onPress={() => continueLearning(continueDeck)} />
-          </View>
-        ) : null}
-
-        {topicDecks.length > 0 ? (
-          <View style={{ gap: spacing.md }}>
-            <SectionRule label={t('vocabTopicsHeading')} trailing={`${topicDecks.length}`} />
-            <View style={tileGrid}>
-              {topicDecks.map((deck) => (
-                <DeckTile key={deck.id} deck={deck} onPress={() => openDeck(deck)} />
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={{ gap: spacing.md }}>
-          <SectionRule
-            label={t('vocabOwnDecksHeading')}
-            trailing={ownDecks.length > 0 ? `${ownDecks.length}` : undefined}
-          />
-          <View style={tileGrid}>
-            {ownDecks.map((deck) => (
-              <DeckTile key={deck.id} deck={deck} onPress={() => openDeck(deck)} />
+        {/* ------------------------------------------------ Kategorie */}
+        <View style={{ gap: spacing.sm }}>
+          <SectionRule label={t('trainerCategoryHeading')} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: spacing.xs, paddingRight: spacing.lg }}
+          >
+            <Chip label={`🎲 ${t('trainerAllCategories')}`} active={!selected} onPress={() => setDeckId(null)} />
+            {allDecks.map((deck) => (
+              <Chip
+                key={deck.id}
+                label={`${deck.iconEmoji} ${deck.title}`}
+                active={selected?.id === deck.id}
+                onPress={() => setDeckId(deck.id)}
+              />
             ))}
-            <NewDeckTile onPress={openGenerator} />
-          </View>
+            <Chip label={`＋ ${t('trainerNewCategory')}`} dashed onPress={() => setShowGenerate(true)} />
+          </ScrollView>
+          <Row>
+            <Caption>
+              {selected
+                ? t('vocabWordCount', { count: wordCount })
+                : t('trainerAllCategoriesHint', { count: wordCount })}
+            </Caption>
+            <View style={{ flex: 1 }} />
+            {selected ? (
+              <Pressable
+                accessibilityRole="link"
+                hitSlop={8}
+                onPress={() => navigation.navigate('DeckDetail', { deckId: selected.id, title: selected.title })}
+              >
+                <Text style={linkText}>{`${t('trainerWordList')} →`}</Text>
+              </Pressable>
+            ) : null}
+          </Row>
         </View>
+
+        {/* ------------------------------------------------ Übungsarten */}
+        <View style={{ gap: spacing.sm }}>
+          <SectionRule label={t('trainerModesHeading')} />
+          <View style={tileGrid}>
+            {TRAINER_MODES.map((mode) => {
+              const unavailable = mode === 'SPEAKING' && !speechAvailable;
+              return (
+                <ModeTile
+                  key={mode}
+                  icon={MODE_KEYS[mode].icon}
+                  title={t(MODE_KEYS[mode].title)}
+                  hint={unavailable ? t('trainerSpeakingUnavailable') : t(MODE_KEYS[mode].hint)}
+                  disabled={wordCount === 0 || unavailable}
+                  onPress={() => start(mode)}
+                />
+              );
+            })}
+          </View>
+          <DirectionPicker />
+        </View>
+
+        {/* ------------------------------------------------ Fehler */}
+        <MistakesCard count={mistakes} onPress={repeatMistakes} />
       </ScrollView>
 
       <Modal visible={showGenerate} transparent animationType="slide" onRequestClose={closeGenerator}>
@@ -296,7 +310,145 @@ export default function DeckListScreen({ navigation }: Props) {
   );
 }
 
-/** Die zwei Reiter im Anlage-Zettel: KI-Thema oder ein leeres eigenes Deck. */
+// ---------------------------------------------------------------- Bausteine
+
+const MODE_KEYS: Record<TrainerMode, { icon: string; title: TranslationKey; hint: TranslationKey }> = {
+  MULTIPLE_CHOICE: { icon: '🔘', title: 'trainerModeChoice', hint: 'trainerModeChoiceHint' },
+  MATCHING: { icon: '🧩', title: 'matchTitle', hint: 'matchTeaser' },
+  SPEAKING: { icon: '🎙️', title: 'trainerModeSpeaking', hint: 'trainerModeSpeakingHint' },
+  MIX: { icon: '🔀', title: 'trainerModeMix', hint: 'trainerModeMixHint' },
+};
+
+/** Eine Übungsart als Karteikarte – ein Tipp startet die Sitzung. */
+function ModeTile({
+  icon,
+  title,
+  hint,
+  disabled,
+  onPress,
+}: {
+  icon: string;
+  title: string;
+  hint: string;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      accessibilityLabel={`${title}. ${hint}`}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        tile,
+        disabled && { opacity: 0.45 },
+        pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+      ]}
+    >
+      <View style={[cardHeadRule, { backgroundColor: colors.primary }]} />
+      <Text style={{ fontSize: 28 }}>{icon}</Text>
+      <Text style={tileTitle} numberOfLines={2}>
+        {title}
+      </Text>
+      <Text style={tileMeta} numberOfLines={3}>
+        {hint}
+      </Text>
+      <View style={{ flex: 1 }} />
+      <Text style={[tileState, { color: colors.primary }]}>▶</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Die Fehler: alle Wörter, deren letzte Antwort falsch war. Eine falsche
+ * Antwort hier schickt das Wort gleich nochmal ans Ende – bis es sitzt.
+ */
+function MistakesCard({ count, onPress }: { count: number; onPress: () => void }) {
+  const { t } = useTranslation();
+  const empty = count === 0;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: empty }}
+      disabled={empty}
+      onPress={onPress}
+      style={({ pressed }) => [mistakesCard, empty && mistakesCardEmpty, pressed && { opacity: 0.9 }]}
+    >
+      <Text style={{ fontSize: 28 }}>{empty ? '🎉' : '🔁'}</Text>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={tileTitle}>{t('trainerMistakesTitle')}</Text>
+        <Text style={tileMeta}>
+          {empty ? t('trainerNoMistakesShort') : t('trainerMistakesHint', { count })}
+        </Text>
+      </View>
+      {empty ? null : (
+        <View style={repeatPill}>
+          <Text style={[typography.label, { color: colors.warning }]}>{count}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/**
+ * Richtung der Auswahlkarten. Sie nennt die echten Sprachen („Englisch →
+ * Spanisch") statt „vorwärts/rückwärts" – wer Englisch mit spanischer
+ * Muttersprache lernt, soll nicht überlegen müssen, was gemeint ist.
+ */
+function DirectionPicker() {
+  const { t, tLanguage } = useTranslation();
+  const profile = useActiveProfile();
+  const nativeCode = useAuthStore((state) => state.user?.nativeLanguage);
+  const { direction, setDirection } = useTrainerSettings();
+
+  const learning = tLanguage(profile?.language.code ?? '', profile?.language.nativeName);
+  const native = tLanguage(nativeCode ?? '', nativeCode);
+  const directionLabel = {
+    FORWARD: `${learning} → ${native}`,
+    REVERSE: `${native} → ${learning}`,
+    MIXED: `🔀 ${t('trainerDirectionMixed')}`,
+  } as const;
+
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Text style={[readingLabel, { color: colors.textMuted }]}>{t('trainerDirection')}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+        {TRAINER_DIRECTIONS.map((value) => (
+          <Chip key={value} label={directionLabel[value]} active={direction === value} onPress={() => setDirection(value)} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function Chip({
+  label,
+  active,
+  dashed,
+  onPress,
+}: {
+  label: string;
+  active?: boolean;
+  dashed?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={({ pressed }) => [chip, active && chipActive, dashed && chipDashed, pressed && { opacity: 0.8 }]}
+    >
+      <Text style={[chipText, active && { color: colors.textInverse }, dashed && { color: colors.primary }]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Die zwei Reiter im Anlage-Zettel: KI-Thema oder eine leere eigene Kategorie. */
 function ModeTab({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
@@ -310,25 +462,11 @@ function ModeTab({ label, active, onPress }: { label: string; active: boolean; o
   );
 }
 
-// ------------------------------------------------------------------ Kopf
-
 /**
- * Der Kopf des Karteikastens: das eigene Niveau, wie viele Themen darin
- * liegen und wie weit die Wörter insgesamt gelernt sind. Eine Zeile Bilanz
- * statt sechs aufklappbarer Niveaus – die anderen Stufen sind ohnehin
- * gesperrt, bis das Profil-Niveau dort ankommt.
+ * Der Kopf des Trainers: das eigene Niveau und wie weit dessen Wörter
+ * insgesamt gelernt sind.
  */
-function LevelSummary({
-  level,
-  topics,
-  learned,
-  total,
-}: {
-  level: CefrLevel;
-  topics: number;
-  learned: number;
-  total: number;
-}) {
+function LevelSummary({ level, learned, total }: { level: CefrLevel; learned: number; total: number }) {
   const { t } = useTranslation();
   const percent = total > 0 ? Math.round((learned / total) * 100) : 0;
 
@@ -338,181 +476,23 @@ function LevelSummary({
         <LevelBadge level={level} />
         <View style={{ flex: 1 }}>
           <Text style={typography.heading}>{t(LEVEL_HEADLINE_KEYS[level])}</Text>
-          <Caption>
-            {topics === 1 ? t('vocabOneTopic') : t('vocabTopicsCount', { count: topics })}
-          </Caption>
+          <Caption>{t('vocabLevelProgress', { learned, total })}</Caption>
         </View>
-        <Text style={[summaryPercent, { color: levelColors[level] ?? colors.primary }]}>
-          {percent}%
-        </Text>
+        <Text style={[summaryPercent, { color: levelColors[level] ?? colors.primary }]}>{percent}%</Text>
       </Row>
-
       <ProgressBar value={percent} color={levelColors[level] ?? colors.primary} height={6} />
-      <Caption>{t('vocabLevelProgress', { learned, total })}</Caption>
     </View>
   );
 }
 
 /** Kolumnentitel mit durchlaufender Haarlinie – wie in der Bibliothek. */
-function SectionRule({ label, trailing }: { label: string; trailing?: string }) {
+function SectionRule({ label }: { label: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
       <Text style={[readingLabel, { color: colors.text }]}>{label}</Text>
       <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-      {trailing ? <Text style={[readingLabel, { color: colors.textMuted }]}>{trailing}</Text> : null}
     </View>
   );
-}
-
-// ----------------------------------------------------------------- Kacheln
-
-/**
- * Der angefangene Stapel, quer über die Breite: Zeichen, Thema, Fortschritt
- * und ein Knopf, der ohne Umweg in die Sitzung führt, die als Nächstes dran
- * ist (erst Fehler ausbügeln, dann Neues – siehe `nextStack`).
- */
-function ContinueCard({ deck, onPress }: { deck: VocabDeckDto; onPress: () => void }) {
-  const { t } = useTranslation();
-  const accent = levelColors[deck.level] ?? colors.primary;
-  const learned = learnedIn(deck);
-  const percent = deck.itemCount > 0 ? Math.round((learned / deck.itemCount) * 100) : 0;
-  const needsRepeat = deck.progress?.needsRepeat ?? 0;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [continueCard, pressed && { opacity: 0.92 }]}
-    >
-      <View style={[cardHeadRule, { backgroundColor: accent }]} />
-
-      <Row gap={spacing.md}>
-        <Text style={{ fontSize: 30 }}>{deck.iconEmoji}</Text>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={tileTitle} numberOfLines={1}>
-            {deck.title}
-          </Text>
-          <Caption>
-            {`${learned}/${deck.itemCount}`}
-            {needsRepeat > 0 ? ` · ${t('vocabToRepeat', { count: needsRepeat })}` : ''}
-          </Caption>
-        </View>
-        <LevelBadge level={deck.level} small />
-      </Row>
-
-      <ProgressBar value={percent} color={accent} height={5} />
-
-      <Text style={[continueAction, { color: accent }]}>{t('vocabContinueAction')} →</Text>
-    </Pressable>
-  );
-}
-
-/**
- * Ein Thema als Karteikarte im Regal.
- *
- * Oben die Kopflinie in der Niveaufarbe – dasselbe Erkennungszeichen wie auf
- * der Karte in der Sitzung (siehe `Flashcard`). Darunter steht, was für die
- * Wahl zählt: Zeichen, Thema, Umfang, Fortschritt. Ein fertig gelernter
- * Stapel trägt statt des Balkens einen Haken, ein noch nie geöffneter den
- * Hinweis „neu" – so ist der Zustand aus dem Augenwinkel lesbar.
- */
-function DeckTile({ deck, onPress }: { deck: VocabDeckDto; onPress: () => void }) {
-  const { t } = useTranslation();
-  const accent = levelColors[deck.level] ?? colors.primary;
-  const learned = learnedIn(deck);
-  const percent = deck.itemCount > 0 ? Math.round((learned / deck.itemCount) * 100) : 0;
-  const needsRepeat = deck.progress?.needsRepeat ?? 0;
-  const done = isComplete(deck);
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${deck.title}, ${t('vocabWordCount', { count: deck.itemCount })}`}
-      onPress={onPress}
-      style={({ pressed }) => [tile, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
-    >
-      <View style={[cardHeadRule, { backgroundColor: accent }]} />
-
-      <Row>
-        <Text style={{ fontSize: 26, flex: 1 }}>{deck.iconEmoji}</Text>
-        {done ? (
-          <View style={doneBadge}>
-            <Text style={{ fontSize: 10, color: colors.textInverse }}>✓</Text>
-          </View>
-        ) : needsRepeat > 0 ? (
-          <View style={repeatPill}>
-            <Text style={[typography.label, { fontSize: 10, color: colors.warning }]}>
-              {needsRepeat}
-            </Text>
-          </View>
-        ) : null}
-      </Row>
-
-      <Text style={tileTitle} numberOfLines={2}>
-        {deck.title}
-      </Text>
-
-      <Text style={tileMeta}>{t('vocabWordCount', { count: deck.itemCount })}</Text>
-
-      <View style={{ flex: 1 }} />
-
-      {isStarted(deck) ? (
-        <View style={{ gap: 4 }}>
-          <ProgressBar value={percent} color={done ? colors.success : accent} height={4} />
-          <Text style={tileState}>
-            {done ? t('vocabDeckDone') : `${learned}/${deck.itemCount}`}
-          </Text>
-        </View>
-      ) : (
-        <View style={{ gap: 4 }}>
-          <View style={emptyTrack} />
-          <Text style={tileState}>{t('vocabDeckNew')}</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-/**
- * Das leere Fach am Ende des eigenen Regals: gestrichelter Rand, weil dort
- * noch nichts liegt. Ein Tipp öffnet den Themen-Dialog (siehe
- * `openGenerator`).
- */
-function NewDeckTile({ onPress }: { onPress: () => void }) {
-  const { t } = useTranslation();
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [tile, newTile, pressed && { opacity: 0.9 }]}
-    >
-      <Text style={{ fontSize: 26 }}>➕</Text>
-      <Text style={tileTitle} numberOfLines={2}>
-        {t('vocabNewDeckTile')}
-      </Text>
-      <Text style={tileMeta}>{t('vocabNewDeckTileMeta')}</Text>
-      <View style={{ flex: 1 }} />
-      <Text style={[tileState, { color: colors.primary }]}>
-        {`${t('vocabNewDeckCta')} →`}
-      </Text>
-    </Pressable>
-  );
-}
-
-// ------------------------------------------------------------------ Helfer
-
-/** Wörter, deren letzte Antwort richtig war – dieselbe Lesart wie im Backend. */
-function learnedIn(deck: VocabDeckDto): number {
-  return deck.progress?.learned ?? 0;
-}
-
-function isStarted(deck: VocabDeckDto): boolean {
-  return (deck.progress?.learned ?? 0) + (deck.progress?.needsRepeat ?? 0) > 0;
-}
-
-function isComplete(deck: VocabDeckDto): boolean {
-  return deck.itemCount > 0 && learnedIn(deck) >= deck.itemCount;
 }
 
 /** Die Zwischentitel der Niveaus – nicht die GER-Kurznamen, sondern der Ton des Trainers. */
@@ -548,12 +528,12 @@ const tileGrid = {
   gap: spacing.md,
 };
 
-/** Die Karteikarte selbst: Karton, scharfer Rand, Kopflinie in der Niveaufarbe. */
+/** Die Karteikarte selbst: Karton, scharfer Rand, farbige Kopflinie. */
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
   maxWidth: '47%' as const,
-  minHeight: 164,
+  minHeight: 150,
   gap: spacing.xs,
   padding: spacing.md,
   borderRadius: radius.md,
@@ -563,34 +543,10 @@ const tile = {
   ...shadow.card,
 };
 
-/** Noch leer – gestrichelt statt durchgezogen, wie ein unbeschriftetes Fach. */
-const newTile = {
-  backgroundColor: colors.surface,
-  borderStyle: 'dashed' as const,
-  borderColor: colors.premium,
-  shadowOpacity: 0,
-  elevation: 0,
-};
-
 const cardHeadRule = {
   height: 2,
   borderRadius: 1,
   marginBottom: spacing.xs,
-};
-
-const continueCard = {
-  gap: spacing.sm,
-  padding: spacing.md,
-  borderRadius: radius.md,
-  backgroundColor: flashcard.paper,
-  borderWidth: 1,
-  borderColor: flashcard.edge,
-  ...shadow.lift,
-};
-
-const continueAction = {
-  ...typography.label,
-  letterSpacing: 0.4,
 };
 
 const tileTitle = {
@@ -609,34 +565,66 @@ const tileMeta = {
 
 const tileState = {
   ...readingLabel,
-  fontSize: 10,
+  fontSize: 12,
   color: flashcard.inkSoft,
 };
 
-/** Der Platzhalter für „noch nichts gelernt" – eine Spur des Balkens, der kommt. */
-const emptyTrack = {
-  height: 4,
-  borderRadius: 2,
-  backgroundColor: flashcard.rule,
+const mistakesCard = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  gap: spacing.md,
+  padding: spacing.md,
+  borderRadius: radius.md,
+  backgroundColor: colors.warningSoft,
+  borderWidth: 1,
+  borderBottomWidth: 3,
+  borderColor: colors.warning,
 };
 
-const doneBadge = {
-  width: 20,
-  height: 20,
-  borderRadius: 10,
-  backgroundColor: colors.success,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+const mistakesCardEmpty = {
+  backgroundColor: colors.surface,
+  borderColor: colors.border,
+  borderBottomWidth: 1,
 };
 
 const repeatPill = {
-  minWidth: 20,
-  height: 20,
-  paddingHorizontal: 5,
-  borderRadius: 10,
-  backgroundColor: colors.warningSoft,
+  minWidth: 28,
+  height: 28,
+  paddingHorizontal: 6,
+  borderRadius: 14,
+  backgroundColor: colors.surface,
   alignItems: 'center' as const,
   justifyContent: 'center' as const,
+};
+
+const linkText = {
+  ...typography.label,
+  color: colors.primary,
+};
+
+const chip = {
+  paddingHorizontal: spacing.sm,
+  paddingVertical: 6,
+  borderRadius: radius.full,
+  backgroundColor: colors.surfaceAlt,
+  borderWidth: 1,
+  borderColor: colors.border,
+};
+
+const chipActive = {
+  backgroundColor: colors.primary,
+  borderColor: colors.primary,
+};
+
+const chipDashed = {
+  backgroundColor: colors.surface,
+  borderStyle: 'dashed' as const,
+  borderColor: colors.primary,
+};
+
+const chipText = {
+  ...typography.label,
+  color: colors.text,
 };
 
 const sheetBackdrop = {

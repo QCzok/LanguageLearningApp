@@ -97,4 +97,5 @@ const VOCAB_MODE_KEYS: Record<VocabMode, TranslationKey> = {
   TYPING: 'reviewModeTyping',
   LISTENING: 'reviewModeListening',
   MATCHING: 'reviewModeMatching',
+  SPEAKING: 'reviewModeSpeaking',
 };

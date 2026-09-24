@@ -145,7 +145,7 @@ function VocabularyNavigator() {
       <VocabularyStack.Screen
         name="Match"
         component={MatchGameScreen}
-        options={({ route }) => ({ title: `${t('matchTitle')} · ${route.params.title}` })}
+        options={({ route }) => ({ title: route.params.title ?? t('matchTitle') })}
       />
     </VocabularyStack.Navigator>
   );

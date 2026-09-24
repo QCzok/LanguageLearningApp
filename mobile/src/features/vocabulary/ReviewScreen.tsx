@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Animated, Pressable, ScrollView, Text, View } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { GRADE_BUTTONS } from '@lingua/shared';
@@ -11,8 +11,9 @@ import type { TranslationKey } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
 import { Flashcard } from './Flashcard';
-import type { QueueType } from './DeckStack';
-import { checkAnswer, type AnswerVerdict } from './answerCheck';
+import { FeedbackBar } from './FeedbackBar';
+import { PairsBoard, shuffled, splitIntoRounds } from './PairsBoard';
+import { canRecognizeSpeech, SpeakingCard } from './SpeakingCard';
 import { speakTerm, stopSpeaking } from './speech';
 import { useTrainerSettings } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
@@ -34,43 +35,69 @@ const EMPTY_SUMMARY: SessionSummary = { reviewed: 0, correct: 0, xp: 0, combo: 0
 /** Ab diesen Serien gibt es ein kurzes Lob – und serverseitig Bonus-XP. */
 const COMBO_MILESTONES = [3, 5, 10, 15, 20, 30, 50];
 
-/** Fisher-Yates – alle Stapel sind durchmischbar, keine feste Reihenfolge. */
-function shuffled<T>(items: T[]): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
+/** Karten je Sitzung. */
+const SESSION_SIZE = 15;
+
+/** Ein Schritt der Sitzung: eine einzelne Karte oder eine Runde Paare. */
+type Step = { kind: 'card'; card: ReviewCardDto } | { kind: 'pairs'; cards: ReviewCardDto[] };
+
+/**
+ * Macht aus einer Karte eine Auswahlkarte – für Paare, die in keine Runde
+ * mehr passen, und fürs Aussprechen ohne Spracherkennung. Ohne Vorschläge
+ * (zu wenige andere Wörter) wird die Karte umgedreht.
+ */
+function asChoiceCard(card: ReviewCardDto): ReviewCardDto {
+  return { ...card, mode: card.choices ? 'MULTIPLE_CHOICE' : 'FLASHCARD' };
+}
+
+/**
+ * Ordnet die Karten vom Server zu Schritten: Paar-Karten werden zu Runden
+ * gebündelt und gleichmäßig zwischen die Einzelkarten verteilt, damit eine
+ * gemischte Sitzung nicht mit fünf Paar-Runden am Stück endet.
+ */
+function buildSteps(cards: ReviewCardDto[], speechAvailable: boolean): Step[] {
+  const usable = cards.map((card) => (card.mode === 'SPEAKING' && !speechAvailable ? asChoiceCard(card) : card));
+  const { rounds, rest } = splitIntoRounds(usable.filter((card) => card.mode === 'MATCHING'));
+  const singles = shuffled([...usable.filter((card) => card.mode !== 'MATCHING'), ...rest.map(asChoiceCard)]);
+
+  const steps: Step[] = singles.map((card) => ({ kind: 'card', card }));
+  rounds.forEach((round, index) => {
+    const at = Math.floor(((index + 1) * singles.length) / (rounds.length + 1)) + index;
+    steps.splice(at, 0, { kind: 'pairs', cards: round });
+  });
+  return steps;
+}
+
+function stepSize(step: Step): number {
+  return step.kind === 'card' ? 1 : step.cards.length;
 }
 
 /**
  * Lernsitzung des Vokabeltrainers.
  *
- * Die Warteschlange kommt einmal vom Server, wird aber lokal geführt: „Neue
- * Vokabeln" verlässt eine falsch beantwortete Karte sofort (serverseitig
- * steht sie ab dann im Wiederholen-Stapel); „Wiederholen", „Gelernt" und
- * eigene Decks legen eine falsch beantwortete Karte ans Ende zurück, bis sie
- * sitzt. Jede Bewertung geht sofort ans Backend, damit ein Abbruch keinen
- * Fortschritt kostet – die SM-2-Rechnung passiert serverseitig.
+ * Die Karten kommen einmal vom Server – zufällig aus allen Kategorien oder
+ * aus der gewählten – und werden lokal abgearbeitet. Jede Antwort geht sofort
+ * ans Backend, damit ein Abbruch keinen Fortschritt kostet; die SM-2-Rechnung
+ * passiert serverseitig. Falsch beantwortete Wörter landen dort bei den
+ * Fehlern. In einer Fehler-Runde (`mistakesOnly`) kommt ein falsches Wort
+ * ans Ende zurück, bis es sitzt.
  *
  * Spielerisch wird es über die Serie: Jede richtige Antwort in Folge zählt
  * mit, ab drei gibt es Bonus-XP und eine kurze Einblendung, am Ende Sterne
- * für die Trefferquote. Der Mischen-Knopf wirft die restlichen Karten neu
- * durcheinander.
+ * für die Trefferquote.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
-  const { deckId, level, queueType } = route.params;
+  const { mode, deckId, mistakesOnly } = route.params;
   const { t, tVocabMode } = useTranslation();
   const queryClient = useQueryClient();
   const profile = useActiveProfile();
   const learningLanguage = profile?.language.code;
-  const { direction, mode, autoSpeak, setAutoSpeak } = useTrainerSettings();
+  const { direction, autoSpeak, setAutoSpeak } = useTrainerSettings();
+  const [speechAvailable] = useState(canRecognizeSpeech);
 
   const [revealed, setRevealed] = useState(false);
-  const [typedAnswer, setTypedAnswer] = useState('');
-  const [verdict, setVerdict] = useState<AnswerVerdict | null>(null);
   const [choiceIndex, setChoiceIndex] = useState<number | null>(null);
+  const [pairsMatched, setPairsMatched] = useState(0);
   const [summary, setSummary] = useState<SessionSummary>(EMPTY_SUMMARY);
   const [toast, setToast] = useState<string | null>(null);
   /** Zählt jedes Weiterblättern – auch wenn dieselbe Karte später wiederkommt. */
@@ -79,39 +106,36 @@ export default function ReviewScreen({ route, navigation }: Props) {
   const toastAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const missedIds = useRef(new Set<string>());
+  /** Paare, die in dieser Runde danebengingen – in einer Fehler-Runde kommen sie wieder. */
+  const pairsToRequeue = useRef<ReviewCardDto[]>([]);
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: ['review-queue', deckId ?? 'all', level ?? 'any', queueType ?? 'mixed', direction, mode],
+    queryKey: ['review-queue', deckId ?? 'all', mode, mistakesOnly ?? false, direction],
     queryFn: () =>
       vocabularyApi.queue({
         deckId,
-        level,
-        limit: 20,
+        limit: SESSION_SIZE,
         direction,
-        ...(mode !== 'AUTO' ? { mode } : {}),
-        // „Neue Vokabeln“: der Wiederholen-Stapel bleibt außen vor.
-        ...(queueType === 'NEW' ? { dueLimit: 0, newLimit: 20 } : {}),
-        // „Wiederholen“: Karten, deren letzte Antwort falsch war – sofort,
-        // unabhängig vom SM-2-Timer.
-        ...(queueType === 'DUE' ? { onlyNeedsRepeat: true } : {}),
-        // „Gelernt“: Karten, deren letzte Antwort richtig war.
-        ...(queueType === 'MASTERED' ? { onlyLearned: true } : {}),
+        ...(mode !== 'MIX' ? { mode } : {}),
+        ...(mistakesOnly ? { onlyNeedsRepeat: true } : {}),
       }),
     staleTime: 0,
     gcTime: 0, // Eine Sitzung ist einmalig – nichts davon soll wiederverwendet werden.
   });
 
-  // Lokale Warteschlange, aus den Serverdaten gemischt abgeleitet. Wird neu
-  // aufgebaut, sobald `data` sich ändert (Start, „Nochmal“) – bewusst ohne
-  // useEffect, um keinen Frame mit veralteter Warteschlange zu rendern.
-  const [session, setSession] = useState<{ source: ReviewCardDto[] | undefined; queue: ReviewCardDto[] }>(
-    { source: undefined, queue: [] },
-  );
+  // Lokale Warteschlange, aus den Serverdaten abgeleitet. Wird neu aufgebaut,
+  // sobald `data` sich ändert (Start, „Nochmal“) – bewusst ohne useEffect, um
+  // keinen Frame mit veralteter Warteschlange zu rendern.
+  const [session, setSession] = useState<{ source: ReviewCardDto[] | undefined; steps: Step[] }>({
+    source: undefined,
+    steps: [],
+  });
   if (data !== session.source) {
-    setSession({ source: data, queue: data ? shuffled(data) : [] });
+    setSession({ source: data, steps: data ? buildSteps(data, speechAvailable) : [] });
   }
-  const queue = session.queue;
-  const card = queue[0];
+  const steps = session.steps;
+  const step = steps[0];
+  const card = step?.kind === 'card' ? step.card : undefined;
 
   const submit = useMutation({
     mutationFn: vocabularyApi.review,
@@ -120,12 +144,13 @@ export default function ReviewScreen({ route, navigation }: Props) {
     },
   });
 
-  // Der Begriff wird vorgelesen, sobald eine Karte ihn zeigt – beim Hören
-  // immer, sonst nur vorwärts und wenn das Vorlesen eingeschaltet ist.
-  const cardKey = card ? `${card.cardId}-${turn}` : null;
+  // Der Begriff wird vorgelesen, sobald eine Auswahlkarte ihn vorwärts zeigt
+  // und das Vorlesen eingeschaltet ist. Beim Aussprechen nicht – da soll der
+  // Nutzer es erst selbst versuchen.
+  const cardKey = step ? `${turn}` : null;
   useEffect(() => {
     if (!card) return;
-    if (card.mode === 'LISTENING' || (autoSpeak && card.direction === 'FORWARD')) {
+    if (card.mode === 'LISTENING' || (autoSpeak && card.direction === 'FORWARD' && card.mode !== 'SPEAKING')) {
       void speakTerm(card.item.term, learningLanguage);
     }
     // Nur beim Wechsel der Karte, nicht bei jedem Umschalten des Lautsprechers.
@@ -159,11 +184,10 @@ export default function ReviewScreen({ route, navigation }: Props) {
    * Das Weiterblättern (`advance`) ist davon getrennt, damit die Rückmeldung
    * stehen bleiben kann, bis der Nutzer sie gelesen hat.
    */
-  function answer(grade: number, answerMode: VocabMode) {
-    if (!card) return;
+  function answer(target: ReviewCardDto, grade: number, answerMode: VocabMode) {
     const correct = grade >= 3;
     submit.mutate({
-      cardId: card.cardId,
+      cardId: target.cardId,
       grade,
       mode: answerMode,
       durationMs: Date.now() - shownAt.current,
@@ -171,10 +195,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
     });
 
     const nextCombo = correct ? summary.combo + 1 : 0;
-    if (!correct) {
-      missedIds.current.add(card.cardId);
-      shake();
-    }
+    if (!correct) missedIds.current.add(target.cardId);
     if (correct && COMBO_MILESTONES.includes(nextCombo)) {
       showToast(t('reviewComboToast', { count: nextCombo }));
     }
@@ -186,27 +207,24 @@ export default function ReviewScreen({ route, navigation }: Props) {
       bestCombo: Math.max(prev.bestCombo, nextCombo),
       missed: missedIds.current.size,
     }));
+    if (!correct && answerMode !== 'MATCHING') shake();
     // Rückwärts wird der Begriff erst mit der Lösung sichtbar – dann auch hörbar.
-    if (card.direction === 'REVERSE' && autoSpeak) void speakTerm(card.item.term, learningLanguage);
+    if (target.direction === 'REVERSE' && autoSpeak) void speakTerm(target.item.term, learningLanguage);
   }
 
-  function advance(correct: boolean) {
-    if (!card) return;
+  /** Zum nächsten Schritt. `requeue` hängt Karten ans Ende, die gleich nochmal drankommen. */
+  function advance(requeue: ReviewCardDto[] = []) {
+    if (!step) return;
     setRevealed(false);
-    setTypedAnswer('');
-    setVerdict(null);
     setChoiceIndex(null);
+    setPairsMatched(0);
     setTurn((value) => value + 1);
     shownAt.current = Date.now();
 
-    // „Neue Vokabeln“: ein Versuch pro Karte – falsche Karten landen
-    // serverseitig im Wiederholen-Stapel. Sonst bleibt eine falsche Karte im
-    // Stapel, bis sie sitzt.
-    const requeue = !correct && queueType !== 'NEW';
-    const nextQueue = requeue ? [...queue.slice(1), card] : queue.slice(1);
-    setSession((prev) => ({ ...prev, queue: nextQueue }));
+    const nextSteps: Step[] = [...steps.slice(1), ...requeue.map((again) => ({ kind: 'card' as const, card: again }))];
+    setSession((prev) => ({ ...prev, steps: nextSteps }));
 
-    if (nextQueue.length === 0) {
+    if (nextSteps.length === 0) {
       void queryClient.invalidateQueries({ queryKey: ['decks'] });
       void queryClient.invalidateQueries({ queryKey: ['deck'] });
       void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
@@ -214,11 +232,10 @@ export default function ReviewScreen({ route, navigation }: Props) {
     }
   }
 
-  function reshuffle() {
-    if (queue.length < 3) return;
-    // Die aktuelle Karte bleibt oben liegen – gemischt wird, was danach kommt.
-    setSession((prev) => ({ ...prev, queue: [prev.queue[0], ...shuffled(prev.queue.slice(1))] }));
-    showToast(t('reviewShuffled'));
+  /** Eine einzelne Karte ist beantwortet – in einer Fehler-Runde kommt sie bei Fehlern zurück. */
+  function finishCard(correct: boolean) {
+    if (!card) return;
+    advance(!correct && mistakesOnly ? [card] : []);
   }
 
   function restart() {
@@ -234,9 +251,9 @@ export default function ReviewScreen({ route, navigation }: Props) {
     return (
       <Screen>
         <EmptyState
-          emoji="🎉"
-          title={t(emptyTitleKey(queueType))}
-          description={t(emptyDescriptionKey(queueType))}
+          emoji={mistakesOnly ? '🎉' : '🗂️'}
+          title={mistakesOnly ? t('trainerNoMistakesTitle') : t('vocabEmptyTitle')}
+          description={mistakesOnly ? t('trainerNoMistakesBody') : t('trainerEmptyBody')}
           action={{ label: t('commonBack'), onPress: () => navigation.goBack() }}
         />
       </Screen>
@@ -244,18 +261,19 @@ export default function ReviewScreen({ route, navigation }: Props) {
   }
 
   // --------------------------------------------------------- Abschluss
-  if (!card) {
+  if (!step) {
     return (
       <SessionEnd
         summary={summary}
         onAgain={restart}
         onRepeatMistakes={
-          deckId && summary.missed > 0 && queueType !== 'DUE' && queueType !== 'ALL'
+          summary.missed > 0 && !mistakesOnly
             ? () =>
                 navigation.replace('Review', {
+                  mode,
                   deckId,
-                  queueType: 'DUE',
-                  title: route.params.title,
+                  mistakesOnly: true,
+                  title: t('trainerMistakesTitle'),
                 })
             : undefined
         }
@@ -265,11 +283,13 @@ export default function ReviewScreen({ route, navigation }: Props) {
   }
 
   const done = summary.reviewed;
-  const total = done + queue.length;
-  const remaining = queue.length - 1;
+  const remainingItems = steps.reduce((sum, entry) => sum + stepSize(entry), 0) - pairsMatched;
+  const total = done + remainingItems;
+  const remaining = steps.length - 1;
   const shakeStyle = {
     transform: [{ translateX: shakeAnim.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }],
   };
+  const stepMode: VocabMode = step.kind === 'pairs' ? 'MATCHING' : step.card.mode;
 
   return (
     <Screen style={{ flex: 1 }}>
@@ -285,12 +305,6 @@ export default function ReviewScreen({ route, navigation }: Props) {
           <Text style={xpText}>⚡ {summary.xp}</Text>
         </View>
         <IconButton
-          label={t('reviewShuffleA11y')}
-          icon="🔀"
-          onPress={reshuffle}
-          disabled={queue.length < 3}
-        />
-        <IconButton
           label={autoSpeak ? t('reviewSoundOff') : t('reviewSoundOn')}
           icon={autoSpeak ? '🔊' : '🔇'}
           onPress={() => setAutoSpeak(!autoSpeak)}
@@ -298,13 +312,38 @@ export default function ReviewScreen({ route, navigation }: Props) {
       </Row>
       <ProgressBar value={total ? (done / total) * 100 : 0} height={6} color={colors.success} />
       <Row>
-        <Caption>{tVocabMode(card.mode)}</Caption>
+        <Caption>{step.kind === 'pairs' ? t('matchHint') : tVocabMode(stepMode)}</Caption>
         <View style={{ flex: 1 }} />
-        <Caption>{card.direction === 'FORWARD' ? t('reviewDirectionForwardShort') : t('reviewDirectionReverseShort')}</Caption>
+        {card && (card.mode === 'MULTIPLE_CHOICE' || card.mode === 'FLASHCARD') ? (
+          <Caption>
+            {card.direction === 'FORWARD' ? t('reviewDirectionForwardShort') : t('reviewDirectionReverseShort')}
+          </Caption>
+        ) : null}
       </Row>
 
       <Animated.View style={[{ flex: 1 }, shakeStyle]}>
-        {card.mode === 'FLASHCARD' ? (
+        {step.kind === 'pairs' ? (
+          <PairsBoard
+            key={cardKey}
+            items={step.cards.map((entry) => ({ ...entry.item, id: entry.cardId }))}
+            languageCode={learningLanguage}
+            autoSpeak={autoSpeak}
+            onMatch={(cardId, clean) => {
+              const target = step.cards.find((entry) => entry.cardId === cardId);
+              if (!target) return;
+              setPairsMatched((value) => value + 1);
+              answer(target, clean ? 4 : 1, 'MATCHING');
+              if (!clean && mistakesOnly) pairsToRequeue.current.push(asChoiceCard(target));
+            }}
+            onComplete={() => {
+              const again = pairsToRequeue.current;
+              pairsToRequeue.current = [];
+              advance(again);
+            }}
+          />
+        ) : null}
+
+        {card?.mode === 'FLASHCARD' ? (
           <FlashcardMode
             card={card}
             remaining={remaining}
@@ -312,43 +351,37 @@ export default function ReviewScreen({ route, navigation }: Props) {
             languageCode={learningLanguage}
             onReveal={() => setRevealed(true)}
             onGrade={(grade) => {
-              answer(grade, 'FLASHCARD');
-              advance(grade >= 3);
+              answer(card, grade, 'FLASHCARD');
+              finishCard(grade >= 3);
             }}
           />
         ) : null}
 
-        {card.mode === 'MULTIPLE_CHOICE' || card.mode === 'LISTENING' ? (
+        {card && (card.mode === 'MULTIPLE_CHOICE' || card.mode === 'LISTENING') ? (
           <ChoiceMode
             card={card}
             remaining={remaining}
-            queueType={queueType}
+            mistakesOnly={mistakesOnly}
             selected={choiceIndex}
             languageCode={learningLanguage}
             combo={summary.combo}
             onSelect={(index) => {
               setChoiceIndex(index);
-              answer(index === card.correctChoiceIndex ? 4 : 1, card.mode);
+              answer(card, index === card.correctChoiceIndex ? 4 : 1, card.mode);
             }}
-            onContinue={() => advance(choiceIndex === card.correctChoiceIndex)}
+            onContinue={() => finishCard(choiceIndex === card.correctChoiceIndex)}
           />
         ) : null}
 
-        {card.mode === 'TYPING' || card.mode === 'MATCHING' ? (
-          <TypingMode
+        {card?.mode === 'SPEAKING' ? (
+          <SpeakingCard
+            key={cardKey}
             card={card}
             remaining={remaining}
-            value={typedAnswer}
-            verdict={verdict}
             languageCode={learningLanguage}
-            onChange={setTypedAnswer}
-            onCheck={() => {
-              const solution = card.direction === 'FORWARD' ? card.item.translation : card.item.term;
-              const result = checkAnswer(typedAnswer, solution);
-              setVerdict(result);
-              answer(result === 'exact' ? 4 : result === 'typo' ? 3 : 1, 'TYPING');
-            }}
-            onContinue={() => advance(verdict !== 'wrong')}
+            onGrade={(grade) => answer(card, grade, 'SPEAKING')}
+            onSkip={() => advance()}
+            onContinue={finishCard}
           />
         ) : null}
       </Animated.View>
@@ -480,30 +513,6 @@ function Solution({ card, languageCode }: { card: ReviewCardDto; languageCode?: 
   );
 }
 
-/** Rückmeldung unten am Bildschirm, wie man sie aus Lern-Apps kennt: grün oder rot. */
-function FeedbackBar({
-  kind,
-  title,
-  detail,
-  onContinue,
-}: {
-  kind: 'correct' | 'typo' | 'wrong';
-  title: string;
-  detail?: string;
-  onContinue: () => void;
-}) {
-  const { t } = useTranslation();
-  const tone = kind === 'wrong' ? colors.danger : colors.success;
-  const soft = kind === 'wrong' ? colors.dangerSoft : colors.successSoft;
-  return (
-    <View style={[feedbackBar, { backgroundColor: soft, borderColor: tone }]}>
-      <Text style={[feedbackTitle, { color: tone }]}>{title}</Text>
-      {detail ? <Text style={feedbackDetail}>{detail}</Text> : null}
-      <Button label={t('commonNext')} variant={kind === 'wrong' ? 'danger' : 'primary'} onPress={onContinue} />
-    </View>
-  );
-}
-
 // ------------------------------------------------------------- Lernmodi
 
 function FlashcardMode({
@@ -576,7 +585,7 @@ const CHOICE_LETTERS = ['A', 'B', 'C', 'D', 'E'];
 function ChoiceMode({
   card,
   remaining,
-  queueType,
+  mistakesOnly,
   selected,
   languageCode,
   combo,
@@ -585,7 +594,7 @@ function ChoiceMode({
 }: {
   card: ReviewCardDto;
   remaining: number;
-  queueType?: QueueType;
+  mistakesOnly?: boolean;
   selected: number | null;
   languageCode?: string;
   combo: number;
@@ -654,88 +663,11 @@ function ChoiceMode({
       {answered ? (
         <FeedbackBar
           kind={isCorrect ? 'correct' : 'wrong'}
-          title={isCorrect ? praise(combo, t) : t(wrongLabelKey(queueType))}
+          title={isCorrect ? praise(combo, t) : t(mistakesOnly ? 'trainerWrongAgain' : 'trainerWrongToMistakes')}
           detail={isCorrect ? undefined : t('reviewCorrectAnswerWas', { answer: solution })}
           onContinue={onContinue}
         />
       ) : null}
-    </View>
-  );
-}
-
-function TypingMode({
-  card,
-  remaining,
-  value,
-  verdict,
-  languageCode,
-  onChange,
-  onCheck,
-  onContinue,
-}: {
-  card: ReviewCardDto;
-  remaining: number;
-  value: string;
-  verdict: AnswerVerdict | null;
-  languageCode?: string;
-  onChange: (value: string) => void;
-  onCheck: () => void;
-  onContinue: () => void;
-}) {
-  const { t } = useTranslation();
-  const checked = verdict !== null;
-  const solution = card.direction === 'FORWARD' ? card.item.translation : card.item.term;
-
-  return (
-    <View style={{ flex: 1, gap: spacing.md }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: spacing.lg, paddingBottom: spacing.md }} keyboardShouldPersistTaps="handled">
-        <Flashcard stackSize={remaining}>
-          <View style={{ minHeight: 150, justifyContent: 'center', gap: spacing.lg }}>
-            <Prompt card={card} hint={t('reviewTypeTranslation')} languageCode={languageCode} />
-
-            {/* Die Antwort wird auf die Schreiblinie der Karte geschrieben. */}
-            <TextInput
-              value={value}
-              onChangeText={onChange}
-              editable={!checked}
-              placeholder={t('reviewAnswerPlaceholder')}
-              placeholderTextColor={flashcard.inkSoft}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              onSubmitEditing={() => (checked ? onContinue() : value.trim() && onCheck())}
-              style={[
-                answerLine,
-                checked && { color: verdict === 'wrong' ? colors.danger : colors.success },
-              ]}
-            />
-
-            {checked ? (
-              <>
-                <View style={[faceDivider, { alignSelf: 'center' }]} />
-                <Solution card={card} languageCode={languageCode} />
-              </>
-            ) : null}
-          </View>
-        </Flashcard>
-      </ScrollView>
-
-      {checked ? (
-        <FeedbackBar
-          kind={verdict === 'exact' ? 'correct' : verdict}
-          title={
-            verdict === 'exact'
-              ? t('reviewCorrect')
-              : verdict === 'typo'
-                ? t('reviewAlmost')
-                : t('reviewNotQuite')
-          }
-          detail={verdict === 'exact' ? undefined : t('reviewCorrectAnswerWas', { answer: solution })}
-          onContinue={onContinue}
-        />
-      ) : (
-        <Button label={t('reviewCheck')} onPress={onCheck} disabled={value.trim().length === 0} />
-      )}
     </View>
   );
 }
@@ -832,28 +764,6 @@ const GRADE_LABEL_KEYS: Record<number, TranslationKey> = {
   5: 'reviewGradeEasy',
 };
 
-/** Was mit einer falsch beantworteten Karte passiert – abhängig vom Stapel. */
-function wrongLabelKey(queueType?: QueueType): TranslationKey {
-  if (queueType === 'DUE') return 'reviewWrongDue';
-  if (queueType === 'MASTERED') return 'reviewWrongMastered';
-  if (queueType === 'ALL') return 'reviewNotQuite';
-  return 'reviewWrongNew';
-}
-
-function emptyTitleKey(queueType?: QueueType): TranslationKey {
-  if (queueType === 'NEW') return 'reviewEmptyNewTitle';
-  if (queueType === 'MASTERED') return 'reviewEmptyMasteredTitle';
-  if (queueType === 'ALL') return 'reviewEmptyAllTitle';
-  return 'reviewEmptyDueTitle';
-}
-
-function emptyDescriptionKey(queueType?: QueueType): TranslationKey {
-  if (queueType === 'NEW') return 'reviewEmptyNewBody';
-  if (queueType === 'MASTERED') return 'reviewEmptyMasteredBody';
-  if (queueType === 'ALL') return 'reviewEmptyAllBody';
-  return 'reviewEmptyDueBody';
-}
-
 // ------------------------------------------------------------------ Styles
 
 const cardEyebrow = {
@@ -932,18 +842,6 @@ const statTile = {
   borderColor: colors.border,
 };
 
-/** Die Antwortzeile sitzt wie handschriftlich auf einer Schreiblinie. */
-const answerLine = {
-  alignSelf: 'stretch' as const,
-  marginHorizontal: spacing.md,
-  borderBottomWidth: 1.5,
-  borderBottomColor: flashcard.inkSoft,
-  paddingBottom: 6,
-  fontSize: 20,
-  textAlign: 'center' as const,
-  color: flashcard.ink,
-};
-
 const gradeButtonStyle = {
   flex: 1,
   minHeight: 52,
@@ -999,22 +897,6 @@ const choiceLetterText = {
 const choiceText = {
   ...typography.body,
   flex: 1,
-  color: colors.text,
-};
-
-const feedbackBar = {
-  gap: spacing.sm,
-  padding: spacing.md,
-  borderRadius: radius.lg,
-  borderWidth: 1.5,
-};
-
-const feedbackTitle = {
-  ...typography.heading,
-};
-
-const feedbackDetail = {
-  ...typography.body,
   color: colors.text,
 };
 

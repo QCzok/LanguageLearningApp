@@ -1,84 +1,23 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, View } from 'react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { DeckItemDto, VocabDeckDetailDto } from '@lingua/shared';
+import type { ReviewCardDto } from '@lingua/shared';
 import { Button, Caption, EmptyState, ErrorState, Loading, ProgressBar, Row, Screen } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
-import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import { useActiveProfile } from '../../store/auth.store';
-import { colors, radius, spacing, typography } from '../../theme';
-import { speakTerm, stopSpeaking } from './speech';
-import { useTrainerSettings } from './trainerSettings';
+import { colors, spacing, typography } from '../../theme';
+import { PAIRS_PER_ROUND, PairsBoard, splitIntoRounds } from './PairsBoard';
+import { stopSpeaking } from './speech';
+import { ALL_CATEGORIES, useTrainerSettings } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<VocabularyStackParamList, 'Match'>;
 
-/** Paare je Runde – mehr passen auf einem Telefon nicht lesbar nebeneinander. */
-const PAIRS_PER_ROUND = 5;
 const ROUNDS = 3;
 /** Jeder Fehlgriff kostet Zeit – sonst lohnte sich wildes Durchprobieren. */
 const PENALTY_MS = 2000;
-
-interface Tile {
-  key: string;
-  pairId: string;
-  text: string;
-  side: 'term' | 'translation';
-}
-
-type TileState = 'idle' | 'selected' | 'matched' | 'wrong';
-
-/** Mindestanzahl Wörter, damit das Spiel angeboten wird. */
-export const MATCH_MIN_WORDS = 4;
-
-function shuffled<T>(items: T[]): T[] {
-  const result = [...items];
-  for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [result[i], result[j]] = [result[j], result[i]];
-  }
-  return result;
-}
-
-/**
- * Wählt die Wörter für eine Partie: gemischt, und innerhalb einer Runde nie
- * zwei Wörter mit gleichem Begriff oder gleicher Übersetzung – sonst gäbe es
- * zwei richtige Partner für eine Kachel.
- */
-function buildRounds(items: DeckItemDto[]): DeckItemDto[][] {
-  const pool = shuffled(items);
-  const rounds: DeckItemDto[][] = [];
-  while (rounds.length < ROUNDS && pool.length > 0) {
-    const round: DeckItemDto[] = [];
-    const terms = new Set<string>();
-    const translations = new Set<string>();
-    for (let i = 0; i < pool.length && round.length < PAIRS_PER_ROUND; ) {
-      const item = pool[i];
-      if (terms.has(item.term) || translations.has(item.translation)) {
-        i++;
-        continue;
-      }
-      terms.add(item.term);
-      translations.add(item.translation);
-      round.push(item);
-      pool.splice(i, 1);
-    }
-    if (round.length < 2) break;
-    rounds.push(round);
-  }
-  return rounds;
-}
-
-function tilesFor(round: DeckItemDto[]): { left: Tile[]; right: Tile[] } {
-  return {
-    left: shuffled(round.map((item) => ({ key: `t-${item.id}`, pairId: item.id, text: item.term, side: 'term' as const }))),
-    right: shuffled(
-      round.map((item) => ({ key: `r-${item.id}`, pairId: item.id, text: item.translation, side: 'translation' as const })),
-    ),
-  };
-}
 
 function formatTime(ms: number): string {
   const seconds = ms / 1000;
@@ -88,43 +27,52 @@ function formatTime(ms: number): string {
 /**
  * Paare finden: Begriffe links, Übersetzungen rechts, gegen die Uhr.
  *
- * Ein schnelles Spiel zwischendurch, wie man es aus Vokabel-Apps kennt –
- * es zählt nicht in die Wiederholungsplanung, sondern trainiert das
- * Wiedererkennen. Wer danebengreift, bekommt zwei Sekunden aufgeschlagen;
- * die Bestzeit je Stapel bleibt auf dem Gerät gespeichert.
+ * Die Wörter kommen zufällig aus allen Kategorien oder aus der gewählten –
+ * wie bei jeder anderen Übungsart. Jedes Paar zählt als Antwort: ohne
+ * Fehlgriff gefunden heißt gewusst, sonst landet das Wort bei den Fehlern.
+ * Wer danebengreift, bekommt zwei Sekunden aufgeschlagen; die Bestzeit je
+ * Kategorie bleibt auf dem Gerät gespeichert.
  */
 export default function MatchGameScreen({ route, navigation }: Props) {
   const { deckId } = route.params;
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const profile = useActiveProfile();
   const { autoSpeak, bestMatchTimes, recordMatchTime } = useTrainerSettings();
+  const recordKey = deckId ?? ALL_CATEGORIES;
 
-  const deck = useQuery({
-    queryKey: ['deck', deckId],
-    queryFn: () => vocabularyApi.deck(deckId),
-    staleTime: CACHE.PROGRESS,
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
+    queryKey: ['match-queue', deckId ?? 'all'],
+    queryFn: () =>
+      vocabularyApi.queue({
+        deckId,
+        mode: 'MATCHING',
+        limit: PAIRS_PER_ROUND * ROUNDS,
+      }),
+    staleTime: 0,
+    gcTime: 0,
   });
 
-  // Die Runden werden aus dem geladenen Stapel gemischt – neu bei jedem
-  // Laden und bei jedem „Nochmal spielen“.
-  const [game, setGame] = useState<{ source?: VocabDeckDetailDto; rounds: DeckItemDto[][] }>({ rounds: [] });
-  if (deck.data && deck.data !== game.source) {
-    setGame({ source: deck.data, rounds: buildRounds(deck.data.items) });
+  const submit = useMutation({ mutationFn: vocabularyApi.review });
+
+  // Die Runden werden aus den geladenen Karten gebildet – neu bei jedem Laden.
+  const [game, setGame] = useState<{ source?: ReviewCardDto[]; rounds: ReviewCardDto[][]; id: number }>({
+    rounds: [],
+    id: 0,
+  });
+  if (data && data !== game.source) {
+    setGame((prev) => ({ source: data, rounds: splitIntoRounds(data).rounds, id: prev.id + 1 }));
   }
   const rounds = game.rounds;
   const [roundIndex, setRoundIndex] = useState(0);
-  const [selected, setSelected] = useState<Tile | null>(null);
-  const [matched, setMatched] = useState<Set<string>>(new Set());
-  const [wrong, setWrong] = useState<string[]>([]);
+  const [matchedInRound, setMatchedInRound] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  const [missedWords, setMissedWords] = useState(0);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [finishedMs, setFinishedMs] = useState<number | null>(null);
   const [newRecord, setNewRecord] = useState(false);
-  const pop = useRef(new Animated.Value(1)).current;
-
-  const round = rounds[roundIndex];
-  const tiles = useMemo(() => (round ? tilesFor(round) : { left: [], right: [] }), [round]);
+  const roundStartedAt = useRef(Date.now());
 
   // Die Uhr läuft ab dem ersten Tipp, nicht schon beim Laden.
   useEffect(() => {
@@ -138,63 +86,45 @@ export default function MatchGameScreen({ route, navigation }: Props) {
   const elapsed = startedAt === null ? 0 : (finishedMs ?? now - startedAt + mistakes * PENALTY_MS);
 
   function restart() {
-    setGame((prev) => ({ ...prev, rounds: prev.source ? buildRounds(prev.source.items) : [] }));
     setRoundIndex(0);
-    setSelected(null);
-    setMatched(new Set());
-    setWrong([]);
+    setMatchedInRound(0);
     setMistakes(0);
+    setMissedWords(0);
     setStartedAt(null);
     setFinishedMs(null);
     setNewRecord(false);
+    void refetch();
   }
 
-  function tap(tile: Tile) {
-    if (matched.has(tile.pairId) || wrong.length > 0) return;
-    if (startedAt === null) {
-      setStartedAt(Date.now());
-      setNow(Date.now());
-    }
-    if (tile.side === 'term' && autoSpeak) void speakTerm(tile.text, profile?.language.code);
-
-    if (!selected || selected.side === tile.side) {
-      setSelected(selected?.key === tile.key ? null : tile);
-      return;
-    }
-
-    if (selected.pairId === tile.pairId) {
-      const nextMatched = new Set(matched).add(tile.pairId);
-      setMatched(nextMatched);
-      setSelected(null);
-      pop.setValue(0.9);
-      Animated.spring(pop, { toValue: 1, friction: 3, useNativeDriver: true }).start();
-
-      if (round && nextMatched.size === round.length) {
-        // Kurz stehen lassen, damit das letzte Paar sichtbar grün wird.
-        setTimeout(() => nextRound(), 350);
-      }
-      return;
-    }
-
-    setMistakes((value) => value + 1);
-    setWrong([selected.key, tile.key]);
-    setSelected(null);
-    setTimeout(() => setWrong([]), 550);
+  function handleMatch(cardId: string, clean: boolean) {
+    setMatchedInRound((value) => value + 1);
+    if (!clean) setMissedWords((value) => value + 1);
+    submit.mutate({
+      cardId,
+      grade: clean ? 4 : 1,
+      mode: 'MATCHING',
+      durationMs: Date.now() - roundStartedAt.current,
+    });
   }
 
   function nextRound() {
+    roundStartedAt.current = Date.now();
     if (roundIndex + 1 < rounds.length) {
       setRoundIndex((value) => value + 1);
-      setMatched(new Set());
+      setMatchedInRound(0);
       return;
     }
     const total = Date.now() - (startedAt ?? Date.now()) + mistakes * PENALTY_MS;
     setFinishedMs(total);
-    setNewRecord(recordMatchTime(deckId, total));
+    setNewRecord(recordMatchTime(recordKey, total));
+    void queryClient.invalidateQueries({ queryKey: ['decks'] });
+    void queryClient.invalidateQueries({ queryKey: ['deck'] });
+    void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   }
 
-  if (deck.isLoading) return <Loading />;
-  if (deck.isError || !deck.data) return <ErrorState message={t('deckError')} onRetry={deck.refetch} />;
+  if (isLoading || isRefetching) return <Loading label={t('reviewLoadingCards')} />;
+  if (isError) return <ErrorState message={t('reviewStartError')} onRetry={refetch} />;
 
   if (rounds.length === 0) {
     return (
@@ -202,7 +132,7 @@ export default function MatchGameScreen({ route, navigation }: Props) {
         <EmptyState
           emoji="🧩"
           title={t('matchTooFewTitle')}
-          description={t('matchTooFewBody', { count: MATCH_MIN_WORDS })}
+          description={t('matchTooFewBody')}
           action={{ label: t('commonBack'), onPress: () => navigation.goBack() }}
         />
       </Screen>
@@ -210,8 +140,8 @@ export default function MatchGameScreen({ route, navigation }: Props) {
   }
 
   const totalPairs = rounds.reduce((sum, r) => sum + r.length, 0);
-  const pairsDone = rounds.slice(0, roundIndex).reduce((sum, r) => sum + r.length, 0) + matched.size;
-  const best = bestMatchTimes[deckId];
+  const pairsDone = rounds.slice(0, roundIndex).reduce((sum, r) => sum + r.length, 0) + matchedInRound;
+  const best = bestMatchTimes[recordKey];
 
   // ------------------------------------------------------------ Ergebnis
   if (finishedMs !== null) {
@@ -234,6 +164,17 @@ export default function MatchGameScreen({ route, navigation }: Props) {
               {best !== undefined && !newRecord ? ` · ${t('matchBest', { time: formatTime(best) })}` : ''}
             </Caption>
           </View>
+          {missedWords > 0 ? (
+            <Button
+              label={t('reviewRepeatMistakes', { count: missedWords })}
+              variant="danger"
+              // Eine eigene Paar-Runde lohnt sich für ein, zwei Fehler nicht –
+              // die gemischte Fehler-Sitzung kommt mit jeder Anzahl zurecht.
+              onPress={() =>
+                navigation.replace('Review', { mode: 'MIX', deckId, mistakesOnly: true, title: t('trainerMistakesTitle') })
+              }
+            />
+          ) : null}
           <Button label={t('matchPlayAgain')} onPress={restart} />
           <Button label={t('commonDone')} variant="secondary" onPress={() => navigation.goBack()} />
         </View>
@@ -253,65 +194,24 @@ export default function MatchGameScreen({ route, navigation }: Props) {
       <ProgressBar value={(pairsDone / totalPairs) * 100} height={6} color={colors.success} />
       <Caption>{startedAt === null ? t('matchHint') : best !== undefined ? t('matchBest', { time: formatTime(best) }) : ' '}</Caption>
 
-      <Animated.View style={{ flex: 1, flexDirection: 'row', gap: spacing.md, transform: [{ scale: pop }] }}>
-        {[tiles.left, tiles.right].map((column, columnIndex) => (
-          <View key={columnIndex} style={{ flex: 1, gap: spacing.sm }}>
-            {column.map((tile) => {
-              const state: TileState = matched.has(tile.pairId)
-                ? 'matched'
-                : wrong.includes(tile.key)
-                  ? 'wrong'
-                  : selected?.key === tile.key
-                    ? 'selected'
-                    : 'idle';
-              return (
-                <Pressable
-                  key={tile.key}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: state === 'selected', disabled: state === 'matched' }}
-                  disabled={state === 'matched'}
-                  onPress={() => tap(tile)}
-                  style={({ pressed }) => [tileStyle, tileStates[state], pressed && { transform: [{ scale: 0.97 }] }]}
-                >
-                  <Text style={[tileText, state === 'matched' && { color: colors.success }]} numberOfLines={3}>
-                    {tile.text}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </Animated.View>
+      <PairsBoard
+        key={`${game.id}-${roundIndex}`}
+        items={rounds[roundIndex].map((card) => ({ ...card.item, id: card.cardId }))}
+        languageCode={profile?.language.code}
+        autoSpeak={autoSpeak}
+        onFirstTap={() => {
+          if (startedAt !== null) return;
+          setStartedAt(Date.now());
+          setNow(Date.now());
+          roundStartedAt.current = Date.now();
+        }}
+        onMatch={handleMatch}
+        onMiss={() => setMistakes((value) => value + 1)}
+        onComplete={nextRound}
+      />
     </Screen>
   );
 }
-
-const tileStyle = {
-  flex: 1,
-  maxHeight: 88,
-  minHeight: 54,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
-  paddingHorizontal: spacing.sm,
-  borderRadius: radius.md,
-  borderWidth: 1.5,
-  borderBottomWidth: 4,
-  borderColor: colors.border,
-  backgroundColor: colors.surface,
-};
-
-const tileStates = {
-  idle: {},
-  selected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  matched: { borderColor: colors.success, backgroundColor: colors.successSoft, opacity: 0.45 },
-  wrong: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
-};
-
-const tileText = {
-  ...typography.bodyStrong,
-  textAlign: 'center' as const,
-  color: colors.text,
-};
 
 const timerText = {
   ...typography.bodyStrong,

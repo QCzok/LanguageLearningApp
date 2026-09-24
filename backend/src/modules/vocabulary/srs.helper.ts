@@ -27,7 +27,3 @@ export function reviewCard(state: PrismaSrsState, grade: number, now: Date = new
   return { ...result, status: result.status as CardStatus };
 }
 
-/** Zufällige Auswahl aus einer Liste – für die Modusrotation. */
-export function shuffleSeedFree<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}

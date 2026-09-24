@@ -55,6 +55,7 @@ enum VocabMode {
   TYPING
   LISTENING
   MATCHING
+  SPEAKING
 }
 
 enum LibraryType {

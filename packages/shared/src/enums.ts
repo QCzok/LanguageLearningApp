@@ -32,6 +32,7 @@ export const VOCAB_MODES = [
   'TYPING', // Übersetzung eintippen
   'LISTENING', // Audio hören und zuordnen
   'MATCHING', // Paare zuordnen
+  'SPEAKING', // Begriff aussprechen, per Spracherkennung geprüft
 ] as const;
 export type VocabMode = (typeof VOCAB_MODES)[number];
 

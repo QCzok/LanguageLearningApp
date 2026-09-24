@@ -116,17 +116,12 @@ export const vocabularyApi = {
       .get<VocabDeckDetailDto>(`/vocabulary/decks/${id}`)
       .then((r) => r.data),
   queue: (params?: {
+    /** Nur diese Kategorie – ohne: zufällig aus allen. */
     deckId?: string;
-    level?: CefrLevel;
     limit?: number;
-    /** Wie viele neue (nie gesehene) Karten geladen werden. */
-    newLimit?: number;
-    /** Wie viele fällige Karten geladen werden – 0 blendet den Wiederholen-Stapel aus. */
-    dueLimit?: number;
-    /** Nur Karten, deren letzte Antwort falsch war – Wiederholen-Stapel, unabhängig von `dueAt`. */
+    /** Nur Karten, deren letzte Antwort falsch war – der Fehler-Stapel. */
     onlyNeedsRepeat?: boolean;
-    /** Nur Karten, deren letzte Antwort richtig war – Gelernt-Stapel, unabhängig vom Mastery-Intervall. */
-    onlyLearned?: boolean;
+    /** Ohne: gemischt aus Auswahl, Paaren und Aussprechen. */
     mode?: VocabMode;
     /** Lernsprache → Muttersprache (FORWARD), umgekehrt (REVERSE) oder je Karte zufällig. */
     direction?: VocabDirection;
