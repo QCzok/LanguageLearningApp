@@ -60,6 +60,13 @@ export class TranslateDto {
   context?: string;
 }
 
+export class TranslatePassageDto {
+  @ApiProperty({ description: 'Ein ganzer Abschnitt, etwa der Lernteil einer Lektion' })
+  @IsString()
+  @Length(1, 4000)
+  text!: string;
+}
+
 export class GenerateVocabDeckDto {
   @ApiProperty({ example: 'Kochen', description: 'Thema, zu dem 30 Vokabeln generiert werden' })
   @IsString()

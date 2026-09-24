@@ -26,6 +26,7 @@ import {
   GrammarQuestionDto,
   SendMessageDto,
   TranslateDto,
+  TranslatePassageDto,
 } from './dto/ai.dto';
 
 @ApiTags('ai')
@@ -141,6 +142,16 @@ export class AiController {
   @ApiOperation({ summary: 'Wort oder Wendung im Zusammenhang übersetzen' })
   translate(@CurrentUser('id') userId: string, @Body() dto: TranslateDto) {
     return this.ai.translate(userId, dto);
+  }
+
+  /** Einen ganzen Abschnitt übersetzen – etwa den Lernteil einer Lektion. */
+  @Throttle({ default: { limit: 15, ttl: 60_000 } })
+  @Post('translate-passage')
+  @ApiOperation({
+    summary: 'Einen Abschnitt (Lernteil einer Lektion) in die Muttersprache übersetzen',
+  })
+  translatePassage(@CurrentUser('id') userId: string, @Body() dto: TranslatePassageDto) {
+    return this.ai.translatePassage(userId, dto);
   }
 
   @Throttle({ default: { limit: 10, ttl: 300_000 } })

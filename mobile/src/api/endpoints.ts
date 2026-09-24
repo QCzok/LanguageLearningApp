@@ -37,7 +37,6 @@ import type {
   VocabDeckDetailDto,
   VocabDeckDto,
   VocabItemDto,
-  VocabDirection,
   VocabMode,
   VocabStatsDto,
   SubmitReviewResultDto,
@@ -45,7 +44,8 @@ import type {
   BlockAnswer,
   StudyAnswerResultDto,
   StudyOverviewDto,
-  StudySessionDto,
+  StudyLessonDto,
+  PassageTranslationDto,
 } from '@lingua/shared';
 import { api } from './client';
 
@@ -119,17 +119,29 @@ export const vocabularyApi = {
     api
       .get<VocabDeckDetailDto>(`/vocabulary/decks/${id}`)
       .then((r) => r.data),
-  queue: (params?: {
-    /** Nur diese Kategorie – ohne: zufällig aus allen. */
-    deckId?: string;
+  queue: ({
+    deckIds,
+    modes,
+    ...params
+  }: {
+    /** Nur diese Kategorien – leer oder ohne: zufällig aus allen. */
+    deckIds?: string[];
     limit?: number;
     /** Nur Karten, deren letzte Antwort falsch war – der Fehler-Stapel. */
     onlyNeedsRepeat?: boolean;
-    /** Ohne: gemischt aus Auswahl, Paaren und Aussprechen. */
-    mode?: VocabMode;
-    /** Lernsprache → Muttersprache (FORWARD), umgekehrt (REVERSE) oder je Karte zufällig. */
-    direction?: VocabDirection;
-  }) => api.get<ReviewCardDto[]>('/vocabulary/review/queue', { params }).then((r) => r.data),
+    /** Eine Übungsart – oder mehrere, auf die der Server die Karten fest verteilt. */
+    modes: VocabMode[];
+  }) =>
+    api
+      .get<ReviewCardDto[]>('/vocabulary/review/queue', {
+        // Listen als `a,b` – axios schriebe sonst `deckIds[]=…`.
+        params: {
+          ...params,
+          modes: modes.join(','),
+          deckIds: deckIds?.length ? deckIds.join(',') : undefined,
+        },
+      })
+      .then((r) => r.data),
   review: (body: {
     cardId: string;
     grade: number;
@@ -213,12 +225,15 @@ export const workbookApi = {
 };
 
 export const studyApi = {
-  /** Punktestand und Themenfortschritt je Buch. */
-  overview: () => api.get<StudyOverviewDto>('/workbook/study').then((r) => r.data),
-  session: (book: WorkbookBook) =>
-    api.get<StudySessionDto>(`/workbook/study/${book}/session`).then((r) => r.data),
-  answer: (body: { unitId: string; blockId: string; answer: BlockAnswer }) =>
-    api.post<StudyAnswerResultDto>('/workbook/study/answer', body).then((r) => r.data),
+  /** Punktestand und die Lektionen eines Niveaus (Standard: eigenes Niveau). */
+  overview: (level?: CefrLevel) =>
+    api.get<StudyOverviewDto>('/workbook/study', { params: { level } }).then((r) => r.data),
+  lesson: (lessonId: string) =>
+    api.get<StudyLessonDto>(`/workbook/study/lessons/${lessonId}`).then((r) => r.data),
+  answer: (lessonId: string, body: { blockId: string; answer: BlockAnswer }) =>
+    api
+      .post<StudyAnswerResultDto>(`/workbook/study/lessons/${lessonId}/answer`, body)
+      .then((r) => r.data),
 };
 
 export const libraryApi = {
@@ -264,6 +279,9 @@ export const aiApi = {
     api.post<VocabDeckDto>('/ai/vocab-decks', { topic }).then((r) => r.data),
   translate: (body: { text: string; context?: string }) =>
     api.post<TranslationDto>('/ai/translate', body).then((r) => r.data),
+  /** Einen ganzen Abschnitt – etwa den Lernteil einer Lektion – in die Muttersprache. */
+  translatePassage: (text: string) =>
+    api.post<PassageTranslationDto>('/ai/translate-passage', { text }).then((r) => r.data),
 };
 
 export const progressApi = {

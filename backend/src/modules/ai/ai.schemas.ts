@@ -53,6 +53,12 @@ export const translationSchema = z.object({
 });
 export type TranslationResult = z.infer<typeof translationSchema>;
 
+export const passageTranslationSchema = z.object({
+  translation: z
+    .string()
+    .describe('Der ganze Abschnitt in der Muttersprache, Absätze wie im Original'),
+});
+
 /** Feste Größe eines KI-generierten Vokabelstapels (siehe Aufgabenstellung: 30 Vokabeln pro Thema). */
 export const VOCAB_DECK_GENERATION_COUNT = 30;
 

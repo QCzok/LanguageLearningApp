@@ -12,7 +12,6 @@ import type {
   SubmitReviewResultDto,
   VocabDeckDetailDto,
   VocabDeckDto,
-  VocabDirection,
   VocabItemDto,
   VocabStatsDto,
 } from '@lingua/shared';
@@ -39,6 +38,19 @@ const DEFAULT_SESSION_SIZE = 15;
 const MIN_DISTRACTORS_FOR_CHOICES = 3;
 /** Vier falsche plus die richtige Antwort. */
 const CHOICE_DISTRACTORS = 4;
+/**
+ * Paar-Karten in einer gemischten Sitzung: genau eine volle Runde (die App
+ * bündelt sie, siehe `PAIRS_PER_ROUND`). Weniger wären keine Runde, und die
+ * App müsste sie wieder zu Auswahlkarten machen.
+ */
+const MIX_PAIRS = 5;
+/** Ohne Vorgabe: alle Übungsarten des Trainers. */
+const DEFAULT_MIX: VocabMode[] = [
+  VocabMode.MULTIPLE_CHOICE,
+  VocabMode.TRANSLATE,
+  VocabMode.MATCHING,
+  VocabMode.SPEAKING,
+];
 
 /**
  * Bonus-XP für eine Serie richtiger Antworten – der spielerische Anreiz,
@@ -236,7 +248,7 @@ export class VocabularyService {
   /**
    * Stellt die Lernwarteschlange zusammen – zufällig gezogen, ohne Stapel.
    *
-   * Der Umfang ist entweder eine Kategorie (`deckId`) oder alles, was der
+   * Der Umfang sind entweder gewählte Kategorien (`deckIds`) oder alles, was der
    * Nutzer gerade lernen kann: die Systemkategorien seines Profil-Niveaus plus
    * seine eigenen Kategorien derselben Sprache. `onlyNeedsRepeat` zieht statt
    * aus allen Wörtern nur aus denen, deren letzte Antwort falsch war.
@@ -246,17 +258,17 @@ export class VocabularyService {
       this.users.getActiveProfileOrThrow(userId),
       this.nativeLanguage(userId),
     ]);
-    const options: CardOptions = { native, mode: query.mode, direction: query.direction };
     const limit = query.limit ?? DEFAULT_SESSION_SIZE;
 
     let scope: Prisma.VocabItemWhereInput;
-    if (query.deckId) {
-      const deck = await this.prisma.vocabDeck.findUnique({ where: { id: query.deckId } });
-      if (!deck) throw new NotFoundException(ERR['notfound.deck']);
-      if (!deck.isSystem && deck.ownerId !== userId) {
+    const deckIds = [...new Set(query.deckIds ?? [])];
+    if (deckIds.length > 0) {
+      const decks = await this.prisma.vocabDeck.findMany({ where: { id: { in: deckIds } } });
+      if (decks.length !== deckIds.length) throw new NotFoundException(ERR['notfound.deck']);
+      if (decks.some((deck) => !deck.isSystem && deck.ownerId !== userId)) {
         throw new ForbiddenException(ERR['forbidden.deck_other_user']);
       }
-      scope = { deckId: deck.id };
+      scope = { deckId: { in: deckIds } };
     } else {
       // Bewusst `profile.level` statt eines Parameters: Systemkategorien eines
       // höheren Niveaus bleiben gesperrt, bis das Profil-Niveau dort ankommt.
@@ -310,7 +322,9 @@ export class VocabularyService {
       pool = [...pool, ...extra.map((item) => toPoolEntry(item, native))];
     }
 
-    return shuffle(items).map((item) => {
+    const ordered = shuffle(items);
+    const modes = planModes(query.modes ?? DEFAULT_MIX, ordered.length);
+    return ordered.map((item, index) => {
       const progress = progressByItem.get(item.id);
       return this.buildCard(
         {
@@ -324,17 +338,18 @@ export class VocabularyService {
           dueAt: progress?.dueAt ?? now,
         },
         pool,
-        options,
+        { native, mode: modes[index] },
       );
     });
   }
 
   /**
-   * Baut eine Karte: Richtung, Modus und – wo möglich – fünf Vorschläge.
+   * Baut eine Karte: Modus, die daraus folgende Richtung und – wo möglich –
+   * fünf Vorschläge.
    *
-   * FORWARD fragt den Begriff ab, die Vorschläge sind Übersetzungen in der
-   * Muttersprache. REVERSE zeigt die Übersetzung, die Vorschläge sind Begriffe
-   * der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
+   * Vorwärts (alle Modi außer `TRANSLATE`) fragt den Begriff ab, die
+   * Vorschläge sind Übersetzungen in der Muttersprache. `TRANSLATE` zeigt die
+   * Übersetzung, die Vorschläge sind Begriffe der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
    * Stapel gezogen; gleichlautende werden vorher entfernt, sonst stünde die
    * richtige Antwort zweimal da und eine davon würde als falsch gewertet.
    *
@@ -344,12 +359,8 @@ export class VocabularyService {
    */
   private buildCard(card: QueueCard, pool: PoolEntry[], options: CardOptions): ReviewCardDto {
     const item = toVocabItemDto(card.item, options.native);
-    const mode = pickMode(options.mode);
-    // Paare und Aussprechen zeigen immer den Begriff – eine Richtung haben sie nicht.
-    const direction =
-      mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING
-        ? pickDirection(options.direction)
-        : 'FORWARD';
+    const { mode } = options;
+    const direction: CardDirection = mode === VocabMode.TRANSLATE ? 'REVERSE' : 'FORWARD';
 
     const answerOf = (entry: { term: string; translation: string }) =>
       direction === 'FORWARD' ? entry.translation : entry.term;
@@ -367,7 +378,10 @@ export class VocabularyService {
 
     // Eine Auswahl ohne genug andere Wörter wäre nur die offensichtlich
     // richtige Antwort – dann wird die Karte umgedreht.
-    const wantsChoices = mode === VocabMode.MULTIPLE_CHOICE || mode === VocabMode.LISTENING;
+    const wantsChoices =
+      mode === VocabMode.MULTIPLE_CHOICE ||
+      mode === VocabMode.LISTENING ||
+      mode === VocabMode.TRANSLATE;
     const base: ReviewCardDto = {
       cardId: card.cardId,
       item,
@@ -618,8 +632,7 @@ export class VocabularyService {
 
 interface CardOptions {
   native: string;
-  mode?: VocabMode;
-  direction?: VocabDirection;
+  mode: VocabMode;
 }
 
 interface QueueCard {
@@ -629,23 +642,29 @@ interface QueueCard {
   dueAt: Date;
 }
 
-function pickDirection(requested?: VocabDirection): CardDirection {
-  if (requested === 'REVERSE') return 'REVERSE';
-  if (requested === 'MIXED') return Math.random() < 0.5 ? 'FORWARD' : 'REVERSE';
-  return 'FORWARD';
-}
-
 /**
- * Der Modus einer Karte. Ohne Vorgabe ist die Sitzung gemischt: meist
- * Auswahl, dazwischen Paare (die App fasst sie zu einer Runde zusammen) und
- * Aussprechen.
+ * Verteilt die Übungsarten fest auf die Karten einer Sitzung – nicht
+ * gewürfelt, sonst kann ein Mix zufällig fast nur aus einem Modus bestehen.
+ *
+ * Paare bekommen genau eine volle Runde (`MIX_PAIRS`), wenn daneben noch
+ * Platz für die anderen Arten bleibt; der Rest geht reihum an die übrigen.
+ * Die Reihenfolge der Karten ist bereits zufällig, die Modi also auch.
  */
-function pickMode(requested: VocabMode | undefined): VocabMode {
-  if (requested) return requested;
-  const roll = Math.random();
-  if (roll < 0.5) return VocabMode.MULTIPLE_CHOICE;
-  if (roll < 0.75) return VocabMode.MATCHING;
-  return VocabMode.SPEAKING;
+function planModes(modes: VocabMode[], count: number): VocabMode[] {
+  const unique = [...new Set(modes)];
+  if (unique.length === 1) return Array<VocabMode>(count).fill(unique[0]);
+
+  const others = unique.filter((mode) => mode !== VocabMode.MATCHING);
+  const pairs =
+    unique.includes(VocabMode.MATCHING) && (others.length === 0 || count >= MIX_PAIRS + others.length)
+      ? others.length === 0
+        ? count
+        : MIX_PAIRS
+      : 0;
+
+  const plan = Array<VocabMode>(pairs).fill(VocabMode.MATCHING);
+  for (let i = 0; plan.length < count; i++) plan.push(others[i % others.length]);
+  return shuffle(plan);
 }
 
 // ------------------------------------------------------------ Umwandlungen

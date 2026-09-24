@@ -18,11 +18,14 @@ import ReadyScreen from '../features/onboarding/ReadyScreen';
 import HomeScreen from '../features/home/HomeScreen';
 import DeckListScreen from '../features/vocabulary/DeckListScreen';
 import DeckDetailScreen from '../features/vocabulary/DeckDetailScreen';
+import TrainerScopeScreen from '../features/vocabulary/TrainerScopeScreen';
+import TrainerCategoriesScreen from '../features/vocabulary/TrainerCategoriesScreen';
+import { MODE_KEYS } from '../features/vocabulary/trainerModes';
 import ReviewScreen from '../features/vocabulary/ReviewScreen';
 import VocabStatsScreen from '../features/vocabulary/VocabStatsScreen';
 import MatchGameScreen from '../features/vocabulary/MatchGameScreen';
 import StudyHomeScreen from '../features/study/StudyHomeScreen';
-import StudySessionScreen from '../features/study/StudySessionScreen';
+import StudyLessonScreen from '../features/study/StudyLessonScreen';
 import BookshelfScreen from '../features/workbook/BookshelfScreen';
 import BookContentsScreen from '../features/workbook/BookContentsScreen';
 import UnitScreen from '../features/workbook/UnitScreen';
@@ -127,6 +130,16 @@ function VocabularyNavigator() {
         options={{ title: t('vocabularyDeckList') }}
       />
       <VocabularyStack.Screen
+        name="TrainerScope"
+        component={TrainerScopeScreen}
+        options={({ route }) => ({ title: t(MODE_KEYS[route.params.mode].title) })}
+      />
+      <VocabularyStack.Screen
+        name="TrainerCategories"
+        component={TrainerCategoriesScreen}
+        options={{ title: t('trainerScopeCategories') }}
+      />
+      <VocabularyStack.Screen
         name="DeckDetail"
         component={DeckDetailScreen}
         options={({ route }) => ({ title: route.params.title })}
@@ -164,9 +177,9 @@ function StudyNavigator() {
         options={{ title: t('studyHome') }}
       />
       <StudyStack.Screen
-        name="StudySession"
-        component={StudySessionScreen}
-        options={({ route }) => ({ title: tBookLabel(route.params.book) })}
+        name="StudyLesson"
+        component={StudyLessonScreen}
+        options={{ title: t('studyLesson') }}
       />
       <StudyStack.Screen
         name="Bookshelf"

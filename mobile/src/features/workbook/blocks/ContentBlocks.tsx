@@ -103,7 +103,7 @@ export function Info({
   translatable = level === 'A1',
 }: BlockProps<InfoBlock> & {
   level?: CefrLevel;
-  /** Übersetzung anbieten – im Buch nur auf A1, auf den Theoriekarten der Lernsitzungen immer. */
+  /** Übersetzung anbieten – im Buch nur auf A1. */
   translatable?: boolean;
 }) {
   const style = INFO_STYLES[block.variant];

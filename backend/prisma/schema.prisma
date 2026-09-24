@@ -56,6 +56,7 @@ enum VocabMode {
   LISTENING
   MATCHING
   SPEAKING
+  TRANSLATE
 }
 
 enum LibraryType {
@@ -156,7 +157,7 @@ model User {
   aiUsage           AiUsage[]
   dailyActivities   DailyActivity[]
   unitProgress      UnitProgress[]
-  studyProgress     StudyExerciseProgress[]
+  studyProgress     StudyLessonProgress[]
 
   @@map("users")
 }
@@ -469,8 +470,7 @@ model ChapterUnit {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  progress      UnitProgress[]
-  studyProgress StudyExerciseProgress[]
+  progress UnitProgress[]
 
   @@unique([chapterId, order])
   @@index([chapterId])
@@ -499,25 +499,25 @@ model UnitProgress {
   @@map("unit_progress")
 }
 
-/// Stand einer Aufgabe in den Lernsitzungen – getrennt vom Buch, damit eine
-/// Sitzung keine Seite halb ausfüllt und umgekehrt.
-model StudyExerciseProgress {
-  id             String      @id @default(cuid())
+/// Stand einer Aufgabe in den Lektionen. Die Lektionen selbst liegen im Code
+/// (`backend/src/modules/workbook/lessons`), daher ist `lessonId` ein Schlüssel
+/// wie `de-a1-07` und kein Fremdschlüssel.
+model StudyLessonProgress {
+  id             String   @id @default(cuid())
   userId         String
-  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unitId         String
-  unit           ChapterUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId       String
   blockId        String
   /// Bestes Ergebnis in Prozent.
   bestScore      Int
   /// Bisher mit dieser Aufgabe verdiente Punkte (siehe `studyPointsFor`).
-  points         Int         @default(0)
-  attempts       Int         @default(0)
-  lastAnsweredAt DateTime    @default(now())
+  points         Int      @default(0)
+  attempts       Int      @default(0)
+  lastAnsweredAt DateTime @default(now())
 
-  @@unique([userId, unitId, blockId])
+  @@unique([userId, lessonId, blockId])
   @@index([userId])
-  @@map("study_exercise_progress")
+  @@map("study_lesson_progress")
 }
 
 // ============================================================ Bibliothek

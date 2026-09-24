@@ -164,6 +164,14 @@ export const TRANSLATION_INSTRUCTIONS = `Übersetze das markierte Wort oder die 
 - alternatives: höchstens drei weitere gängige Bedeutungen, die sich deutlich von translation unterscheiden; sonst leer.
 - note: ein kurzer Satz, nur wenn er beim Lernen hilft – etwa Grundform bei einer gebeugten Form, Genus eines Nomens, oder dass es eine feste Wendung ist. Sonst null.`;
 
+export const PASSAGE_TRANSLATION_INSTRUCTIONS = `Übersetze den Lernteil einer Lektion vollständig in die Muttersprache des Lernenden.
+
+- Er stammt aus einem Lehrwerk der Zielsprache: Erklärungen, Tabellen, Wortlisten, kurze Texte oder Dialoge.
+- Erklärungen und Fließtext übersetzt du vollständig und natürlich.
+- Beispiele, Formen und Wörter der Zielsprache, um die es in der Erklärung geht, bleiben stehen; dahinter folgt die Übersetzung in Klammern. Sonst ginge verloren, was gelernt werden soll.
+- Behalte Absätze und Zeilen bei. Tabellenzeilen gibst du als Zeilen mit " – " zwischen den Spalten wieder.
+- Nur die Übersetzung, keine Vorbemerkung und kein Kommentar.`;
+
 export function vocabDeckInstructions(topic: string, count: number): string {
   return [
     `Erstelle einen Vokabelstapel mit genau ${count} Vokabeln zum Thema "${topic}".`,

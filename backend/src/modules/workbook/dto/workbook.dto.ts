@@ -1,16 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import {
-  ArrayMaxSize,
-  IsArray,
-  IsInt,
-  IsObject,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
-import type { BlockAnswer, NotebookPageContent, UnitAnswers } from '@lingua/shared';
+import { ArrayMaxSize, IsArray, IsIn, IsObject, IsOptional, IsString } from 'class-validator';
+import { CEFR_LEVELS } from '@lingua/shared';
+import type { BlockAnswer, CefrLevel, NotebookPageContent, UnitAnswers } from '@lingua/shared';
 
 export class ListBooksQueryDto {
   @ApiPropertyOptional({ description: 'Standard: Sprache des aktiven Lernprofils' })
@@ -47,21 +38,17 @@ export class CheckUnitDto {
   blockIds?: string[];
 }
 
-export class StudySessionQueryDto {
-  @ApiPropertyOptional({ description: 'Anzahl Themen, Standard 3' })
+export class StudyOverviewQueryDto {
+  @ApiPropertyOptional({
+    enum: CEFR_LEVELS,
+    description: 'Standard: Niveau des aktiven Lernprofils',
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @Max(10)
-  size?: number;
+  @IsIn(CEFR_LEVELS)
+  level?: CefrLevel;
 }
 
 export class StudyAnswerDto {
-  @ApiProperty()
-  @IsString()
-  unitId!: string;
-
   @ApiProperty()
   @IsString()
   blockId!: string;

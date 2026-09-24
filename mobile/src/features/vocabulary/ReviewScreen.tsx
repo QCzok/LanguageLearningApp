@@ -15,6 +15,7 @@ import { FeedbackBar } from './FeedbackBar';
 import { PairsBoard, shuffled, splitIntoRounds } from './PairsBoard';
 import { canRecognizeSpeech, SpeakingCard } from './SpeakingCard';
 import { speakTerm, stopSpeaking } from './speech';
+import { queueModes } from './trainerModes';
 import { useTrainerSettings } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
@@ -76,7 +77,7 @@ function stepSize(step: Step): number {
  * Lernsitzung des Vokabeltrainers.
  *
  * Die Karten kommen einmal vom Server – zufällig aus allen Kategorien oder
- * aus der gewählten – und werden lokal abgearbeitet. Jede Antwort geht sofort
+ * aus den gewählten – und werden lokal abgearbeitet. Jede Antwort geht sofort
  * ans Backend, damit ein Abbruch keinen Fortschritt kostet; die SM-2-Rechnung
  * passiert serverseitig. Falsch beantwortete Wörter landen dort bei den
  * Fehlern. In einer Fehler-Runde (`mistakesOnly`) kommt ein falsches Wort
@@ -87,12 +88,12 @@ function stepSize(step: Step): number {
  * für die Trefferquote.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
-  const { mode, deckId, mistakesOnly } = route.params;
+  const { mode, deckIds, mistakesOnly } = route.params;
   const { t, tVocabMode } = useTranslation();
   const queryClient = useQueryClient();
   const profile = useActiveProfile();
   const learningLanguage = profile?.language.code;
-  const { direction, autoSpeak, setAutoSpeak } = useTrainerSettings();
+  const { autoSpeak, setAutoSpeak } = useTrainerSettings();
   const [speechAvailable] = useState(canRecognizeSpeech);
 
   const [revealed, setRevealed] = useState(false);
@@ -110,13 +111,12 @@ export default function ReviewScreen({ route, navigation }: Props) {
   const pairsToRequeue = useRef<ReviewCardDto[]>([]);
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: ['review-queue', deckId ?? 'all', mode, mistakesOnly ?? false, direction],
+    queryKey: ['review-queue', deckIds ?? 'all', mode, mistakesOnly ?? false],
     queryFn: () =>
       vocabularyApi.queue({
-        deckId,
+        deckIds,
         limit: SESSION_SIZE,
-        direction,
-        ...(mode !== 'MIX' ? { mode } : {}),
+        modes: queueModes(mode, speechAvailable),
         ...(mistakesOnly ? { onlyNeedsRepeat: true } : {}),
       }),
     staleTime: 0,
@@ -271,7 +271,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
             ? () =>
                 navigation.replace('Review', {
                   mode,
-                  deckId,
+                  deckIds,
                   mistakesOnly: true,
                   title: t('trainerMistakesTitle'),
                 })
@@ -311,15 +311,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
         />
       </Row>
       <ProgressBar value={total ? (done / total) * 100 : 0} height={6} color={colors.success} />
-      <Row>
-        <Caption>{step.kind === 'pairs' ? t('matchHint') : tVocabMode(stepMode)}</Caption>
-        <View style={{ flex: 1 }} />
-        {card && (card.mode === 'MULTIPLE_CHOICE' || card.mode === 'FLASHCARD') ? (
-          <Caption>
-            {card.direction === 'FORWARD' ? t('reviewDirectionForwardShort') : t('reviewDirectionReverseShort')}
-          </Caption>
-        ) : null}
-      </Row>
+      <Caption>{step.kind === 'pairs' ? t('matchHint') : tVocabMode(stepMode)}</Caption>
 
       <Animated.View style={[{ flex: 1 }, shakeStyle]}>
         {step.kind === 'pairs' ? (
@@ -357,7 +349,7 @@ export default function ReviewScreen({ route, navigation }: Props) {
           />
         ) : null}
 
-        {card && (card.mode === 'MULTIPLE_CHOICE' || card.mode === 'LISTENING') ? (
+        {card && (card.mode === 'MULTIPLE_CHOICE' || card.mode === 'TRANSLATE' || card.mode === 'LISTENING') ? (
           <ChoiceMode
             card={card}
             remaining={remaining}

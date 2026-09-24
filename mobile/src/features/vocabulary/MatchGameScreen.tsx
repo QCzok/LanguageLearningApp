@@ -27,27 +27,29 @@ function formatTime(ms: number): string {
 /**
  * Paare finden: Begriffe links, Übersetzungen rechts, gegen die Uhr.
  *
- * Die Wörter kommen zufällig aus allen Kategorien oder aus der gewählten –
- * wie bei jeder anderen Übungsart. Jedes Paar zählt als Antwort: ohne
+ * Die Wörter kommen zufällig aus allen Kategorien, aus den gewählten oder
+ * aus den Wiederholern – wie bei jeder anderen Übungsart. Jedes Paar zählt als Antwort: ohne
  * Fehlgriff gefunden heißt gewusst, sonst landet das Wort bei den Fehlern.
  * Wer danebengreift, bekommt zwei Sekunden aufgeschlagen; die Bestzeit je
  * Kategorie bleibt auf dem Gerät gespeichert.
  */
 export default function MatchGameScreen({ route, navigation }: Props) {
-  const { deckId } = route.params;
+  const { deckIds, mistakesOnly } = route.params;
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const profile = useActiveProfile();
   const { autoSpeak, bestMatchTimes, recordMatchTime } = useTrainerSettings();
-  const recordKey = deckId ?? ALL_CATEGORIES;
+  // Bestzeiten gelten je Auswahl; Wiederholer sind keine faire Strecke dafür.
+  const recordKey = mistakesOnly ? null : deckIds?.length ? [...deckIds].sort().join(',') : ALL_CATEGORIES;
 
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
-    queryKey: ['match-queue', deckId ?? 'all'],
+    queryKey: ['match-queue', deckIds ?? 'all', mistakesOnly ?? false],
     queryFn: () =>
       vocabularyApi.queue({
-        deckId,
-        mode: 'MATCHING',
+        deckIds,
+        modes: ['MATCHING'],
         limit: PAIRS_PER_ROUND * ROUNDS,
+        ...(mistakesOnly ? { onlyNeedsRepeat: true } : {}),
       }),
     staleTime: 0,
     gcTime: 0,
@@ -116,7 +118,7 @@ export default function MatchGameScreen({ route, navigation }: Props) {
     }
     const total = Date.now() - (startedAt ?? Date.now()) + mistakes * PENALTY_MS;
     setFinishedMs(total);
-    setNewRecord(recordMatchTime(recordKey, total));
+    setNewRecord(recordKey !== null && recordMatchTime(recordKey, total));
     void queryClient.invalidateQueries({ queryKey: ['decks'] });
     void queryClient.invalidateQueries({ queryKey: ['deck'] });
     void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
@@ -141,7 +143,7 @@ export default function MatchGameScreen({ route, navigation }: Props) {
 
   const totalPairs = rounds.reduce((sum, r) => sum + r.length, 0);
   const pairsDone = rounds.slice(0, roundIndex).reduce((sum, r) => sum + r.length, 0) + matchedInRound;
-  const best = bestMatchTimes[recordKey];
+  const best = recordKey === null ? undefined : bestMatchTimes[recordKey];
 
   // ------------------------------------------------------------ Ergebnis
   if (finishedMs !== null) {
@@ -171,7 +173,7 @@ export default function MatchGameScreen({ route, navigation }: Props) {
               // Eine eigene Paar-Runde lohnt sich für ein, zwei Fehler nicht –
               // die gemischte Fehler-Sitzung kommt mit jeder Anzahl zurecht.
               onPress={() =>
-                navigation.replace('Review', { mode: 'MIX', deckId, mistakesOnly: true, title: t('trainerMistakesTitle') })
+                navigation.replace('Review', { mode: 'MIX', deckIds, mistakesOnly: true, title: t('trainerMistakesTitle') })
               }
             />
           ) : null}

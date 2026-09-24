@@ -1,6 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { CefrLevel, WorkbookBook } from '@lingua/shared';
-import type { TrainerMode } from '../features/vocabulary/trainerSettings';
+import type { TrainerMode } from '../features/vocabulary/trainerModes';
 
 /** Zentrale Routen-Typen – jede navigation.navigate()-Nutzung ist damit typgeprüft. */
 
@@ -21,32 +21,41 @@ export type OnboardingStackParamList = {
   Ready: undefined;
 };
 
+/**
+ * Eine Übung beginnt in drei Schritten: Übungsart (`DeckList`), Umfang
+ * (`TrainerScope`: alle Karten, Kategorien oder Wiederholer) und – nur bei
+ * „Kategorien" – die Auswahl der Kategorien (`TrainerCategories`).
+ */
 export type VocabularyStackParamList = {
-  /** Startseite des Trainers: Kategorie wählen (oder alle) und direkt loslegen. */
+  /** Startseite des Trainers und Schritt 1: die Übungsart wählen. */
   DeckList: undefined;
+  /** Schritt 2: woraus geübt wird. */
+  TrainerScope: { mode: TrainerMode };
+  /** Schritt 3: eine oder mehrere Kategorien ankreuzen. */
+  TrainerCategories: { mode: TrainerMode };
   /** Die Wortliste einer Kategorie – bei eigenen Kategorien auch zum Bearbeiten. */
   DeckDetail: { deckId: string; title: string };
   /**
-   * Eine Lernsitzung. Ohne `deckId` werden die Karten zufällig aus allen
+   * Eine Lernsitzung. Ohne `deckIds` werden die Karten zufällig aus allen
    * Kategorien gezogen, mit `mistakesOnly` nur aus den falsch beantworteten.
    * Paare (`MATCHING`) laufen über `Match`, nicht hierüber.
    */
   Review: {
     mode: Exclude<TrainerMode, 'MATCHING'>;
-    deckId?: string;
+    deckIds?: string[];
     mistakesOnly?: boolean;
     title?: string;
   };
   VocabStats: undefined;
   /** Paare finden – Begriffe und Übersetzungen gegen die Uhr zuordnen. */
-  Match: { deckId?: string; title?: string };
+  Match: { deckIds?: string[]; mistakesOnly?: boolean; title?: string };
 };
 
 export type StudyStackParamList = {
-  /** Einstieg: Punktestand und Lernsitzungen; die Bücher sind eine Option darunter. */
+  /** Einstieg: Punktestand und die 50 Lektionen des Niveaus; die Bücher sind eine Option darunter. */
   StudyHome: undefined;
-  /** Eine Lernsitzung: Theorie-, Aufgaben- und Lösungskarten aus einem Buch. */
-  StudySession: { book: WorkbookBook };
+  /** Eine Lektion: Lernteil, dann Prüfung mit Punkten, dann weiter zur nächsten. */
+  StudyLesson: { lessonId: string };
   /** Das Regal mit den vier Büchern. */
   Bookshelf: undefined;
   /** Das Inhaltsverzeichnis eines Buchs – Kapitel mit allen Seiten. */

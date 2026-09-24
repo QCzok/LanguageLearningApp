@@ -33,17 +33,16 @@ export const VOCAB_MODES = [
   'LISTENING', // Audio hören und zuordnen
   'MATCHING', // Paare zuordnen
   'SPEAKING', // Begriff aussprechen, per Spracherkennung geprüft
+  'TRANSLATE', // Muttersprache → Lernsprache: den Begriff aus Vorschlägen wählen
 ] as const;
 export type VocabMode = (typeof VOCAB_MODES)[number];
 
 /**
- * Lernrichtung einer Sitzung: FORWARD fragt den Begriff in der Lernsprache
- * ab (Antwort in der Muttersprache), REVERSE umgekehrt. MIXED wählt je Karte.
+ * Die Richtung einer Karte – folgt aus ihrem Modus: FORWARD fragt den Begriff
+ * der Lernsprache ab (Antwort in der Muttersprache), REVERSE (`TRANSLATE`)
+ * zeigt die Muttersprache und will den Begriff.
  */
-export const VOCAB_DIRECTIONS = ['FORWARD', 'REVERSE', 'MIXED'] as const;
-export type VocabDirection = (typeof VOCAB_DIRECTIONS)[number];
-/** Die Richtung einer einzelnen Karte – MIXED ist bereits aufgelöst. */
-export type CardDirection = Exclude<VocabDirection, 'MIXED'>;
+export type CardDirection = 'FORWARD' | 'REVERSE';
 
 /** Bewertung einer Karte nach SM-2 (0–5). Die App mappt auf 4 Buttons. */
 export const REVIEW_GRADES = [0, 1, 2, 3, 4, 5] as const;

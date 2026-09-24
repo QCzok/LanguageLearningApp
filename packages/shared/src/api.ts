@@ -222,13 +222,13 @@ export interface ReviewCardDto {
   mode: VocabMode;
   /**
    * FORWARD: `item.term` ist die Frage, `item.translation` die Antwort.
-   * REVERSE: umgekehrt – gefragt wird in der Muttersprache.
+   * REVERSE: umgekehrt – gefragt wird in der Muttersprache (nur `TRANSLATE`).
    */
   direction: CardDirection;
   status: CardStatus;
   dueAt: string;
   /**
-   * Nur bei MULTIPLE_CHOICE / LISTENING: Antwortvorschläge inkl. der
+   * Bei jeder Karte, wenn der Vorrat reicht: Antwortvorschläge inkl. der
    * richtigen, gemischt – in der Sprache der Antwort (siehe `direction`).
    */
   choices?: string[];
@@ -465,6 +465,11 @@ export interface TranslationDto {
   translation: string;
   alternatives: string[];
   note: string | null;
+}
+
+/** Ein ganzer Abschnitt – etwa der Lernteil einer Lektion – in der Muttersprache. */
+export interface PassageTranslationDto {
+  translation: string;
 }
 
 export interface RecommendationDto {

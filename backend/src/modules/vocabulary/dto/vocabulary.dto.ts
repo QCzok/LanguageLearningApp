@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CefrLevel, VocabMode } from '@prisma/client';
 import { Transform, Type } from 'class-transformer';
-import { VOCAB_DIRECTIONS, type VocabDirection } from '@lingua/shared';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
-  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -31,32 +31,37 @@ export class ListDecksQueryDto {
   level?: CefrLevel;
 }
 
+/** Query-Listen kommen als `a,b` oder als wiederholter Parameter – beides wird zum Array. */
+const toList = ({ value }: { value: unknown }) =>
+  (Array.isArray(value) ? value : String(value).split(','))
+    .map((entry) => String(entry).trim())
+    .filter(Boolean);
+
 export class ReviewQueueQueryDto {
   @ApiPropertyOptional({
+    type: [String],
     description:
-      'Nur Vokabeln dieser Kategorie. Ohne: zufällig aus allen Kategorien des Profil-Niveaus plus den eigenen.',
+      'Nur Vokabeln dieser Kategorien. Ohne: zufällig aus allen Kategorien des Profil-Niveaus plus den eigenen.',
   })
   @IsOptional()
-  @IsString()
-  deckId?: string;
+  @Transform(toList)
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  deckIds?: string[];
 
   @ApiPropertyOptional({
     enum: VocabMode,
-    description: 'Erzwingt einen Lernmodus. Ohne: gemischt aus Auswahl, Paaren und Aussprechen.',
-  })
-  @IsOptional()
-  @IsEnum(VocabMode)
-  mode?: VocabMode;
-
-  @ApiPropertyOptional({
-    enum: VOCAB_DIRECTIONS,
-    default: 'FORWARD',
+    isArray: true,
     description:
-      'FORWARD: Lernsprache → Muttersprache, REVERSE: Muttersprache → Lernsprache, MIXED: je Karte zufällig.',
+      'Die Übungsarten der Sitzung. Eine: jede Karte in diesem Modus. Mehrere (Mix): die Karten werden fest darauf verteilt. Ohne: Auswahl, Übersetzen, Paare und Aussprechen.',
   })
   @IsOptional()
-  @IsIn(VOCAB_DIRECTIONS)
-  direction?: VocabDirection;
+  @Transform(toList)
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsEnum(VocabMode, { each: true })
+  modes?: VocabMode[];
 
   @ApiPropertyOptional({ default: 15, minimum: 1, maximum: 100 })
   @IsOptional()

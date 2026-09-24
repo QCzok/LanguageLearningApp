@@ -19,7 +19,7 @@ import {
   SaveAnnotationsDto,
   SaveAnswersDto,
   StudyAnswerDto,
-  StudySessionQueryDto,
+  StudyOverviewQueryDto,
 } from './dto/workbook.dto';
 import { StudyService } from './study.service';
 import { WorkbookService } from './workbook.service';
@@ -32,28 +32,28 @@ export class WorkbookController {
     private readonly study: StudyService,
   ) {}
 
-  // ------------------------------------------------------ Lernsitzungen
+  // ---------------------------------------------------------- Lektionen
 
   @Get('study')
-  @ApiOperation({ summary: 'Punktestand und Themenfortschritt je Buch' })
-  studyOverview(@CurrentUser('id') userId: string) {
-    return this.study.overview(userId);
+  @ApiOperation({ summary: 'Punktestand und die Lektionen eines Niveaus' })
+  studyOverview(@CurrentUser('id') userId: string, @Query() query: StudyOverviewQueryDto) {
+    return this.study.overview(userId, query.level);
   }
 
-  @Get('study/:book/session')
-  @ApiOperation({ summary: 'Nächste Themen eines Buchs als Kartenfolge (ohne Lösungen)' })
-  studySession(
+  @Get('study/lessons/:lessonId')
+  @ApiOperation({ summary: 'Eine Lektion: Lernteil und Aufgaben (ohne Lösungen), mit Buchverweis' })
+  studyLesson(@CurrentUser('id') userId: string, @Param('lessonId') lessonId: string) {
+    return this.study.lesson(userId, lessonId);
+  }
+
+  @Post('study/lessons/:lessonId/answer')
+  @ApiOperation({ summary: 'Eine Aufgabe der Lektion auswerten und Punkte vergeben' })
+  studyAnswer(
     @CurrentUser('id') userId: string,
-    @Param('book', new ParseEnumPipe(WorkbookBook)) book: WorkbookBook,
-    @Query() query: StudySessionQueryDto,
+    @Param('lessonId') lessonId: string,
+    @Body() dto: StudyAnswerDto,
   ) {
-    return this.study.session(userId, book, query.size);
-  }
-
-  @Post('study/answer')
-  @ApiOperation({ summary: 'Eine Aufgabe der Sitzung auswerten und Punkte vergeben' })
-  studyAnswer(@CurrentUser('id') userId: string, @Body() dto: StudyAnswerDto) {
-    return this.study.answer(userId, dto);
+    return this.study.answer(userId, lessonId, dto);
   }
 
   // ------------------------------------------------------------ Bücher

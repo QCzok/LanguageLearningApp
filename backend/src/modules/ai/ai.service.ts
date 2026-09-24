@@ -21,6 +21,7 @@ import type {
   GrammarExplanationDto,
   NotebookAnalysisDto,
   NotebookPageContent,
+  PassageTranslationDto,
   RecommendationDto,
   TranslationDto,
   VocabDeckDto,
@@ -34,6 +35,7 @@ import { WhisperClient } from './whisper.client';
 import {
   correctionSchema,
   grammarSchema,
+  passageTranslationSchema,
   recommendationSchema,
   translationSchema,
   vocabDeckGenerationSchema,
@@ -46,6 +48,7 @@ import {
   CORRECTION_NOTE_MARKER,
   GRAMMAR_INSTRUCTIONS,
   learnerContext,
+  PASSAGE_TRANSLATION_INSTRUCTIONS,
   RECOMMENDATION_INSTRUCTIONS,
   TRANSLATION_INSTRUCTIONS,
   TUTOR_SYSTEM_PREFIX,
@@ -58,6 +61,7 @@ import {
   GrammarQuestionDto,
   SendMessageDto,
   TranslateDto,
+  TranslatePassageDto,
 } from './dto/ai.dto';
 
 import { ERR, t, type MessageLanguage } from '../../common/i18n/messages';
@@ -476,6 +480,47 @@ ${TRANSLATION_INSTRUCTIONS}`,
 
     await this.recordUsage(userId, AiFeature.TRANSLATION, usage);
     return { text, ...parsed };
+  }
+
+  /**
+   * Übersetzt einen ganzen Abschnitt – den Lernteil einer Lektion – in die
+   * Muttersprache. Anders als `translate` geht es nicht um ein Wort im Satz,
+   * sondern darum, eine Erklärung zu verstehen, die man in der Zielsprache
+   * noch nicht lesen kann.
+   */
+  async translatePassage(
+    userId: string,
+    dto: TranslatePassageDto,
+  ): Promise<PassageTranslationDto> {
+    const text = dto.text.trim();
+    if (!text) throw new BadRequestException(ERR['ai.text_too_short']);
+    await this.assertQuota(userId);
+
+    const [user, profile] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { nativeLanguage: true },
+      }),
+      this.users.getActiveProfileOrThrow(userId),
+    ]);
+
+    const { parsed, usage } = await this.aiClient.parse({
+      schema: passageTranslationSchema,
+      systemPrefix: TUTOR_SYSTEM_PREFIX,
+      systemSuffix: `${learnerContext({
+        targetLanguage: profile.language.nativeName,
+        nativeLanguage: user.nativeLanguage,
+        level: profile.level as CefrLevel,
+      })}
+
+${PASSAGE_TRANSLATION_INSTRUCTIONS}`,
+      userContent: text,
+      maxTokens: 2500,
+      effort: 'low',
+    });
+
+    await this.recordUsage(userId, AiFeature.TRANSLATION, usage);
+    return parsed;
   }
 
   /**

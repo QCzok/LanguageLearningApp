@@ -43,7 +43,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
   const { t, tLanguage } = useTranslation();
   const nativeCode = useAuthStore((state) => state.user?.nativeLanguage);
   const queryClient = useQueryClient();
-  const setDeckId = useTrainerSettings((state) => state.setDeckId);
+  const setDeckIds = useTrainerSettings((state) => state.setDeckIds);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // `null` = Formular zu, `'new'` = neues Wort, sonst das Wort, das bearbeitet wird.
   const [wordForm, setWordForm] = useState<DeckItemDto | 'new' | null>(null);
@@ -163,9 +163,12 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
     });
   }
 
-  /** Wählt die Kategorie auf der Startseite des Trainers – dort fällt die Wahl der Übungsart. */
+  /**
+   * Belegt die Kategorienauswahl mit dieser Kategorie vor und geht zur
+   * Startseite des Trainers – dort fällt die Wahl der Übungsart.
+   */
   function practiceHere() {
-    setDeckId(deckId);
+    setDeckIds([deckId]);
     navigation.navigate('DeckList');
   }
 

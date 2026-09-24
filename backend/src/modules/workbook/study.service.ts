@@ -1,49 +1,32 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { WorkbookBook } from '@prisma/client';
 import {
+  CEFR_LEVELS,
   STUDY_POINTS_PER_EXERCISE,
-  STUDY_SESSION_TOPICS,
-  WORKBOOK_BOOKS,
-  booksForLevel,
-  splitIntoStudyTopics,
   studyPointsFor,
   type CefrLevel,
   type StudyAnswerResultDto,
-  type StudyBookProgressDto,
   type StudyExerciseBlock,
+  type StudyLesson,
+  type StudyLessonDto,
+  type StudyLessonSummaryDto,
   type StudyOverviewDto,
-  type StudySessionDto,
-  type StudyTopicDraft,
-  type StudyTopicDto,
-  type UnitContent,
-  type WorkbookBook as WorkbookBookName,
 } from '@lingua/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { evaluateBlock, stripSolutions } from './evaluation';
 import { StudyAnswerDto } from './dto/workbook.dto';
+import { STUDY_CATALOG, findLesson } from './lessons';
 import { ERR } from '../../common/i18n/messages';
-
-/** Ein Thema mit allem, was die Auswahl einer Sitzung über es wissen muss. */
-interface IndexedTopic {
-  draft: StudyTopicDraft;
-  unit: { id: string; title: string };
-  chapter: { order: number; title: string; level: CefrLevel; book: WorkbookBook };
-}
 
 interface ExerciseProgress {
   bestScore: number;
   points: number;
-  lastAnsweredAt: Date;
 }
 
 /**
- * Lernsitzungen aus dem Lehrwerk (siehe `splitIntoStudyTopics`).
- *
- * Die Themen werden bei jeder Anfrage aus den Seiten geschnitten und nicht
- * gespeichert: Ändert sich eine Seite im Seed, ändert sich das Thema mit, und
- * der Stand hängt an (Seite, Aufgabe) – beides bleibt beim Upsert des Seeds
- * erhalten.
+ * Lektionen: je Niveau 50 kurze Einheiten aus Lernteil und Prüfung (siehe
+ * `lessons/`). Die Inhalte liegen im Code, der Stand je Aufgabe in
+ * `StudyLessonProgress`.
  */
 @Injectable()
 export class StudyService {
@@ -52,148 +35,96 @@ export class StudyService {
     private readonly users: UsersService,
   ) {}
 
-  async overview(userId: string): Promise<StudyOverviewDto> {
+  async overview(userId: string, requested?: CefrLevel): Promise<StudyOverviewDto> {
     const profile = await this.users.getActiveProfileOrThrow(userId);
-    const books = booksForLevel(profile.level as CefrLevel);
+    const catalog = STUDY_CATALOG[profile.language.code] ?? {};
+    const available = CEFR_LEVELS.filter((level) => (catalog[level]?.length ?? 0) > 0);
 
-    const [topics, progress, total] = await Promise.all([
-      this.loadTopics(profile.languageId, books as unknown as WorkbookBook[]),
+    const level =
+      requested && available.includes(requested)
+        ? requested
+        : closestLevel(profile.level as CefrLevel, available);
+
+    const [progress, total] = await Promise.all([
       this.loadProgress(userId),
-      this.prisma.studyExerciseProgress.aggregate({ where: { userId }, _sum: { points: true } }),
+      this.totalPoints(userId),
     ]);
 
+    const summaries = (level ? (catalog[level] ?? []) : []).map((lesson, index) =>
+      summarize(lesson, index + 1, progress),
+    );
+
     return {
-      totalPoints: total._sum.points ?? 0,
-      books: books.map((book): StudyBookProgressDto => {
-        const ofBook = topics.filter((topic) => topic.chapter.book === book);
-        let points = 0;
-        let pointsPossible = 0;
-        let topicsDone = 0;
-        let topicsMastered = 0;
-
-        for (const topic of ofBook) {
-          const rows = topic.draft.exercises.map((exercise) =>
-            progress.get(progressKey(topic.unit.id, exercise.block.id)),
-          );
-          pointsPossible += rows.length * STUDY_POINTS_PER_EXERCISE;
-          points += rows.reduce((sum, row) => sum + (row?.points ?? 0), 0);
-          if (rows.every(Boolean)) topicsDone++;
-          if (rows.every((row) => row?.bestScore === 100)) topicsMastered++;
-        }
-
-        return {
-          book,
-          topicsTotal: ofBook.length,
-          topicsDone,
-          topicsMastered,
-          points,
-          pointsPossible,
-        };
-      }),
+      totalPoints: total,
+      level: level ?? (profile.level as CefrLevel),
+      levels: available.map((entry) => ({
+        level: entry,
+        lessonCount: catalog[entry]!.length,
+        doneCount: catalog[entry]!.filter((lesson) => isDone(lesson, progress)).length,
+      })),
+      lessons: summaries,
+      nextLessonId: summaries.find((lesson) => !lesson.done)?.id ?? null,
     };
   }
 
-  /**
-   * Stellt eine Sitzung zusammen: die nächsten noch offenen Themen des Buchs
-   * in Buchreihenfolge. Ist alles bearbeitet, kommen die schwächsten Themen
-   * zur Wiederholung – bei Gleichstand die am längsten nicht geübten.
-   */
-  async session(
+  async lesson(userId: string, lessonId: string): Promise<StudyLessonDto> {
+    const profile = await this.users.getActiveProfileOrThrow(userId);
+    const found = findLesson(lessonId);
+    if (!found) throw new NotFoundException(ERR['notfound.unit']);
+
+    const { lesson, level, index, list } = found;
+    const [progress, bookPage] = await Promise.all([
+      this.loadProgress(userId),
+      this.resolveBookPage(profile.languageId, lesson),
+    ]);
+
+    // Lösungen raus – über dieselbe Funktion wie beim Buch, damit Wortkasten
+    // und gemischte Reihenfolge übereinstimmen.
+    const stripped = stripSolutions({ version: 1, blocks: lesson.exercises })
+      .blocks as StudyExerciseBlock[];
+
+    return {
+      id: lesson.id,
+      number: index + 1,
+      total: list.length,
+      level,
+      kind: lesson.kind,
+      title: lesson.title,
+      theory: lesson.theory,
+      exercises: stripped.map((block) => ({
+        block,
+        bestScore: progress.get(progressKey(lesson.id, block.id))?.bestScore ?? null,
+      })),
+      bookPage,
+      previousLessonId: list[index - 1]?.id ?? null,
+      nextLessonId: list[index + 1]?.id ?? null,
+    };
+  }
+
+  /** Wertet eine Aufgabe aus, vergibt Punkte und liefert die Lösung mit. */
+  async answer(
     userId: string,
-    book: WorkbookBook,
-    size = STUDY_SESSION_TOPICS,
-  ): Promise<StudySessionDto> {
-    const profile = await this.users.getActiveProfileOrThrow(userId);
-    const [topics, progress] = await Promise.all([
-      this.loadTopics(profile.languageId, [book]),
-      this.loadProgress(userId),
-    ]);
+    lessonId: string,
+    dto: StudyAnswerDto,
+  ): Promise<StudyAnswerResultDto> {
+    const found = findLesson(lessonId);
+    if (!found) throw new NotFoundException(ERR['notfound.unit']);
 
-    const rowsOf = (topic: IndexedTopic) =>
-      topic.draft.exercises.map((exercise) =>
-        progress.get(progressKey(topic.unit.id, exercise.block.id)),
-      );
-
-    const open = topics.filter((topic) => !rowsOf(topic).every(Boolean));
-    const isReview = open.length === 0;
-
-    let picked: IndexedTopic[];
-    if (!isReview) {
-      picked = open.slice(0, size);
-    } else {
-      const scored = topics.map((topic) => {
-        const rows = rowsOf(topic) as ExerciseProgress[];
-        return {
-          topic,
-          average: rows.reduce((sum, row) => sum + row.bestScore, 0) / rows.length,
-          last: Math.max(...rows.map((row) => row.lastAnsweredAt.getTime())),
-        };
-      });
-      scored.sort((a, b) => a.average - b.average || a.last - b.last);
-      picked = scored.slice(0, size).map((entry) => entry.topic);
-    }
-
-    return {
-      book: book as WorkbookBookName,
-      isReview,
-      topics: picked.map((topic): StudyTopicDto => {
-        // Lösungen raus, bevor die Aufgaben das Haus verlassen – über
-        // dieselbe Funktion wie beim Buch, damit Wortkasten und gemischte
-        // Reihenfolge übereinstimmen.
-        const stripped = stripSolutions({
-          version: 1,
-          blocks: topic.draft.exercises.map((exercise) => exercise.block),
-        }).blocks as StudyExerciseBlock[];
-
-        return {
-          id: `${topic.unit.id}:${topic.draft.anchorId}`,
-          unitId: topic.unit.id,
-          book: topic.chapter.book as WorkbookBookName,
-          level: topic.chapter.level,
-          chapterOrder: topic.chapter.order,
-          chapterTitle: topic.chapter.title,
-          unitTitle: topic.unit.title,
-          title: topic.draft.title,
-          theory: topic.draft.theory,
-          exercises: topic.draft.exercises.map((exercise, index) => ({
-            block: stripped[index],
-            context: exercise.context,
-            bestScore:
-              progress.get(progressKey(topic.unit.id, exercise.block.id))?.bestScore ?? null,
-          })),
-        };
-      }),
-    };
-  }
-
-  /** Wertet eine Antwort aus, vergibt Punkte und liefert die Lösung mit. */
-  async answer(userId: string, dto: StudyAnswerDto): Promise<StudyAnswerResultDto> {
-    const unit = await this.prisma.chapterUnit.findUnique({ where: { id: dto.unitId } });
-    if (!unit) throw new NotFoundException(ERR['notfound.unit']);
-
-    const content = unit.content as unknown as UnitContent;
-    const block = content.blocks.find((candidate) => candidate.id === dto.blockId);
-    if (!block || block.type !== dto.answer.type || block.type === 'WRITING') {
+    const block = found.lesson.exercises.find((candidate) => candidate.id === dto.blockId);
+    if (!block || block.type !== dto.answer.type) {
       throw new BadRequestException(ERR['content.no_matching_blocks']);
     }
 
-    const result = evaluateBlock(block as StudyExerciseBlock, dto.answer);
-    const where = { userId_unitId_blockId: { userId, unitId: unit.id, blockId: block.id } };
-    const stored = await this.prisma.studyExerciseProgress.findUnique({ where });
+    const result = evaluateBlock(block, dto.answer);
+    const where = { userId_lessonId_blockId: { userId, lessonId, blockId: block.id } };
+    const stored = await this.prisma.studyLessonProgress.findUnique({ where });
 
     const pointsEarned = studyPointsFor(result.scorePercent, stored?.bestScore ?? null);
     const bestScore = Math.max(result.scorePercent, stored?.bestScore ?? 0);
 
-    await this.prisma.studyExerciseProgress.upsert({
+    await this.prisma.studyLessonProgress.upsert({
       where,
-      create: {
-        userId,
-        unitId: unit.id,
-        blockId: block.id,
-        bestScore,
-        points: pointsEarned,
-        attempts: 1,
-      },
+      create: { userId, lessonId, blockId: block.id, bestScore, points: pointsEarned, attempts: 1 },
       update: {
         bestScore,
         points: { increment: pointsEarned },
@@ -202,53 +133,94 @@ export class StudyService {
       },
     });
 
-    // Punkte zählen auch als XP – Serie und Tagesziel sollen eine Sitzung
+    // Punkte zählen auch als XP – Serie und Tagesziel sollen eine Lektion
     // genauso sehen wie eine Buchseite.
     if (pointsEarned > 0) await this.users.trackActivity(userId, { xp: pointsEarned });
 
-    const total = await this.prisma.studyExerciseProgress.aggregate({
-      where: { userId },
-      _sum: { points: true },
-    });
-
-    return { result, pointsEarned, bestScore, totalPoints: total._sum.points ?? 0 };
+    return { result, pointsEarned, bestScore, totalPoints: await this.totalPoints(userId) };
   }
 
   // --------------------------------------------------------------- Helfer
 
-  /** Alle Themen der veröffentlichten Kapitel, in Buchreihenfolge. */
-  private async loadTopics(languageId: string, books: WorkbookBook[]): Promise<IndexedTopic[]> {
-    const allowed = books.filter((book) => (WORKBOOK_BOOKS as readonly string[]).includes(book));
-    const chapters = await this.prisma.chapter.findMany({
-      where: { languageId, book: { in: allowed }, isPublished: true },
-      include: { units: { orderBy: { order: 'asc' } } },
-      orderBy: { order: 'asc' },
+  /**
+   * Die Buchseite zum Verweis. Nachgeschlagen über (Sprache, Buch, Kapitel,
+   * Seite) statt über eine gespeicherte ID: Die Seiten-IDs entstehen erst beim
+   * Seeden und unterscheiden sich je Datenbank.
+   */
+  private async resolveBookPage(languageId: string, lesson: StudyLesson) {
+    const { book, chapter: chapterOrder, unit: unitOrder } = lesson.bookRef;
+    const chapter = await this.prisma.chapter.findUnique({
+      where: { languageId_book_order: { languageId, book, order: chapterOrder } },
+      include: { units: { where: { order: unitOrder } } },
     });
+    const unit = chapter?.isPublished ? chapter.units[0] : undefined;
+    if (!chapter || !unit) return null;
 
-    return chapters.flatMap((chapter) =>
-      chapter.units.flatMap((unit) =>
-        splitIntoStudyTopics(unit.content as unknown as UnitContent, unit.title).map(
-          (draft): IndexedTopic => ({
-            draft,
-            unit: { id: unit.id, title: unit.title },
-            chapter: {
-              order: chapter.order,
-              title: chapter.title,
-              level: chapter.level as CefrLevel,
-              book: chapter.book,
-            },
-          }),
-        ),
-      ),
-    );
+    return {
+      unitId: unit.id,
+      book,
+      chapterOrder,
+      chapterTitle: chapter.title,
+      unitTitle: unit.title,
+    };
   }
 
   private async loadProgress(userId: string): Promise<Map<string, ExerciseProgress>> {
-    const rows = await this.prisma.studyExerciseProgress.findMany({ where: { userId } });
-    return new Map(rows.map((row) => [progressKey(row.unitId, row.blockId), row]));
+    const rows = await this.prisma.studyLessonProgress.findMany({ where: { userId } });
+    return new Map(rows.map((row) => [progressKey(row.lessonId, row.blockId), row]));
+  }
+
+  private async totalPoints(userId: string): Promise<number> {
+    const total = await this.prisma.studyLessonProgress.aggregate({
+      where: { userId },
+      _sum: { points: true },
+    });
+    return total._sum.points ?? 0;
   }
 }
 
-function progressKey(unitId: string, blockId: string): string {
-  return `${unitId}:${blockId}`;
+function progressKey(lessonId: string, blockId: string): string {
+  return `${lessonId}:${blockId}`;
+}
+
+function rowsOf(lesson: StudyLesson, progress: Map<string, ExerciseProgress>) {
+  return lesson.exercises.map((block) => progress.get(progressKey(lesson.id, block.id)));
+}
+
+function isDone(lesson: StudyLesson, progress: Map<string, ExerciseProgress>): boolean {
+  return rowsOf(lesson, progress).every(Boolean);
+}
+
+function summarize(
+  lesson: StudyLesson,
+  number: number,
+  progress: Map<string, ExerciseProgress>,
+): StudyLessonSummaryDto {
+  const rows = rowsOf(lesson, progress);
+  const done = rows.every(Boolean);
+  return {
+    id: lesson.id,
+    number,
+    kind: lesson.kind,
+    title: lesson.title,
+    exerciseCount: lesson.exercises.length,
+    done,
+    scorePercent: done
+      ? Math.round(rows.reduce((sum, row) => sum + row!.bestScore, 0) / rows.length)
+      : null,
+    points: rows.reduce((sum, row) => sum + (row?.points ?? 0), 0),
+    maxPoints: lesson.exercises.length * STUDY_POINTS_PER_EXERCISE,
+  };
+}
+
+/**
+ * Das Niveau, das angezeigt wird, wenn keines gewählt ist: das eigene, sonst
+ * das höchste darunter mit Lektionen (C1 ohne Lektionen → B2), sonst das
+ * niedrigste vorhandene.
+ */
+function closestLevel(own: CefrLevel, available: CefrLevel[]): CefrLevel | null {
+  if (available.length === 0) return null;
+  const ownIndex = CEFR_LEVELS.indexOf(own);
+  const below = available.filter((level) => CEFR_LEVELS.indexOf(level) <= ownIndex);
+  return below[below.length - 1] ?? available[0];
 }
