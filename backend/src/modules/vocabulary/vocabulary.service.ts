@@ -4,9 +4,11 @@ import { reviewCard, SRS_DEFAULTS } from './srs.helper';
 import { addUtcDays, shuffle, startOfUtcDay, toDateKey } from '../../common/utils/date.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { AiService } from '../ai/ai.service';
 import { toLanguageDto } from '../languages/languages.service';
 import type {
   CardDirection,
+  CefrLevel,
   DeckProgressDto,
   ReviewCardDto,
   SubmitReviewResultDto,
@@ -50,7 +52,11 @@ const DEFAULT_MIX: VocabMode[] = [
   VocabMode.TRANSLATE,
   VocabMode.MATCHING,
   VocabMode.SPEAKING,
+  VocabMode.SENTENCE_ORDER,
+  VocabMode.WORD_BUILD,
 ];
+/** Übungsarten, die von der Muttersprache aus zum Begriff führen. */
+const REVERSE_MODES: VocabMode[] = [VocabMode.TRANSLATE, VocabMode.SENTENCE_ORDER, VocabMode.WORD_BUILD];
 
 /**
  * Bonus-XP für eine Serie richtiger Antworten – der spielerische Anreiz,
@@ -83,6 +89,7 @@ export class VocabularyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly ai: AiService,
   ) {}
 
   // ------------------------------------------------------------------ Decks
@@ -218,10 +225,23 @@ export class VocabularyService {
       dto.translation !== undefined
         ? { ...asTranslations(item.translations), [native]: dto.translation }
         : undefined;
+    // Ein neuer Beispielsatz macht dessen bisherige Übersetzungen ungültig.
+    let exampleTranslations: Record<string, string> | undefined;
+    if (dto.exampleSentence !== undefined || dto.exampleTranslation !== undefined) {
+      exampleTranslations =
+        dto.exampleSentence !== undefined && dto.exampleSentence !== item.exampleSentence
+          ? {}
+          : asTranslations(item.exampleTranslations);
+      if (dto.exampleTranslation !== undefined) exampleTranslations[native] = dto.exampleTranslation;
+    }
 
     const updated = await this.prisma.vocabItem.update({
       where: { id: itemId },
-      data: { ...dto, ...(translations ? { translations } : {}) },
+      data: {
+        ...dto,
+        ...(translations ? { translations } : {}),
+        ...(exampleTranslations ? { exampleTranslations } : {}),
+      },
     });
     return toVocabItemDto(updated, native);
   }
@@ -322,8 +342,13 @@ export class VocabularyService {
       pool = [...pool, ...extra.map((item) => toPoolEntry(item, native))];
     }
 
-    const ordered = shuffle(items);
-    const modes = planModes(query.modes ?? DEFAULT_MIX, ordered.length);
+    const modes = planModes(query.modes ?? DEFAULT_MIX, items.length);
+    const ordered = await this.withExampleSentences(
+      userId,
+      shuffle(items),
+      modes,
+      { targetLanguage: profile.language.nativeName, nativeLanguage: native, level: profile.level as CefrLevel },
+    );
     return ordered.map((item, index) => {
       const progress = progressByItem.get(item.id);
       return this.buildCard(
@@ -347,9 +372,9 @@ export class VocabularyService {
    * Baut eine Karte: Modus, die daraus folgende Richtung und – wo möglich –
    * fünf Vorschläge.
    *
-   * Vorwärts (alle Modi außer `TRANSLATE`) fragt den Begriff ab, die
-   * Vorschläge sind Übersetzungen in der Muttersprache. `TRANSLATE` zeigt die
-   * Übersetzung, die Vorschläge sind Begriffe der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
+   * Vorwärts fragt den Begriff ab, die Vorschläge sind Übersetzungen in der
+   * Muttersprache. Rückwärts (`REVERSE_MODES`) zeigt die Übersetzung, die
+   * Vorschläge sind Begriffe der Lernsprache. Die falschen Vorschläge sind zufällig aus demselben
    * Stapel gezogen; gleichlautende werden vorher entfernt, sonst stünde die
    * richtige Antwort zweimal da und eine davon würde als falsch gewertet.
    *
@@ -359,8 +384,12 @@ export class VocabularyService {
    */
   private buildCard(card: QueueCard, pool: PoolEntry[], options: CardOptions): ReviewCardDto {
     const item = toVocabItemDto(card.item, options.native);
-    const { mode } = options;
-    const direction: CardDirection = mode === VocabMode.TRANSLATE ? 'REVERSE' : 'FORWARD';
+    // Ohne Beispielsatz (KI nicht erreichbar) wird „Satz ordnen“ zur Auswahl.
+    const mode =
+      options.mode === VocabMode.SENTENCE_ORDER && !item.exampleSentence
+        ? VocabMode.MULTIPLE_CHOICE
+        : options.mode;
+    const direction: CardDirection = REVERSE_MODES.includes(mode) ? 'REVERSE' : 'FORWARD';
 
     const answerOf = (entry: { term: string; translation: string }) =>
       direction === 'FORWARD' ? entry.translation : entry.term;
@@ -618,6 +647,46 @@ export class VocabularyService {
    * Distraktoren mehr – die jeweils eigene Karte wird erst beim Bauen der
    * Auswahl herausgefiltert.
    */
+  /**
+   * Sorgt dafür, dass jede Karte für „Satz ordnen“ einen Beispielsatz hat.
+   * Fehlende erzeugt die KI in einem Aufruf; sie werden an der Vokabel
+   * gespeichert, sodass jedes Wort nur einmal erzeugt wird – auch für alle
+   * anderen Nutzer. Was danach noch fehlt, wird in `buildCard` zur Auswahl.
+   */
+  private async withExampleSentences(
+    userId: string,
+    items: ItemRow[],
+    modes: VocabMode[],
+    context: { targetLanguage: string; nativeLanguage: string; level: CefrLevel },
+  ): Promise<ItemRow[]> {
+    const missing = items.filter(
+      (item, index) => modes[index] === VocabMode.SENTENCE_ORDER && !item.exampleSentence,
+    );
+    if (missing.length === 0) return items;
+
+    const native = context.nativeLanguage;
+    const generated = await this.ai.generateExampleSentences(
+      userId,
+      missing.map((item) => ({ id: item.id, term: item.term, translation: resolveTranslation(item, native) })),
+      context,
+    );
+    if (generated.size === 0) return items;
+
+    const updates = new Map<string, ItemRow>();
+    await this.prisma.$transaction(
+      [...generated].map(([id, example]) => {
+        const item = missing.find((entry) => entry.id === id)!;
+        const exampleTranslations = { ...asTranslations(item.exampleTranslations), [native]: example.translation };
+        updates.set(id, { ...item, exampleSentence: example.sentence, exampleTranslations });
+        return this.prisma.vocabItem.update({
+          where: { id },
+          data: { exampleSentence: example.sentence, exampleTranslations },
+        });
+      }),
+    );
+    return items.map((item) => updates.get(item.id) ?? item);
+  }
+
   private async distractorPool(deckIds: string[], native: string): Promise<PoolEntry[]> {
     const items = await this.prisma.vocabItem.findMany({
       where: { deckId: { in: [...new Set(deckIds)] } },
@@ -719,6 +788,7 @@ export function toVocabItemDto(
     partOfSpeech: string | null;
     exampleSentence: string | null;
     exampleTranslation: string | null;
+    exampleTranslations: Prisma.JsonValue;
     audioUrl: string | null;
     tags: string[];
   },
@@ -731,7 +801,8 @@ export function toVocabItemDto(
     phonetic: item.phonetic,
     partOfSpeech: item.partOfSpeech,
     exampleSentence: item.exampleSentence,
-    exampleTranslation: item.exampleTranslation,
+    exampleTranslation:
+      (native && asTranslations(item.exampleTranslations)[native]) || item.exampleTranslation,
     audioUrl: item.audioUrl,
     tags: item.tags,
   };

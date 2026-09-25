@@ -16,12 +16,11 @@ import { SPANISH_GRAMMAR_CURRICULUM } from './spanish-grammar-curriculum';
  * Subjuntivo. Titel, Untertitel und Kann-Beschreibungen sind eigenständig
  * formuliert und orientieren sich an den GER-Deskriptoren.
  *
- * Ausgearbeitet sind der vollständige Beginner-Band (Kapitel 1 bis 12, also
- * A1 und A2), der vollständige Intermediate-Band (Kapitel 1 bis 12, also B1
- * und B2), Advanced Kapitel 1 und das gesamte Grammatikbuch (siehe die
- * Dateien `spanish-chapter-*.ts`; welches Kapitel welche Seiten bekommt,
- * steht in `workbook.ts`). Offen bleiben die Advanced-Kapitel 2 bis 12; sie
- * stehen als Gerüst bereit und sind noch nicht veröffentlicht.
+ * Ausgearbeitet sind alle drei Kursbücher – Beginner (A1 und A2),
+ * Intermediate (B1 und B2) und Advanced (C1 und C2), jeweils Kapitel 1 bis
+ * 12 – und das gesamte Grammatikbuch (siehe die Dateien
+ * `spanish-chapter-*.ts`; welches Kapitel welche Seiten bekommt, steht in
+ * `workbook.ts`).
  */
 const COURSE_CHAPTERS: LevelChapterSeed[] = [
   // ------------------------------------------------------------------- A1

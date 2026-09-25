@@ -99,4 +99,6 @@ const VOCAB_MODE_KEYS: Record<VocabMode, TranslationKey> = {
   MATCHING: 'reviewModeMatching',
   SPEAKING: 'reviewModeSpeaking',
   TRANSLATE: 'reviewModeTranslate',
+  SENTENCE_ORDER: 'reviewModeSentence',
+  WORD_BUILD: 'reviewModeWordBuild',
 };

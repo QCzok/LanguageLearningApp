@@ -15,6 +15,7 @@ import { FeedbackBar } from './FeedbackBar';
 import { PairsBoard, shuffled, splitIntoRounds } from './PairsBoard';
 import { canRecognizeSpeech, SpeakingCard } from './SpeakingCard';
 import { speakTerm, stopSpeaking } from './speech';
+import { canBuildTilePuzzle, SentenceOrderCard, WordBuildCard } from './TileCards';
 import { queueModes } from './trainerModes';
 import { useTrainerSettings } from './trainerSettings';
 import type { VocabularyStackParamList } from '../../navigation/types';
@@ -44,7 +45,8 @@ type Step = { kind: 'card'; card: ReviewCardDto } | { kind: 'pairs'; cards: Revi
 
 /**
  * Macht aus einer Karte eine Auswahlkarte – für Paare, die in keine Runde
- * mehr passen, und fürs Aussprechen ohne Spracherkennung. Ohne Vorschläge
+ * mehr passen, fürs Aussprechen ohne Spracherkennung und für Legeübungen,
+ * aus denen sich kein Rätsel bauen lässt. Ohne Vorschläge
  * (zu wenige andere Wörter) wird die Karte umgedreht.
  */
 function asChoiceCard(card: ReviewCardDto): ReviewCardDto {
@@ -57,7 +59,9 @@ function asChoiceCard(card: ReviewCardDto): ReviewCardDto {
  * gemischte Sitzung nicht mit fünf Paar-Runden am Stück endet.
  */
 function buildSteps(cards: ReviewCardDto[], speechAvailable: boolean): Step[] {
-  const usable = cards.map((card) => (card.mode === 'SPEAKING' && !speechAvailable ? asChoiceCard(card) : card));
+  const usable = cards.map((card) =>
+    (card.mode === 'SPEAKING' && !speechAvailable) || !canBuildTilePuzzle(card) ? asChoiceCard(card) : card,
+  );
   const { rounds, rest } = splitIntoRounds(usable.filter((card) => card.mode === 'MATCHING'));
   const singles = shuffled([...usable.filter((card) => card.mode !== 'MATCHING'), ...rest.map(asChoiceCard)]);
 
@@ -208,8 +212,12 @@ export default function ReviewScreen({ route, navigation }: Props) {
       missed: missedIds.current.size,
     }));
     if (!correct && answerMode !== 'MATCHING') shake();
-    // Rückwärts wird der Begriff erst mit der Lösung sichtbar – dann auch hörbar.
-    if (target.direction === 'REVERSE' && autoSpeak) void speakTerm(target.item.term, learningLanguage);
+    // Rückwärts wird der Begriff erst mit der Lösung sichtbar – dann auch hörbar,
+    // beim Satz ordnen der ganze Satz.
+    if (target.direction === 'REVERSE' && autoSpeak) {
+      const spoken = answerMode === 'SENTENCE_ORDER' ? target.item.exampleSentence : null;
+      void speakTerm(spoken ?? target.item.term, learningLanguage);
+    }
   }
 
   /** Zum nächsten Schritt. `requeue` hängt Karten ans Ende, die gleich nochmal drankommen. */
@@ -373,6 +381,32 @@ export default function ReviewScreen({ route, navigation }: Props) {
             languageCode={learningLanguage}
             onGrade={(grade) => answer(card, grade, 'SPEAKING')}
             onSkip={() => advance()}
+            onContinue={finishCard}
+          />
+        ) : null}
+
+        {card?.mode === 'SENTENCE_ORDER' ? (
+          <SentenceOrderCard
+            key={cardKey}
+            card={card}
+            remaining={remaining}
+            languageCode={learningLanguage}
+            correctTitle={praise(summary.combo, t)}
+            wrongTitle={t(mistakesOnly ? 'trainerWrongAgain' : 'trainerWrongToMistakes')}
+            onAnswer={(correct) => answer(card, correct ? 4 : 1, 'SENTENCE_ORDER')}
+            onContinue={finishCard}
+          />
+        ) : null}
+
+        {card?.mode === 'WORD_BUILD' ? (
+          <WordBuildCard
+            key={cardKey}
+            card={card}
+            remaining={remaining}
+            languageCode={learningLanguage}
+            correctTitle={praise(summary.combo, t)}
+            wrongTitle={t(mistakesOnly ? 'trainerWrongAgain' : 'trainerWrongToMistakes')}
+            onAnswer={(correct) => answer(card, correct ? 4 : 1, 'WORD_BUILD')}
             onContinue={finishCard}
           />
         ) : null}

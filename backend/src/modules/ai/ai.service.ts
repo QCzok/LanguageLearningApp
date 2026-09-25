@@ -34,6 +34,7 @@ import { AI_CLIENT, AiClient, TokenUsage } from './ai-client.interface';
 import { WhisperClient } from './whisper.client';
 import {
   correctionSchema,
+  exampleSentencesSchema,
   grammarSchema,
   passageTranslationSchema,
   recommendationSchema,
@@ -46,6 +47,7 @@ import {
   CORRECTION_INSTRUCTIONS,
   CORRECTION_MARKER,
   CORRECTION_NOTE_MARKER,
+  EXAMPLE_SENTENCE_INSTRUCTIONS,
   GRAMMAR_INSTRUCTIONS,
   learnerContext,
   PASSAGE_TRANSLATION_INSTRUCTIONS,
@@ -689,6 +691,47 @@ ${PASSAGE_TRANSLATION_INSTRUCTIONS}`,
       itemCount: deck._count.items,
       isSystem: false,
     };
+  }
+
+  /**
+   * Beispielsätze für den Vokabeltrainer („Satz ordnen“) – ein Aufruf für
+   * alle Wörter einer Sitzung, denen noch einer fehlt. Der Aufrufer legt sie
+   * an der Vokabel ab, damit jedes Wort nur einmal erzeugt wird.
+   *
+   * Scheitert still (leere Map): Ohne KI, ohne Kontingent oder bei einem
+   * Fehler wird die Karte in der App einfach eine andere Übung – dafür soll
+   * keine Lernsitzung ausfallen.
+   */
+  async generateExampleSentences(
+    userId: string,
+    items: Array<{ id: string; term: string; translation: string }>,
+    context: { targetLanguage: string; nativeLanguage: string; level: CefrLevel },
+  ): Promise<Map<string, { sentence: string; translation: string }>> {
+    const result = new Map<string, { sentence: string; translation: string }>();
+    if (items.length === 0 || !this.aiClient.isConfigured) return result;
+
+    try {
+      await this.assertQuota(userId);
+      const { parsed, usage } = await this.aiClient.parse({
+        schema: exampleSentencesSchema,
+        systemPrefix: TUTOR_SYSTEM_PREFIX,
+        systemSuffix: `${learnerContext(context)}\n\n${EXAMPLE_SENTENCE_INSTRUCTIONS}`,
+        userContent: items.map((item) => `${item.id} | ${item.term} | ${item.translation}`).join('\n'),
+        effort: 'low',
+      });
+      await this.recordUsage(userId, AiFeature.VOCAB_GENERATION, usage);
+
+      const wanted = new Set(items.map((item) => item.id));
+      for (const entry of parsed.sentences) {
+        const sentence = entry.sentence.trim();
+        if (wanted.has(entry.id) && sentence) {
+          result.set(entry.id, { sentence, translation: entry.translation.trim() });
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Beispielsätze fehlgeschlagen: ${(error as Error).message}`);
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------- Helfer

@@ -57,6 +57,8 @@ enum VocabMode {
   MATCHING
   SPEAKING
   TRANSLATE
+  SENTENCE_ORDER
+  WORD_BUILD
 }
 
 enum LibraryType {
@@ -181,17 +183,17 @@ model RefreshToken {
 // ============================================================ Sprachen & Profil
 
 model Language {
-  id         String  @id @default(cuid())
-  code       String  @unique // ISO-639-1, z. B. "en"
-  name       String // deutscher Name, z. B. "Englisch"
-  nativeName String // "English"
-  flagEmoji  String
-  isActive   Boolean @default(true)
+  id          String  @id @default(cuid())
+  code        String  @unique // ISO-639-1, z. B. "en"
+  name        String // deutscher Name, z. B. "Englisch"
+  nativeName  String // "English"
+  flagEmoji   String
+  isActive    Boolean @default(true)
   // Nur wählbar als Lernsprache (eigener Kurs), wenn true. Sprachen ohne
   // Kursinhalt (Kapitel, Vokabelstapel, Einstufungstest) stehen trotzdem als
   // Muttersprache zur Wahl, siehe LanguagesService.findAll.
   isLearnable Boolean @default(true)
-  sortOrder  Int     @default(0)
+  sortOrder   Int     @default(0)
 
   profiles           LearningProfile[]
   placementQuestions PlacementQuestion[]
@@ -302,25 +304,28 @@ model VocabDeck {
 }
 
 model VocabItem {
-  id                 String    @id @default(cuid())
-  deckId             String
-  deck               VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  term               String
+  id                  String    @id @default(cuid())
+  deckId              String
+  deck                VocabDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  term                String
   /// Übersetzung für Muttersprachen ohne Eintrag in `translations` – bei
   /// eigenen Decks die Übersetzung in der Muttersprache des Besitzers.
-  translation        String
+  translation         String
   /// Übersetzungen je Muttersprache (ISO-639-1 → Text), z. B.
   /// { "de": "das Haus", "es": "la casa" }. Die API löst anhand der
   /// Muttersprache des Nutzers auf, Fallback ist `translation`.
-  translations       Json      @default("{}")
-  phonetic           String?
-  partOfSpeech       String?
-  exampleSentence    String?
-  exampleTranslation String?
-  audioUrl           String?
-  imageUrl           String?
-  tags               String[]
-  sortOrder          Int       @default(0)
+  translations        Json      @default("{}")
+  phonetic            String?
+  partOfSpeech        String?
+  exampleSentence     String?
+  exampleTranslation  String?
+  /// Übersetzungen des Beispielsatzes je Muttersprache (ISO-639-1 → Text),
+  /// wie bei `translations`. Fallback ist `exampleTranslation`.
+  exampleTranslations Json      @default("{}")
+  audioUrl            String?
+  imageUrl            String?
+  tags                String[]
+  sortOrder           Int       @default(0)
 
   progress   VocabProgress[]
   reviewLogs ReviewLog[]

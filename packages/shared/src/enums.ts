@@ -34,6 +34,8 @@ export const VOCAB_MODES = [
   'MATCHING', // Paare zuordnen
   'SPEAKING', // Begriff aussprechen, per Spracherkennung geprüft
   'TRANSLATE', // Muttersprache → Lernsprache: den Begriff aus Vorschlägen wählen
+  'SENTENCE_ORDER', // Lücken im Beispielsatz mit den fehlenden Wörtern füllen
+  'WORD_BUILD', // den Begriff aus Silben bzw. Buchstaben zusammensetzen
 ] as const;
 export type VocabMode = (typeof VOCAB_MODES)[number];
 

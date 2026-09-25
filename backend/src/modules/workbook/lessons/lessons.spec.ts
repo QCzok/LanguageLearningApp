@@ -8,7 +8,9 @@ function unitsOf(
   book: string,
   chapter: number,
 ): Array<{ order: number; content: UnitContent }> | undefined {
-  const prefix = languageCode === 'de' ? '' : 'spanish-';
+  const prefix = ({ de: '', es: 'spanish-', en: 'english-' } as Record<string, string>)[
+    languageCode
+  ];
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require(

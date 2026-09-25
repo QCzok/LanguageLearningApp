@@ -184,6 +184,14 @@ export function vocabDeckInstructions(topic: string, count: number): string {
   ].join(' ');
 }
 
+export const EXAMPLE_SENTENCE_INSTRUCTIONS = `Schreibe zu jeder Vokabel der Liste genau einen Beispielsatz für eine Satzbau-Übung.
+
+- Jede Zeile der Liste ist "id | Wort | Übersetzung". Gib die id unverändert zurück.
+- Der Satz steht in der Zielsprache, passt zum Niveau und klingt natürlich – ein Satz, wie man ihn im Alltag sagt oder liest.
+- Er enthält das Wort möglichst genau in der Form der Liste, ohne Artikel bzw. "to" davor mitzuzählen; nur wenn der Satz sonst falsch wäre, eine gebeugte Form.
+- Länge: 6 bis 12 Wörter. Keine Aufzählungen, keine Namen, keine Anführungszeichen.
+- translation ist die natürliche Übersetzung des Satzes in die Muttersprache des Lernenden.`;
+
 export const RECOMMENDATION_INSTRUCTIONS = `Erstelle aus den Lernstatistiken eine persönliche Empfehlung.
 
 - focusAreas: 2–4 Bereiche, an denen der Lernende als Nächstes arbeiten sollte.

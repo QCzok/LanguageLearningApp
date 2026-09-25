@@ -84,6 +84,18 @@ export const vocabDeckGenerationSchema = z.object({
 });
 export type VocabDeckGenerationResult = z.infer<typeof vocabDeckGenerationSchema>;
 
+/** Beispielsätze für den Modus „Satz ordnen“ – je Vokabel einer. */
+export const exampleSentencesSchema = z.object({
+  sentences: z.array(
+    z.object({
+      id: z.string().describe('Die ID der Vokabel aus der Liste, unverändert'),
+      sentence: z.string().describe('Beispielsatz in der Zielsprache, der das Wort enthält'),
+      translation: z.string().describe('Übersetzung des Satzes in die Muttersprache'),
+    }),
+  ),
+});
+export type ExampleSentencesResult = z.infer<typeof exampleSentencesSchema>;
+
 export const recommendationSchema = z.object({
   summary: z.string(),
   focusAreas: z.array(z.string()),

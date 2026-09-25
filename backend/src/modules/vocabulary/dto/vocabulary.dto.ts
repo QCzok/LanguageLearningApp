@@ -54,7 +54,7 @@ export class ReviewQueueQueryDto {
     enum: VocabMode,
     isArray: true,
     description:
-      'Die Übungsarten der Sitzung. Eine: jede Karte in diesem Modus. Mehrere (Mix): die Karten werden fest darauf verteilt. Ohne: Auswahl, Übersetzen, Paare und Aussprechen.',
+      'Die Übungsarten der Sitzung. Eine: jede Karte in diesem Modus. Mehrere (Mix): die Karten werden fest darauf verteilt. Ohne: Auswahl, Übersetzen, Paare, Aussprechen, Satz ordnen und Wort bauen.',
   })
   @IsOptional()
   @Transform(toList)

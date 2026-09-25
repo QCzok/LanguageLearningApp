@@ -24,6 +24,18 @@ import { INTERMEDIATE_9_UNITS } from './chapter-intermediate-9';
 import { INTERMEDIATE_10_UNITS } from './chapter-intermediate-10';
 import { INTERMEDIATE_11_UNITS } from './chapter-intermediate-11';
 import { INTERMEDIATE_12_UNITS } from './chapter-intermediate-12';
+import { ADVANCED_1_UNITS } from './chapter-advanced-1';
+import { ADVANCED_2_UNITS } from './chapter-advanced-2';
+import { ADVANCED_3_UNITS } from './chapter-advanced-3';
+import { ADVANCED_4_UNITS } from './chapter-advanced-4';
+import { ADVANCED_5_UNITS } from './chapter-advanced-5';
+import { ADVANCED_6_UNITS } from './chapter-advanced-6';
+import { ADVANCED_7_UNITS } from './chapter-advanced-7';
+import { ADVANCED_8_UNITS } from './chapter-advanced-8';
+import { ADVANCED_9_UNITS } from './chapter-advanced-9';
+import { ADVANCED_10_UNITS } from './chapter-advanced-10';
+import { ADVANCED_11_UNITS } from './chapter-advanced-11';
+import { ADVANCED_12_UNITS } from './chapter-advanced-12';
 import { GRAMMAR_1_UNITS } from './chapter-grammar-1';
 import { GRAMMAR_2_UNITS } from './chapter-grammar-2';
 import { GRAMMAR_3_UNITS } from './chapter-grammar-3';
@@ -62,6 +74,17 @@ import { SPANISH_INTERMEDIATE_10_UNITS } from './spanish-chapter-intermediate-10
 import { SPANISH_INTERMEDIATE_11_UNITS } from './spanish-chapter-intermediate-11';
 import { SPANISH_INTERMEDIATE_12_UNITS } from './spanish-chapter-intermediate-12';
 import { SPANISH_ADVANCED_1_UNITS } from './spanish-chapter-advanced-1';
+import { SPANISH_ADVANCED_2_UNITS } from './spanish-chapter-advanced-2';
+import { SPANISH_ADVANCED_3_UNITS } from './spanish-chapter-advanced-3';
+import { SPANISH_ADVANCED_4_UNITS } from './spanish-chapter-advanced-4';
+import { SPANISH_ADVANCED_5_UNITS } from './spanish-chapter-advanced-5';
+import { SPANISH_ADVANCED_6_UNITS } from './spanish-chapter-advanced-6';
+import { SPANISH_ADVANCED_7_UNITS } from './spanish-chapter-advanced-7';
+import { SPANISH_ADVANCED_8_UNITS } from './spanish-chapter-advanced-8';
+import { SPANISH_ADVANCED_9_UNITS } from './spanish-chapter-advanced-9';
+import { SPANISH_ADVANCED_10_UNITS } from './spanish-chapter-advanced-10';
+import { SPANISH_ADVANCED_11_UNITS } from './spanish-chapter-advanced-11';
+import { SPANISH_ADVANCED_12_UNITS } from './spanish-chapter-advanced-12';
 import { SPANISH_GRAMMAR_1_UNITS } from './spanish-chapter-grammar-1';
 import { SPANISH_GRAMMAR_2_UNITS } from './spanish-chapter-grammar-2';
 import { SPANISH_GRAMMAR_3_UNITS } from './spanish-chapter-grammar-3';
@@ -74,6 +97,55 @@ import { SPANISH_GRAMMAR_9_UNITS } from './spanish-chapter-grammar-9';
 import { SPANISH_GRAMMAR_10_UNITS } from './spanish-chapter-grammar-10';
 import { SPANISH_GRAMMAR_11_UNITS } from './spanish-chapter-grammar-11';
 import { SPANISH_GRAMMAR_12_UNITS } from './spanish-chapter-grammar-12';
+import { ENGLISH_CURRICULUM } from './english-curriculum';
+import { ENGLISH_BEGINNER_1_UNITS } from './english-chapter-beginner-1';
+import { ENGLISH_BEGINNER_2_UNITS } from './english-chapter-beginner-2';
+import { ENGLISH_BEGINNER_3_UNITS } from './english-chapter-beginner-3';
+import { ENGLISH_BEGINNER_4_UNITS } from './english-chapter-beginner-4';
+import { ENGLISH_BEGINNER_5_UNITS } from './english-chapter-beginner-5';
+import { ENGLISH_BEGINNER_6_UNITS } from './english-chapter-beginner-6';
+import { ENGLISH_BEGINNER_7_UNITS } from './english-chapter-beginner-7';
+import { ENGLISH_BEGINNER_8_UNITS } from './english-chapter-beginner-8';
+import { ENGLISH_BEGINNER_9_UNITS } from './english-chapter-beginner-9';
+import { ENGLISH_BEGINNER_10_UNITS } from './english-chapter-beginner-10';
+import { ENGLISH_BEGINNER_11_UNITS } from './english-chapter-beginner-11';
+import { ENGLISH_BEGINNER_12_UNITS } from './english-chapter-beginner-12';
+import { ENGLISH_INTERMEDIATE_1_UNITS } from './english-chapter-intermediate-1';
+import { ENGLISH_INTERMEDIATE_2_UNITS } from './english-chapter-intermediate-2';
+import { ENGLISH_INTERMEDIATE_3_UNITS } from './english-chapter-intermediate-3';
+import { ENGLISH_INTERMEDIATE_4_UNITS } from './english-chapter-intermediate-4';
+import { ENGLISH_INTERMEDIATE_5_UNITS } from './english-chapter-intermediate-5';
+import { ENGLISH_INTERMEDIATE_6_UNITS } from './english-chapter-intermediate-6';
+import { ENGLISH_INTERMEDIATE_7_UNITS } from './english-chapter-intermediate-7';
+import { ENGLISH_INTERMEDIATE_8_UNITS } from './english-chapter-intermediate-8';
+import { ENGLISH_INTERMEDIATE_9_UNITS } from './english-chapter-intermediate-9';
+import { ENGLISH_INTERMEDIATE_10_UNITS } from './english-chapter-intermediate-10';
+import { ENGLISH_INTERMEDIATE_11_UNITS } from './english-chapter-intermediate-11';
+import { ENGLISH_INTERMEDIATE_12_UNITS } from './english-chapter-intermediate-12';
+import { ENGLISH_ADVANCED_1_UNITS } from './english-chapter-advanced-1';
+import { ENGLISH_ADVANCED_2_UNITS } from './english-chapter-advanced-2';
+import { ENGLISH_ADVANCED_3_UNITS } from './english-chapter-advanced-3';
+import { ENGLISH_ADVANCED_4_UNITS } from './english-chapter-advanced-4';
+import { ENGLISH_ADVANCED_5_UNITS } from './english-chapter-advanced-5';
+import { ENGLISH_ADVANCED_6_UNITS } from './english-chapter-advanced-6';
+import { ENGLISH_ADVANCED_7_UNITS } from './english-chapter-advanced-7';
+import { ENGLISH_ADVANCED_8_UNITS } from './english-chapter-advanced-8';
+import { ENGLISH_ADVANCED_9_UNITS } from './english-chapter-advanced-9';
+import { ENGLISH_ADVANCED_10_UNITS } from './english-chapter-advanced-10';
+import { ENGLISH_ADVANCED_11_UNITS } from './english-chapter-advanced-11';
+import { ENGLISH_ADVANCED_12_UNITS } from './english-chapter-advanced-12';
+import { ENGLISH_GRAMMAR_1_UNITS } from './english-chapter-grammar-1';
+import { ENGLISH_GRAMMAR_2_UNITS } from './english-chapter-grammar-2';
+import { ENGLISH_GRAMMAR_3_UNITS } from './english-chapter-grammar-3';
+import { ENGLISH_GRAMMAR_4_UNITS } from './english-chapter-grammar-4';
+import { ENGLISH_GRAMMAR_5_UNITS } from './english-chapter-grammar-5';
+import { ENGLISH_GRAMMAR_6_UNITS } from './english-chapter-grammar-6';
+import { ENGLISH_GRAMMAR_7_UNITS } from './english-chapter-grammar-7';
+import { ENGLISH_GRAMMAR_8_UNITS } from './english-chapter-grammar-8';
+import { ENGLISH_GRAMMAR_9_UNITS } from './english-chapter-grammar-9';
+import { ENGLISH_GRAMMAR_10_UNITS } from './english-chapter-grammar-10';
+import { ENGLISH_GRAMMAR_11_UNITS } from './english-chapter-grammar-11';
+import { ENGLISH_GRAMMAR_12_UNITS } from './english-chapter-grammar-12';
 
 /**
  * Legt die Lehrwerke an: je Sprache drei Kursbücher zu zwölf Kapiteln und ein
@@ -144,6 +216,20 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.INTERMEDIATE, order: 10, units: INTERMEDIATE_10_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 11, units: INTERMEDIATE_11_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 12, units: INTERMEDIATE_12_UNITS },
+      // Der Advanced-Band ist vollständig: C1 stellt die Kapitel 1 bis 6,
+      // C2 die Kapitel 7 bis 12.
+      { book: WorkbookBook.ADVANCED, order: 1, units: ADVANCED_1_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 2, units: ADVANCED_2_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 3, units: ADVANCED_3_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 4, units: ADVANCED_4_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 5, units: ADVANCED_5_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 6, units: ADVANCED_6_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 7, units: ADVANCED_7_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 8, units: ADVANCED_8_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 9, units: ADVANCED_9_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 10, units: ADVANCED_10_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 11, units: ADVANCED_11_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 12, units: ADVANCED_12_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: GRAMMAR_2_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 3, units: GRAMMAR_3_UNITS },
@@ -191,7 +277,20 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.INTERMEDIATE, order: 10, units: SPANISH_INTERMEDIATE_10_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 11, units: SPANISH_INTERMEDIATE_11_UNITS },
       { book: WorkbookBook.INTERMEDIATE, order: 12, units: SPANISH_INTERMEDIATE_12_UNITS },
+      // Der Advanced-Band ist vollständig: C1 stellt die Kapitel 1 bis 6,
+      // C2 die Kapitel 7 bis 12.
       { book: WorkbookBook.ADVANCED, order: 1, units: SPANISH_ADVANCED_1_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 2, units: SPANISH_ADVANCED_2_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 3, units: SPANISH_ADVANCED_3_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 4, units: SPANISH_ADVANCED_4_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 5, units: SPANISH_ADVANCED_5_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 6, units: SPANISH_ADVANCED_6_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 7, units: SPANISH_ADVANCED_7_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 8, units: SPANISH_ADVANCED_8_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 9, units: SPANISH_ADVANCED_9_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 10, units: SPANISH_ADVANCED_10_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 11, units: SPANISH_ADVANCED_11_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 12, units: SPANISH_ADVANCED_12_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 1, units: SPANISH_GRAMMAR_1_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 2, units: SPANISH_GRAMMAR_2_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 3, units: SPANISH_GRAMMAR_3_UNITS },
@@ -204,6 +303,64 @@ const WORKBOOKS: WorkbookSeed[] = [
       { book: WorkbookBook.GRAMMAR, order: 10, units: SPANISH_GRAMMAR_10_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 11, units: SPANISH_GRAMMAR_11_UNITS },
       { book: WorkbookBook.GRAMMAR, order: 12, units: SPANISH_GRAMMAR_12_UNITS },
+    ],
+  },
+  {
+    languageCode: 'en',
+    label: 'Englisch',
+    curriculum: ENGLISH_CURRICULUM,
+    showcase: [
+      // Alle drei Kursbücher und das Grammatikbuch sind vollständig.
+      { book: WorkbookBook.BEGINNER, order: 1, units: ENGLISH_BEGINNER_1_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 2, units: ENGLISH_BEGINNER_2_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 3, units: ENGLISH_BEGINNER_3_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 4, units: ENGLISH_BEGINNER_4_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 5, units: ENGLISH_BEGINNER_5_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 6, units: ENGLISH_BEGINNER_6_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 7, units: ENGLISH_BEGINNER_7_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 8, units: ENGLISH_BEGINNER_8_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 9, units: ENGLISH_BEGINNER_9_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 10, units: ENGLISH_BEGINNER_10_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 11, units: ENGLISH_BEGINNER_11_UNITS },
+      { book: WorkbookBook.BEGINNER, order: 12, units: ENGLISH_BEGINNER_12_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 1, units: ENGLISH_INTERMEDIATE_1_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 2, units: ENGLISH_INTERMEDIATE_2_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 3, units: ENGLISH_INTERMEDIATE_3_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 4, units: ENGLISH_INTERMEDIATE_4_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 5, units: ENGLISH_INTERMEDIATE_5_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 6, units: ENGLISH_INTERMEDIATE_6_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 7, units: ENGLISH_INTERMEDIATE_7_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 8, units: ENGLISH_INTERMEDIATE_8_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 9, units: ENGLISH_INTERMEDIATE_9_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 10, units: ENGLISH_INTERMEDIATE_10_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 11, units: ENGLISH_INTERMEDIATE_11_UNITS },
+      { book: WorkbookBook.INTERMEDIATE, order: 12, units: ENGLISH_INTERMEDIATE_12_UNITS },
+      // Der Advanced-Band ist vollständig: C1 stellt die Kapitel 1 bis 6,
+      // C2 die Kapitel 7 bis 12.
+      { book: WorkbookBook.ADVANCED, order: 1, units: ENGLISH_ADVANCED_1_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 2, units: ENGLISH_ADVANCED_2_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 3, units: ENGLISH_ADVANCED_3_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 4, units: ENGLISH_ADVANCED_4_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 5, units: ENGLISH_ADVANCED_5_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 6, units: ENGLISH_ADVANCED_6_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 7, units: ENGLISH_ADVANCED_7_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 8, units: ENGLISH_ADVANCED_8_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 9, units: ENGLISH_ADVANCED_9_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 10, units: ENGLISH_ADVANCED_10_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 11, units: ENGLISH_ADVANCED_11_UNITS },
+      { book: WorkbookBook.ADVANCED, order: 12, units: ENGLISH_ADVANCED_12_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 1, units: ENGLISH_GRAMMAR_1_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 2, units: ENGLISH_GRAMMAR_2_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 3, units: ENGLISH_GRAMMAR_3_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 4, units: ENGLISH_GRAMMAR_4_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 5, units: ENGLISH_GRAMMAR_5_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 6, units: ENGLISH_GRAMMAR_6_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 7, units: ENGLISH_GRAMMAR_7_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 8, units: ENGLISH_GRAMMAR_8_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 9, units: ENGLISH_GRAMMAR_9_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 10, units: ENGLISH_GRAMMAR_10_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 11, units: ENGLISH_GRAMMAR_11_UNITS },
+      { book: WorkbookBook.GRAMMAR, order: 12, units: ENGLISH_GRAMMAR_12_UNITS },
     ],
   },
 ];
