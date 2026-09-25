@@ -29,7 +29,7 @@ B2 komplexe Texte, flüssige Diskussion · C1 flexibler, wirksamer Sprachgebrauc
  * Lernenden: en“ – ein Sprachcode, aus dem das Modell zwar meist das Richtige
  * ableitet, aber eben nur meist. Der ausgeschriebene Name lässt keine Wahl.
  */
-const LANGUAGE_NAMES: Record<string, string> = {
+export const LANGUAGE_NAMES: Record<string, string> = {
   de: 'Deutsch',
   en: 'Englisch',
   es: 'Spanisch',
@@ -191,6 +191,14 @@ export const EXAMPLE_SENTENCE_INSTRUCTIONS = `Schreibe zu jeder Vokabel der List
 - Er enthält das Wort möglichst genau in der Form der Liste, ohne Artikel bzw. "to" davor mitzuzählen; nur wenn der Satz sonst falsch wäre, eine gebeugte Form.
 - Länge: 6 bis 12 Wörter. Keine Aufzählungen, keine Namen, keine Anführungszeichen.
 - translation ist die natürliche Übersetzung des Satzes in die Muttersprache des Lernenden.`;
+
+export const VOCAB_GLOSS_INSTRUCTIONS = `Übersetze die Vokabeln einer Wortliste für ein Vokabelheft.
+
+- Jede Zeile der Liste ist "id | Wort | Bedeutungshinweis". Gib die id unverändert zurück.
+- Der Bedeutungshinweis ist eine vorhandene Übersetzung in einer anderen Sprache. Er legt fest, welche Bedeutung gemeint ist – übersetze das Wort in genau dieser Bedeutung.
+- translation ist knapp wie in einem Wörterbuch: ein Wort oder eine kurze Wendung, bei Bedarf zwei Varianten mit Komma. Keine Erklärungen, keine Beispielsätze.
+- Substantive stehen mit Artikel, wenn die Zielsprache der Übersetzung Artikel hat; Verben im Infinitiv.
+- Kurze Zusätze in Klammern aus dem Hinweis (z. B. "(förmlich)") übernimmst du übersetzt, wenn sie die Bedeutung klären.`;
 
 export const RECOMMENDATION_INSTRUCTIONS = `Erstelle aus den Lernstatistiken eine persönliche Empfehlung.
 

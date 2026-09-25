@@ -25,7 +25,7 @@ import { ERR } from '../../common/i18n/messages';
  * (dasselbe, das auch für interaktive Claude-Code-Sitzungen gilt) und läuft
  * über einen eigenen Prozess pro Anfrage – spürbar langsamer als ein
  * direkter API-Aufruf. Für eine App mit echten Endnutzern ist laut Anthropics
- * Nutzungsbedingungen weiterhin ein API-Key vorgesehen (siehe AnthropicClient).
+ * Nutzungsbedingungen ein API-Key vorgesehen.
  *
  * Sicherheitsprinzip dieser Klasse: Nutzergenerierter Text (Chat-Nachrichten,
  * Heft-Text, Freitext) geht ausschließlich über STDIN an den Kindprozess –
@@ -212,10 +212,9 @@ export class ClaudeCliClient implements AiClient {
 
   private spawnClaude(args: string[]) {
     const executable = this.resolveExecutable();
-    // ANTHROPIC_API_KEY steht (für den anderen Anbieter-Pfad, AnthropicClient)
-    // im eigenen Prozess-Environment und würde sonst an die CLI vererbt –
-    // die zieht einen gesetzten API-Key dann dem Abo-Login vor. Für diesen
-    // Kindprozess deshalb gezielt entfernen, damit die CLI die
+    // Ein noch gesetzter ANTHROPIC_API_KEY (etwa aus einer alten .env) würde
+    // an die CLI vererbt – die zieht einen API-Key dann dem Abo-Login vor.
+    // Für diesen Kindprozess deshalb gezielt entfernen, damit die CLI die
     // OAuth-Anmeldung des Claude-Abos nutzt.
     const env = { ...process.env };
     delete env.ANTHROPIC_API_KEY;

@@ -24,7 +24,6 @@ export const authConfig = registerAs('auth', () => ({
 }));
 
 export const aiConfig = registerAs('ai', () => ({
-  apiKey: process.env.ANTHROPIC_API_KEY ?? '',
   model: process.env.AI_MODEL ?? 'claude-opus-5',
   /**
    * Ein Kontingent für alle.
@@ -42,13 +41,6 @@ export const aiConfig = registerAs('ai', () => ({
     process.env.AI_MONTHLY_LIMIT ?? process.env.AI_PREMIUM_MONTHLY_LIMIT ?? '1000',
     10,
   ),
-  /**
-   * "subscription" läuft über die lokal installierte `claude`-CLI (Claude-
-   * Abo) statt über einen Anthropic-API-Key – siehe ClaudeCliClient für den
-   * Hintergrund. Ausdrücklich eine Entwicklungs-Übergangslösung; Standard
-   * bleibt "api" für den echten API-Key-Pfad.
-   */
-  provider: (process.env.AI_PROVIDER ?? 'api') as 'api' | 'subscription',
   /**
    * Für die Sprachaufnahme im Chat (Alternative zum Tippen). Läuft separat
    * über die OpenAI-Whisper-API, da Anthropic keine Audio-Transkription anbietet.

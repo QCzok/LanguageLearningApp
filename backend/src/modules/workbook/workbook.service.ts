@@ -29,6 +29,7 @@ import {
 } from '@lingua/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { VocabGlossService } from '../ai/vocab-gloss.service';
 import { evaluateBlock, stripSolutions } from './evaluation';
 import { CheckUnitDto, SaveAnnotationsDto, SaveAnswersDto } from './dto/workbook.dto';
 
@@ -40,6 +41,7 @@ export class WorkbookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly glosses: VocabGlossService,
   ) {}
 
   // --------------------------------------------------------------- Regal
@@ -187,15 +189,26 @@ export class WorkbookService {
   async getUnit(userId: string, unitId: string): Promise<UnitDetailDto> {
     const unit = await this.prisma.chapterUnit.findUnique({
       where: { id: unitId },
-      include: { chapter: true },
+      include: { chapter: { include: { language: true } } },
     });
     if (!unit) throw new NotFoundException(ERR['notfound.unit']);
 
-    const progress = await this.prisma.unitProgress.upsert({
-      where: { userId_unitId: { userId, unitId } },
-      create: { userId, unitId, status: UnitStatus.IN_PROGRESS },
-      update: {},
-    });
+    const [progress, user] = await Promise.all([
+      this.prisma.unitProgress.upsert({
+        where: { userId_unitId: { userId, unitId } },
+        create: { userId, unitId, status: UnitStatus.IN_PROGRESS },
+        update: {},
+      }),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { nativeLanguage: true } }),
+    ]);
+
+    // Wortlisten in der Muttersprache der Lernperson, siehe VocabGlossService.
+    const content = stripSolutions(unit.content as unknown as UnitContent);
+    content.blocks = await this.glosses.localize(
+      content.blocks,
+      unit.chapter.language.code,
+      user.nativeLanguage,
+    );
 
     return {
       id: unit.id,
@@ -208,7 +221,7 @@ export class WorkbookService {
       title: unit.title,
       subtitle: unit.subtitle,
       estimatedMinutes: unit.estimatedMinutes,
-      content: stripSolutions(unit.content as unknown as UnitContent),
+      content,
       status: progress.status,
       answers: (progress.answers ?? {}) as unknown as UnitAnswers,
       annotations: progress.annotations ?? null,

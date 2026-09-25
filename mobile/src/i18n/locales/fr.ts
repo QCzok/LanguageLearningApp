@@ -316,8 +316,6 @@ export const fr: TranslationDictionary = {
   reviewModeSentence: 'Compléter la phrase',
   reviewModeWordBuild: 'Construire le mot',
   reviewModeTranslate: 'Traduire',
-  trainerModeTranslate: 'Traduire',
-  trainerModeTranslateHint: 'De ta langue vers la langue cible',
   trainerScopeAll: 'Toutes les cartes',
   trainerScopeCategories: 'Catégories',
   trainerScopeCategoriesHint: 'Choisis toi-même quoi réviser',

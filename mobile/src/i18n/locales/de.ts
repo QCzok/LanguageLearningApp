@@ -326,8 +326,6 @@ export const de = {
   reviewModeSentence: 'Satz ordnen',
   reviewModeWordBuild: 'Wort bauen',
   reviewModeTranslate: 'Übersetzen',
-  trainerModeTranslate: 'Übersetzen',
-  trainerModeTranslateHint: 'Aus deiner Sprache in die Fremdsprache',
   trainerScopeAll: 'Alle Karten',
   trainerScopeCategories: 'Kategorien',
   trainerScopeCategoriesHint: 'Selbst auswählen, woraus du übst',

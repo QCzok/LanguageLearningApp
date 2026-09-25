@@ -26,14 +26,14 @@ export class HealthController {
     /*
       Auch der Zustand der KI gehört hierher.
 
-      Der Server startet ohne `ANTHROPIC_API_KEY` bereitwillig durch und meldet
+      Der Server startet auch ohne erreichbare KI bereitwillig durch und meldet
       „ok“ – die KI antwortet dann aber auf jede Anfrage mit 503. Von aussen
       war das nicht zu sehen: Die App zeigte eine Störung, der Health-Check
       zeigte Gesundheit, und wo der Fehler saß, ließ sich nur durch Lesen der
       Serverprotokolle herausfinden. `ai` nennt es jetzt direkt.
 
-      Bewusst nur ja/nein zum hinterlegten Schlüssel, nie der Schlüssel selbst
-      oder ein Teil davon – der Endpunkt ist öffentlich.
+      Bewusst nur ja/nein, nie Zugangsdaten oder ein Teil davon – der
+      Endpunkt ist öffentlich.
     */
     const ai = this.ai.isConfigured ? 'configured' : 'not_configured';
 

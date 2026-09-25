@@ -4,10 +4,9 @@ import type * as z from 'zod/v4';
 /**
  * Gemeinsame Schnittstelle für alle KI-Anbindungen.
  *
- * Zwei Implementierungen: `AnthropicClient` (echter API-Key, pay-per-token)
- * und `ClaudeCliClient` (läuft über die `claude`-CLI und damit über ein
- * Claude-Abo statt über einen API-Key – siehe dort für den Hintergrund).
- * `AiService` kennt nur dieses Interface, nicht die konkrete Implementierung.
+ * Implementiert von `ClaudeCliClient` (läuft über die `claude`-CLI und damit
+ * über das Claude-Abo statt über einen API-Key – siehe dort). `AiService`
+ * kennt nur dieses Interface, nicht die konkrete Implementierung.
  */
 export interface TokenUsage {
   inputTokens: number;

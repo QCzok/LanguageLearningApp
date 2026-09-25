@@ -48,7 +48,6 @@ const MIX_PAIRS = 5;
 /** Ohne Vorgabe: alle Übungsarten des Trainers. */
 const DEFAULT_MIX: VocabMode[] = [
   VocabMode.MULTIPLE_CHOICE,
-  VocabMode.TRANSLATE,
   VocabMode.MATCHING,
   VocabMode.SPEAKING,
   VocabMode.SENTENCE_ORDER,

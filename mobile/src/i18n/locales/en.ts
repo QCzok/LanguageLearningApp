@@ -315,8 +315,6 @@ export const en: TranslationDictionary = {
   reviewModeSentence: 'Complete the sentence',
   reviewModeWordBuild: 'Build the word',
   reviewModeTranslate: 'Translate',
-  trainerModeTranslate: 'Translate',
-  trainerModeTranslateHint: 'From your language into the target language',
   trainerScopeAll: 'All cards',
   trainerScopeCategories: 'Categories',
   trainerScopeCategoriesHint: 'Choose yourself what to practise',

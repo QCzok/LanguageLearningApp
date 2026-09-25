@@ -79,10 +79,12 @@ dort die LAN-IP des Entwicklungsrechners stehen, z. B.
 
 ### KI-Funktionen
 
-Ohne `ANTHROPIC_API_KEY` startet der Server normal, die KI-Routen antworten mit
-`503`. Mit Schlüssel in `backend/.env` sind Korrektur, Chat, Grammatikerklärungen
-und Empfehlungen aktiv. Modell und Kontingente sind über `AI_MODEL`,
-`AI_FREE_MONTHLY_LIMIT` und `AI_PREMIUM_MONTHLY_LIMIT` einstellbar.
+Die KI läuft über die `claude`-CLI und damit über ein angemeldetes Claude-Abo
+(Claude Code Pro/Max) – ein API-Key ist nicht nötig. Voraussetzung: Claude Code
+ist installiert (`npm install -g @anthropic-ai/claude-code`) und per `claude`
+einmal angemeldet. Liegt die CLI woanders, zeigt `CLAUDE_CLI_PATH` in
+`backend/.env` auf sie. Jede KI-Anfrage zählt gegen das Kontingent des Abos.
+Modell und Monatslimit sind über `AI_MODEL` und `AI_MONTHLY_LIMIT` einstellbar.
 
 ## Funktionsumfang
 

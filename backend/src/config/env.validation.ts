@@ -19,7 +19,6 @@ const schema = z
     JWT_REFRESH_SECRET: z.string().min(16, 'JWT_REFRESH_SECRET ist zu kurz'),
     JWT_ACCESS_TTL: z.string().default('15m'),
     JWT_REFRESH_TTL: z.string().default('30d'),
-    ANTHROPIC_API_KEY: z.string().optional().default(''),
     AI_MODEL: z.string().default('claude-opus-5'),
     AI_FREE_MONTHLY_LIMIT: z.coerce.number().int().nonnegative().default(5),
     AI_PREMIUM_MONTHLY_LIMIT: z.coerce.number().int().nonnegative().default(1000),

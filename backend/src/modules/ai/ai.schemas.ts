@@ -96,6 +96,16 @@ export const exampleSentencesSchema = z.object({
 });
 export type ExampleSentencesResult = z.infer<typeof exampleSentencesSchema>;
 
+/** Übersetzungen für Wortlisten aus Lehrwerk und Lektionen – je Vokabel eine. */
+export const vocabGlossSchema = z.object({
+  glosses: z.array(
+    z.object({
+      id: z.string().describe('Die ID der Vokabel aus der Liste, unverändert'),
+      translation: z.string().describe('Knappe Übersetzung in die verlangte Sprache'),
+    }),
+  ),
+});
+
 export const recommendationSchema = z.object({
   summary: z.string(),
   focusAreas: z.array(z.string()),

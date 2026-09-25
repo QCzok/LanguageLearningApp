@@ -1,11 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { emptyPageContent } from '@lingua/shared';
 import type {
   BlockAnswer,
   CefrLevel,
+  NotebookPageContent,
   StudyAnswerResultDto,
   StudyExerciseBlock,
   StudyLessonDto,
@@ -33,11 +36,17 @@ import { useTranslateHeaderButton } from '../translate/TranslateButton';
 import type { StudyStackParamList } from '../../navigation/types';
 import { KIND_LABEL } from './StudyHomeScreen';
 import { awardPoints } from '../../store/points.store';
+import { alert } from '../../utils/alert';
+import Canvas from '../notebook/Canvas';
+import { DEFAULT_TOOL, ToolDock } from '../notebook/ToolDock';
+import type { ToolState } from '../notebook/ToolDock';
 
 type Props = NativeStackScreenProps<StudyStackParamList, 'StudyLesson'>;
 
 /** Der Server nimmt höchstens so viel Text für eine Übersetzung an. */
 const MAX_PASSAGE_LENGTH = 4000;
+/** Platz unter dem Inhalt, damit der Werkzeugkasten nichts verdeckt. */
+const DOCK_SPACE = 88;
 
 /**
  * Eine Lektion: erst der Lernteil, dann die Prüfung, dann weiter.
@@ -50,6 +59,9 @@ const MAX_PASSAGE_LENGTH = 4000;
  * (Kopfzeile oder Markierung, siehe `TranslateLayer`), der ganze Lernteil
  * oder die Aufgabenstellungen über „Mit KI übersetzen“. Der Verweis auf die
  * Buchseite steht in beiden Teilen.
+ *
+ * Wie im Lehrwerk liegt über dem Inhalt eine Zeichenebene mit dem
+ * Werkzeugkasten unten links (siehe `useLessonNotes`).
  */
 export default function StudyLessonScreen({ route, navigation }: Props) {
   const { lessonId } = route.params;
@@ -65,6 +77,8 @@ export default function StudyLessonScreen({ route, navigation }: Props) {
   const [phase, setPhase] = useState<'LEARN' | 'TEST'>('LEARN');
   const [answers, setAnswers] = useState<Record<string, BlockAnswer>>({});
   const [results, setResults] = useState<Record<string, StudyAnswerResultDto>>({});
+  const notes = useLessonNotes(`${lessonId}.${phase}`);
+  const isDrawing = notes.tool.mode === 'DRAW';
 
   useEffect(() => {
     if (lesson.data) {
@@ -140,101 +154,241 @@ export default function StudyLessonScreen({ route, navigation }: Props) {
 
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ padding: spacing.md, paddingBottom: spacing.xxl, gap: spacing.md }}
+        contentContainerStyle={{ padding: spacing.md, paddingBottom: DOCK_SPACE }}
         keyboardShouldPersistTaps="handled"
+        // Im Stiftmodus darf die Seite nicht unter der Hand wegrutschen.
+        scrollEnabled={!isDrawing}
       >
-        {phase === 'LEARN' ? (
-          <>
-            <View style={[card, { borderTopColor: accent }]}>
-              <CardLabel
-                text={`${t('studyLearn')} · ${t(KIND_LABEL[data.kind])}`}
-                color={accent}
+        <View style={{ gap: spacing.md }} onLayout={notes.onLayout}>
+          {phase === 'LEARN' ? (
+            <>
+              <View style={[card, { borderTopColor: accent }]}>
+                <CardLabel
+                  text={`${t('studyLearn')} · ${t(KIND_LABEL[data.kind])}`}
+                  color={accent}
+                />
+                <Text style={lessonTitle}>{data.title}</Text>
+                {data.theory.map((block) => (
+                  <TheoryBlock key={block.id} block={block} level={data.level} accent={accent} />
+                ))}
+                <PassageTranslation
+                  key={`${data.id}-learn`}
+                  text={theoryText(data.theory)}
+                  accent={accent}
+                />
+              </View>
+              {bookLink}
+              <Button
+                label={t('studyToTest')}
+                onPress={() => show('TEST')}
+                style={{ backgroundColor: accent, borderColor: accent }}
               />
-              <Text style={lessonTitle}>{data.title}</Text>
-              {data.theory.map((block) => (
-                <TheoryBlock key={block.id} block={block} level={data.level} accent={accent} />
-              ))}
-              <PassageTranslation
-                key={`${data.id}-learn`}
-                text={theoryText(data.theory)}
-                accent={accent}
-              />
-            </View>
-            {bookLink}
-            <Button
-              label={t('studyToTest')}
-              onPress={() => show('TEST')}
-              style={{ backgroundColor: accent, borderColor: accent }}
-            />
-          </>
-        ) : (
-          <>
-            <View style={[card, { borderTopColor: accent }]}>
-              <CardLabel text={`${t('studyTest')} · ${data.title}`} color={accent} />
-              <PassageTranslation
-                key={`${data.id}-test`}
-                text={exerciseText(data.exercises.map((exercise) => exercise.block))}
-                accent={accent}
-              />
-              {data.exercises.map((exercise, index) => (
-                <View key={exercise.block.id} style={{ gap: spacing.xs }}>
-                  <ExerciseView
-                    block={exercise.block}
-                    number={index + 1}
-                    level={data.level}
-                    accent={accent}
-                    answer={answers[exercise.block.id]}
-                    result={results[exercise.block.id]}
-                    isChecking={
-                      submit.isPending && submit.variables?.block.id === exercise.block.id
-                    }
-                    onChange={(answer) =>
-                      setAnswers((previous) => ({ ...previous, [exercise.block.id]: answer }))
-                    }
-                    onCheck={() => {
-                      const answer = answers[exercise.block.id];
-                      if (answer) submit.mutate({ block: exercise.block, answer });
-                    }}
-                  />
-                  <PointsNote entry={results[exercise.block.id]} accent={accent} />
-                </View>
-              ))}
-              {submit.isError ? (
-                <Text style={[typography.caption, { color: colors.danger }]}>
-                  {t('studyError')}
+            </>
+          ) : (
+            <>
+              <View style={[card, { borderTopColor: accent }]}>
+                <CardLabel text={`${t('studyTest')} · ${data.title}`} color={accent} />
+                <PassageTranslation
+                  key={`${data.id}-test`}
+                  text={exerciseText(data.exercises.map((exercise) => exercise.block))}
+                  accent={accent}
+                />
+                {data.exercises.map((exercise, index) => (
+                  <View key={exercise.block.id} style={{ gap: spacing.xs }}>
+                    <ExerciseView
+                      block={exercise.block}
+                      number={index + 1}
+                      level={data.level}
+                      accent={accent}
+                      answer={answers[exercise.block.id]}
+                      result={results[exercise.block.id]}
+                      isChecking={
+                        submit.isPending && submit.variables?.block.id === exercise.block.id
+                      }
+                      onChange={(answer) =>
+                        setAnswers((previous) => ({ ...previous, [exercise.block.id]: answer }))
+                      }
+                      onCheck={() => {
+                        const answer = answers[exercise.block.id];
+                        if (answer) submit.mutate({ block: exercise.block, answer });
+                      }}
+                    />
+                    <PointsNote entry={results[exercise.block.id]} accent={accent} />
+                  </View>
+                ))}
+                {submit.isError ? (
+                  <Text style={[typography.caption, { color: colors.danger }]}>
+                    {t('studyError')}
+                  </Text>
+                ) : null}
+              </View>
+
+              {allChecked ? (
+                <ResultCard
+                  lesson={data}
+                  accent={accent}
+                  results={Object.values(results)}
+                  points={lessonPoints}
+                  onNext={data.nextLessonId ? () => goTo(data.nextLessonId!) : undefined}
+                  onRetry={retry}
+                  onHome={() => navigation.navigate('StudyHome')}
+                />
+              ) : (
+                <Text
+                  style={[typography.caption, { color: colors.textMuted, textAlign: 'center' }]}
+                >
+                  {t('studyCheckHint')}
                 </Text>
-              ) : null}
-            </View>
+              )}
 
-            {allChecked ? (
-              <ResultCard
-                lesson={data}
-                accent={accent}
-                results={Object.values(results)}
-                points={lessonPoints}
-                onNext={data.nextLessonId ? () => goTo(data.nextLessonId!) : undefined}
-                onRetry={retry}
-                onHome={() => navigation.navigate('StudyHome')}
+              {bookLink}
+              <Button
+                label={t('studyBackToLearn')}
+                variant="secondary"
+                onPress={() => show('LEARN')}
               />
-            ) : (
-              <Text style={[typography.caption, { color: colors.textMuted, textAlign: 'center' }]}>
-                {t('studyCheckHint')}
-              </Text>
-            )}
+            </>
+          )}
 
-            {bookLink}
-            <Button
-              label={t('studyBackToLearn')}
-              variant="secondary"
-              onPress={() => show('LEARN')}
-            />
-          </>
-        )}
+          {/*
+          Zeichenebene exakt über dem Inhalt; ohne Werkzeug in der Hand lässt
+          sie alle Berührungen zu den Aufgabenfeldern durch.
+        */}
+          {notes.content ? (
+            <View
+              pointerEvents={isDrawing ? 'auto' : 'none'}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: notes.layout.width,
+                height: notes.layout.height,
+              }}
+            >
+              <Canvas
+                content={notes.content}
+                tool={notes.tool}
+                onChange={notes.change}
+                editingTextId={null}
+                onEditText={() => undefined}
+                transparent
+              />
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
+
+      <ToolDock
+        tool={notes.tool}
+        onChange={notes.setTool}
+        tools={['PEN', 'HIGHLIGHTER', 'ERASER']}
+        clearLabel={t('pageClearNotes')}
+        canUndo={notes.canUndo}
+        canClear={notes.canClear}
+        onUndo={notes.undo}
+        onClear={() =>
+          alert(t('pageClearNotesTitle'), t('pageClearNotesBody'), [
+            { text: t('commonCancel'), style: 'cancel' },
+            { text: t('commonDelete'), style: 'destructive', onPress: notes.clear },
+          ])
+        }
+      />
 
       <TranslateLayer ref={translator} />
     </SafeAreaView>
   );
+}
+
+// ------------------------------------------------------------ Stiftnotizen
+
+/** Feste Referenzbreite der Notizen – dieselbe Notiz sitzt auf jedem Gerät an derselben Stelle. */
+const NOTES_WIDTH = book.pageWidth;
+
+/**
+ * Die Stiftnotizen einer Lektion, getrennt nach Lern- und Prüfungsteil.
+ *
+ * Anders als die Buchseiten haben Lektionen keinen Speicherplatz auf dem
+ * Server – die Notizen bleiben deshalb auf dem Gerät. Gespeichert wird in
+ * Referenzkoordinaten (`NOTES_WIDTH`), die Höhe folgt dem gemessenen Inhalt.
+ */
+function useLessonNotes(key: string) {
+  const storageKey = `lingua.lesson-notes.${key}`;
+  const [tool, setTool] = useState<ToolState>(DEFAULT_TOOL);
+  const [notes, setNotes] = useState<NotebookPageContent | null>(null);
+  const [history, setHistory] = useState<NotebookPageContent[]>([]);
+  const [layout, setLayout] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    setNotes(null);
+    setHistory([]);
+    AsyncStorage.getItem(storageKey)
+      .then((raw) => (raw ? (JSON.parse(raw) as NotebookPageContent) : null))
+      .catch(() => null)
+      .then((stored) => {
+        if (!cancelled) setNotes(stored ?? emptyPageContent(NOTES_WIDTH, NOTES_WIDTH, 'BLANK'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storageKey]);
+
+  const persist = useCallback(
+    (next: NotebookPageContent) => {
+      setNotes(next);
+      void AsyncStorage.setItem(storageKey, JSON.stringify(next)).catch(() => undefined);
+    },
+    [storageKey],
+  );
+
+  const change = useCallback(
+    (next: NotebookPageContent) => {
+      setHistory((previous) => (notes ? [...previous, notes].slice(-40) : previous));
+      persist(next);
+    },
+    [notes, persist],
+  );
+
+  // Nur bei echter Änderung übernehmen – sonst treiben Messen und Rendern sich gegenseitig an.
+  const onLayout = useCallback(
+    (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
+      const { width, height } = event.nativeEvent.layout;
+      setLayout((current) =>
+        Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1
+          ? current
+          : { width, height },
+      );
+    },
+    [],
+  );
+
+  const content = useMemo(
+    () =>
+      notes && layout.width > 0 && layout.height > 0
+        ? { ...notes, width: NOTES_WIDTH, height: (layout.height / layout.width) * NOTES_WIDTH }
+        : null,
+    [notes, layout],
+  );
+
+  return {
+    tool,
+    setTool,
+    content,
+    layout,
+    onLayout,
+    change,
+    canUndo: history.length > 0,
+    canClear: Boolean(notes?.elements.length),
+    undo: () => {
+      const previous = history[history.length - 1];
+      if (!previous) return;
+      setHistory((entries) => entries.slice(0, -1));
+      persist(previous);
+    },
+    clear: () => {
+      if (notes) change({ ...notes, elements: [] });
+    },
+  };
 }
 
 // ------------------------------------------------------------------- Teile

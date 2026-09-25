@@ -13,6 +13,7 @@ import {
 } from '@lingua/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { VocabGlossService } from '../ai/vocab-gloss.service';
 import { evaluateBlock, stripSolutions } from './evaluation';
 import { StudyAnswerDto } from './dto/workbook.dto';
 import { STUDY_CATALOG, findLesson } from './lessons';
@@ -33,6 +34,7 @@ export class StudyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
+    private readonly glosses: VocabGlossService,
   ) {}
 
   async overview(userId: string, requested?: CefrLevel): Promise<StudyOverviewDto> {
@@ -73,10 +75,16 @@ export class StudyService {
     if (!found) throw new NotFoundException(ERR['notfound.unit']);
 
     const { lesson, level, index, list } = found;
-    const [progress, bookPage] = await Promise.all([
+    const [progress, bookPage, user] = await Promise.all([
       this.loadProgress(userId),
       this.resolveBookPage(profile.languageId, lesson),
+      this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { nativeLanguage: true } }),
     ]);
+    const theory = await this.glosses.localize(
+      lesson.theory,
+      profile.language.code,
+      user.nativeLanguage,
+    );
 
     // Lösungen raus – über dieselbe Funktion wie beim Buch, damit Wortkasten
     // und gemischte Reihenfolge übereinstimmen.
@@ -90,7 +98,7 @@ export class StudyService {
       level,
       kind: lesson.kind,
       title: lesson.title,
-      theory: lesson.theory,
+      theory,
       exercises: stripped.map((block) => ({
         block,
         bestScore: progress.get(progressKey(lesson.id, block.id))?.bestScore ?? null,

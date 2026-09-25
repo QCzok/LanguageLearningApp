@@ -303,6 +303,25 @@ model VocabDeck {
   @@map("vocab_decks")
 }
 
+/// Übersetzungen für die Wortlisten aus Lehrwerk und Lektionen in
+/// Muttersprachen, die der Inhalt selbst nicht mitbringt. Einmal per KI
+/// erzeugt, gilt ein Eintrag für alle Lernenden (siehe VocabGlossService).
+model VocabGloss {
+  id           String   @id @default(cuid())
+  /// Sprache des Begriffs (ISO-639-1), also die Kurssprache.
+  termLanguage String
+  term         String
+  /// Vorhandene Übersetzung, die die gemeinte Bedeutung festlegt.
+  sense        String
+  /// Muttersprache, in die übersetzt wurde (ISO-639-1).
+  language     String
+  translation  String
+  createdAt    DateTime @default(now())
+
+  @@unique([termLanguage, term, sense, language])
+  @@map("vocab_glosses")
+}
+
 model VocabItem {
   id                  String    @id @default(cuid())
   deckId              String

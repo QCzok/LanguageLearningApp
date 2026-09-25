@@ -4,13 +4,11 @@ import type { TranslationKey } from '../../i18n';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
 /**
- * Die Übungsarten, aus denen der erste Schritt wählt. `TRANSLATE` ist die
- * Gegenrichtung zur Auswahl (Muttersprache → Lernsprache); `MIX` verteilt
- * die Karten einer Sitzung fest auf alle übrigen.
+ * Die Übungsarten, aus denen der erste Schritt wählt. `MIX` verteilt die
+ * Karten einer Sitzung fest auf alle übrigen.
  */
 export type TrainerMode =
   | 'MULTIPLE_CHOICE'
-  | 'TRANSLATE'
   | 'MATCHING'
   | 'SPEAKING'
   | 'SENTENCE_ORDER'
@@ -19,7 +17,6 @@ export type TrainerMode =
 
 export const TRAINER_MODES: TrainerMode[] = [
   'MULTIPLE_CHOICE',
-  'TRANSLATE',
   'MATCHING',
   'SPEAKING',
   'SENTENCE_ORDER',
@@ -29,7 +26,6 @@ export const TRAINER_MODES: TrainerMode[] = [
 
 export const MODE_KEYS: Record<TrainerMode, { title: TranslationKey; hint: TranslationKey }> = {
   MULTIPLE_CHOICE: { title: 'trainerModeChoice', hint: 'trainerModeChoiceHint' },
-  TRANSLATE: { title: 'trainerModeTranslate', hint: 'trainerModeTranslateHint' },
   MATCHING: { title: 'matchTitle', hint: 'matchTeaser' },
   SPEAKING: { title: 'trainerModeSpeaking', hint: 'trainerModeSpeakingHint' },
   SENTENCE_ORDER: { title: 'trainerModeSentence', hint: 'trainerModeSentenceHint' },
@@ -44,7 +40,7 @@ export const MODE_KEYS: Record<TrainerMode, { title: TranslationKey; hint: Trans
  */
 export function queueModes(mode: Exclude<TrainerMode, 'MATCHING'>, speechAvailable: boolean): VocabMode[] {
   if (mode !== 'MIX') return [mode];
-  const modes: VocabMode[] = ['MULTIPLE_CHOICE', 'TRANSLATE', 'MATCHING', 'SENTENCE_ORDER', 'WORD_BUILD'];
+  const modes: VocabMode[] = ['MULTIPLE_CHOICE', 'MATCHING', 'SENTENCE_ORDER', 'WORD_BUILD'];
   return speechAvailable ? [...modes, 'SPEAKING'] : modes;
 }
 
