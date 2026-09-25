@@ -41,25 +41,22 @@ export default function TrainerScopeScreen({ route, navigation }: Props) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right']}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl }}>
         <View style={{ gap: spacing.xs, marginBottom: spacing.xs }}>
-          <Caption>{`${MODE_KEYS[mode].icon} ${modeTitle}`}</Caption>
+          <Caption>{modeTitle}</Caption>
           <Title>{t('trainerCategoryHeading')}</Title>
         </View>
 
         <OptionRow
-          icon="🎲"
           title={t('trainerScopeAll')}
           hint={t('trainerAllCategoriesHint', { count: wordCount })}
           disabled={wordCount === 0}
           onPress={() => startTraining(navigation, mode, { title: `${modeTitle} · ${t('trainerScopeAll')}` })}
         />
         <OptionRow
-          icon="🗂️"
           title={t('trainerScopeCategories')}
           hint={t('trainerScopeCategoriesHint')}
           onPress={() => navigation.navigate('TrainerCategories', { mode })}
         />
         <OptionRow
-          icon={mistakes === 0 ? '🎉' : '🔁'}
           title={t('trainerScopeMistakes')}
           hint={mistakes === 0 ? t('trainerNoMistakesShort') : t('trainerMistakesHint', { count: mistakes })}
           badge={mistakes === 0 ? undefined : String(mistakes)}

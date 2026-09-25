@@ -20,12 +20,6 @@ export const KIND_LABEL = {
   VOCAB: 'studyKindVocab',
 } as const satisfies Record<StudyLessonKind, string>;
 
-export const KIND_ICON: Record<StudyLessonKind, string> = {
-  TEXT: '📖',
-  GRAMMAR: '🧩',
-  VOCAB: '🗂️',
-};
-
 /**
  * Der Einstieg in „Lernen“: Punktestand, die 50 Lektionen des Niveaus und ein
  * Knopf, der dort weitermacht, wo man aufgehört hat.
@@ -61,23 +55,25 @@ export default function StudyHomeScreen({ navigation }: Props) {
       >
         <View style={{ gap: spacing.xs }}>
           <Text style={eyebrow}>{t('studyEyebrow')}</Text>
-          <Text style={typography.title}>{t('studyHome')}</Text>
+          <View style={headerRow}>
+            <Text style={[typography.title, { flex: 1 }]}>{t('studyHome')}</Text>
+            <View style={pointsBlock}>
+              <Text style={pointsValue}>{data.totalPoints}</Text>
+              <Text style={eyebrow}>{t('points')}</Text>
+            </View>
+          </View>
           <Text style={[typography.body, { color: colors.textMuted }]}>{t('studySubtitle')}</Text>
         </View>
 
-        <View style={pointsCard}>
-          <Text style={pointsValue}>{data.totalPoints}</Text>
-          <Text style={pointsLabel}>{t('studyPoints')}</Text>
-        </View>
-
         {data.levels.length === 0 ? (
-          <EmptyState emoji="📭" title={t('studyEmpty')} />
+          <EmptyState title={t('studyEmpty')} />
         ) : (
           <>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: spacing.sm }}
+              style={levelStrip}
+              contentContainerStyle={{ gap: spacing.xl }}
             >
               {data.levels.map((entry) => {
                 const selected = entry.level === data.level;
@@ -88,23 +84,12 @@ export default function StudyHomeScreen({ navigation }: Props) {
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => setLevel(entry.level)}
-                    style={[
-                      levelChip,
-                      { borderColor: color },
-                      selected && { backgroundColor: color },
-                    ]}
+                    style={[levelTab, selected && { borderBottomColor: color }]}
                   >
-                    <Text
-                      style={[levelChipLevel, { color: selected ? colors.textInverse : color }]}
-                    >
+                    <Text style={[levelTabLevel, { color: selected ? colors.text : colors.textMuted }]}>
                       {entry.level}
                     </Text>
-                    <Text
-                      style={[
-                        levelChipMeta,
-                        { color: selected ? colors.textInverse : colors.textMuted },
-                      ]}
-                    >
+                    <Text style={levelTabMeta}>
                       {entry.doneCount}/{entry.lessonCount}
                     </Text>
                   </Pressable>
@@ -130,9 +115,12 @@ export default function StudyHomeScreen({ navigation }: Props) {
               ) : null}
               {next ? (
                 <>
-                  <Text style={typography.heading}>
-                    {KIND_ICON[next.kind]} {next.title}
-                  </Text>
+                  <View style={{ gap: spacing.xs }}>
+                    <Text style={[eyebrow, { color: accent }]}>
+                      {t('studyNextLesson')} · {t(KIND_LABEL[next.kind])}
+                    </Text>
+                    <Text style={typography.heading}>{next.title}</Text>
+                  </View>
                   <Button
                     label={
                       next.number === 1 && (current?.doneCount ?? 0) === 0
@@ -172,7 +160,6 @@ export default function StudyHomeScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Bookshelf')}
             style={({ pressed }) => [booksRow, pressed && { opacity: 0.85 }]}
           >
-            <Text style={{ fontSize: 26 }}>📚</Text>
             <View style={{ flex: 1 }}>
               <Text style={typography.bodyStrong}>{t('studyBooksTitle')}</Text>
               <Text style={[typography.caption, { color: colors.textMuted }]}>
@@ -208,23 +195,22 @@ function LessonRow({
       style={({ pressed }) => [
         lessonRow,
         !isLast && { borderBottomWidth: 1, borderBottomColor: colors.border },
-        isNext && { backgroundColor: colors.primarySoft },
-        pressed && { opacity: 0.8 },
+        { borderLeftColor: isNext ? accent : 'transparent' },
+        pressed && { backgroundColor: colors.background },
       ]}
     >
-      <View
-        style={[numberBadge, { borderColor: accent }, lesson.done && { backgroundColor: accent }]}
-      >
-        <Text style={[numberText, { color: lesson.done ? colors.textInverse : accent }]}>
-          {lesson.done ? '✓' : lesson.number}
-        </Text>
-      </View>
+      <Text style={[numberText, { color: lesson.done ? accent : colors.textMuted }]}>
+        {String(lesson.number).padStart(2, '0')}
+      </Text>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={typography.bodyStrong} numberOfLines={2}>
+        <Text
+          style={[typography.bodyStrong, lesson.done && { color: colors.textMuted }]}
+          numberOfLines={2}
+        >
           {lesson.title}
         </Text>
-        <Text style={[typography.caption, { color: colors.textMuted }]}>
-          {KIND_ICON[lesson.kind]} {t(KIND_LABEL[lesson.kind])}
+        <Text style={kindText}>
+          {t(KIND_LABEL[lesson.kind])}
           {lesson.scorePercent !== null ? ` · ${lesson.scorePercent} %` : ''}
         </Text>
       </View>
@@ -245,50 +231,52 @@ const eyebrow = {
   color: colors.textMuted,
 };
 
-const pointsCard = {
+const headerRow = {
   flexDirection: 'row' as const,
-  alignItems: 'baseline' as const,
-  gap: spacing.sm,
-  padding: spacing.lg,
-  borderRadius: radius.lg,
-  backgroundColor: colors.primary,
+  alignItems: 'flex-end' as const,
+  gap: spacing.md,
+};
+
+const pointsBlock = {
+  alignItems: 'flex-end' as const,
 };
 
 const pointsValue = {
   fontFamily: fontFamily.bold,
-  fontSize: 36,
-  lineHeight: 42,
+  fontSize: 22,
+  lineHeight: 28,
   fontWeight: '700' as const,
-  color: colors.textInverse,
+  color: colors.primary,
+  fontVariant: ['tabular-nums' as const],
 };
 
-const pointsLabel = {
-  fontFamily: fontFamily.semiBold,
-  fontSize: 16,
-  color: colors.textInverse,
-  opacity: 0.85,
+const levelStrip = {
+  flexGrow: 0,
+  borderBottomWidth: 1,
+  borderBottomColor: colors.border,
 };
 
-const levelChip = {
+const levelTab = {
   flexDirection: 'row' as const,
   alignItems: 'baseline' as const,
   gap: 6,
-  paddingHorizontal: spacing.md,
   paddingVertical: spacing.sm,
-  borderRadius: radius.full,
-  borderWidth: 1.5,
-  backgroundColor: colors.surface,
+  borderBottomWidth: 2,
+  borderBottomColor: 'transparent',
+  marginBottom: -1,
 };
 
-const levelChipLevel = {
+const levelTabLevel = {
   fontFamily: fontFamily.bold,
   fontSize: 15,
   fontWeight: '700' as const,
 };
 
-const levelChipMeta = {
-  fontFamily: fontFamily.semiBold,
+const levelTabMeta = {
+  fontFamily: fontFamily.medium,
   fontSize: 12,
+  color: colors.textMuted,
+  fontVariant: ['tabular-nums' as const],
 };
 
 const continueCard = {
@@ -315,21 +303,23 @@ const lessonRow = {
   gap: spacing.md,
   paddingHorizontal: spacing.md,
   paddingVertical: spacing.md,
-};
-
-const numberBadge = {
-  width: 34,
-  height: 34,
-  borderRadius: 17,
-  borderWidth: 1.5,
-  alignItems: 'center' as const,
-  justifyContent: 'center' as const,
+  borderLeftWidth: 3,
 };
 
 const numberText = {
-  fontFamily: fontFamily.bold,
+  width: 22,
+  fontFamily: fontFamily.semiBold,
   fontSize: 13,
-  fontWeight: '700' as const,
+  fontWeight: '600' as const,
+  fontVariant: ['tabular-nums' as const],
+};
+
+const kindText = {
+  fontFamily: fontFamily.semiBold,
+  fontSize: 10,
+  letterSpacing: 1.2,
+  textTransform: 'uppercase' as const,
+  color: colors.textMuted,
 };
 
 const meta = {

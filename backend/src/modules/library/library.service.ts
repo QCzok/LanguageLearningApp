@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ExerciseType, Prisma } from '@prisma/client';
+import { POINTS, pointsForImprovement } from '@lingua/shared';
 import type {
   ExerciseResultDto,
+  ReadingProgressResultDto,
   LibraryContentDto,
   LibraryExerciseDto,
   LibrarySection,
@@ -16,9 +18,6 @@ import type { AuthenticatedUser } from '../../common/decorators/current-user.dec
 import { ListLibraryQueryDto, SubmitExercisesDto, UpdateReadingProgressDto } from './dto/library.dto';
 
 import { ERR } from '../../common/i18n/messages';
-
-/** XP-Basis pro abgeschlossener Übungseinheit, skaliert mit der Trefferquote. */
-const XP_PER_EXERCISE_SET = 20;
 
 const contentInclude = {
   language: true,
@@ -123,8 +122,19 @@ export class LibraryService {
     };
   }
 
-  async updateReadingProgress(userId: string, contentId: string, dto: UpdateReadingProgressDto) {
+  async updateReadingProgress(
+    userId: string,
+    contentId: string,
+    dto: UpdateReadingProgressDto,
+  ): Promise<ReadingProgressResultDto> {
     const completed = dto.progressPercent >= 95;
+    const existing = await this.prisma.readingProgress.findUnique({
+      where: { userId_contentId: { userId, contentId } },
+      select: { completedAt: true },
+    });
+    // Punkte nur beim ersten Mal zu Ende gelesen – der Leser meldet den Stand
+    // laufend, und erneutes Lesen soll nicht jedes Mal zählen.
+    const newlyCompleted = completed && !existing?.completedAt;
 
     const progress = await this.prisma.readingProgress.upsert({
       where: { userId_contentId: { userId, contentId } },
@@ -137,19 +147,22 @@ export class LibraryService {
       update: {
         progressPercent: dto.progressPercent,
         // completedAt wird nur einmal gesetzt – erneutes Lesen überschreibt es nicht.
-        ...(completed ? { completedAt: new Date() } : {}),
+        ...(newlyCompleted ? { completedAt: new Date() } : {}),
       },
     });
 
-    await this.users.trackActivity(userId, {
+    const pointsEarned = newlyCompleted ? POINTS.READING_FINISHED : 0;
+    const totalPoints = await this.users.trackActivity(userId, {
       minutes: dto.minutesRead ?? 0,
-      readingCount: completed ? 1 : 0,
-      xp: completed ? 10 : 0,
+      readingCount: newlyCompleted ? 1 : 0,
+      xp: pointsEarned,
     });
 
     return {
       progressPercent: progress.progressPercent,
       completedAt: progress.completedAt?.toISOString() ?? null,
+      pointsEarned,
+      totalPoints,
     };
   }
 
@@ -199,7 +212,17 @@ export class LibraryService {
     });
 
     const scorePercent = gradable > 0 ? Math.round((score / gradable) * 100) : 0;
-    const xpEarned = Math.round((XP_PER_EXERCISE_SET * scorePercent) / 100);
+    // Beim Wiederholen zählt nur die Verbesserung gegenüber dem besten Versuch.
+    const best = await this.prisma.libraryAttempt.findFirst({
+      where: { userId, contentId },
+      orderBy: { scorePercent: 'desc' },
+      select: { scorePercent: true },
+    });
+    const pointsEarned = pointsForImprovement(
+      POINTS.READING_EXERCISES,
+      scorePercent,
+      best?.scorePercent ?? null,
+    );
 
     await this.prisma.libraryAttempt.create({
       data: {
@@ -212,9 +235,9 @@ export class LibraryService {
       },
     });
 
-    await this.users.trackActivity(userId, { xp: xpEarned });
+    const totalPoints = await this.users.trackActivity(userId, { xp: pointsEarned });
 
-    return { score, total: gradable, scorePercent, xpEarned, results };
+    return { score, total: gradable, scorePercent, pointsEarned, totalPoints, results };
   }
 
   async attempts(userId: string, contentId: string) {

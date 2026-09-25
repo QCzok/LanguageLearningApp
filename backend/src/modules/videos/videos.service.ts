@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { Paginated, VideoItemDto } from '@lingua/shared';
+import { POINTS } from '@lingua/shared';
+import type { Paginated, VideoItemDto, VideoProgressResultDto } from '@lingua/shared';
 import { paginate } from '../../common/dto/pagination.dto';
 import type { AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -100,9 +101,13 @@ export class VideosService {
 
   /**
    * Der eingebettete Player meldet die Abspielposition periodisch. Erreicht
-   * sie 90 %, zählt das Video als gesehen und fließt in Statistik und XP ein.
+   * sie 90 %, zählt das Video als gesehen und fließt in Statistik und Punkte ein.
    */
-  async updateProgress(userId: string, videoItemId: string, dto: UpdateVideoProgressDto) {
+  async updateProgress(
+    userId: string,
+    videoItemId: string,
+    dto: UpdateVideoProgressDto,
+  ): Promise<VideoProgressResultDto> {
     const item = await this.prisma.videoItem.findUnique({ where: { id: videoItemId } });
     if (!item) throw new NotFoundException(ERR['notfound.video']);
 
@@ -119,17 +124,24 @@ export class VideosService {
       update: { positionSec, completed: completed || existing?.completed || false },
     });
 
-    // XP nur beim ersten Abschluss, damit wiederholtes Abspielen nicht farmt.
+    // Punkte nur beim ersten Abschluss, damit wiederholtes Abspielen nicht farmt.
     const newlyCompleted = completed && !existing?.completed;
-    if (newlyCompleted || dto.minutesWatched) {
-      await this.users.trackActivity(userId, {
-        minutes: dto.minutesWatched ?? 0,
-        listeningCount: newlyCompleted ? 1 : 0,
-        xp: newlyCompleted ? 15 : 0,
-      });
-    }
+    const pointsEarned = newlyCompleted ? POINTS.LISTENING_FINISHED : 0;
+    const totalPoints =
+      newlyCompleted || dto.minutesWatched
+        ? await this.users.trackActivity(userId, {
+            minutes: dto.minutesWatched ?? 0,
+            listeningCount: newlyCompleted ? 1 : 0,
+            xp: pointsEarned,
+          })
+        : await this.users.totalPoints(userId);
 
-    return { positionSec: progress.positionSec, completed: progress.completed };
+    return {
+      positionSec: progress.positionSec,
+      completed: progress.completed,
+      pointsEarned,
+      totalPoints,
+    };
   }
 
   /** Zuletzt begonnenes, noch nicht beendetes Video – für „weiterschauen“ auf dem Dashboard. */

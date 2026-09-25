@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { AiService } from '../ai/ai.service';
 import { toLanguageDto } from '../languages/languages.service';
+import { POINTS, vocabComboBonus } from '@lingua/shared';
 import type {
   CardDirection,
   CefrLevel,
@@ -28,8 +29,6 @@ import {
 
 import { ERR } from '../../common/i18n/messages';
 
-/** XP pro korrekt beantworteter Karte. */
-const XP_PER_CORRECT_REVIEW = 2;
 /** Karten je Sitzung, wenn die App nichts anderes verlangt. */
 const DEFAULT_SESSION_SIZE = 15;
 /**
@@ -57,18 +56,6 @@ const DEFAULT_MIX: VocabMode[] = [
 ];
 /** Übungsarten, die von der Muttersprache aus zum Begriff führen. */
 const REVERSE_MODES: VocabMode[] = [VocabMode.TRANSLATE, VocabMode.SENTENCE_ORDER, VocabMode.WORD_BUILD];
-
-/**
- * Bonus-XP für eine Serie richtiger Antworten – der spielerische Anreiz,
- * konzentriert zu bleiben. Gedeckelt, damit eine lange Sitzung nicht
- * beliebig viel XP abwirft.
- */
-function comboBonus(combo: number): number {
-  if (combo >= 10) return 3;
-  if (combo >= 5) return 2;
-  if (combo >= 3) return 1;
-  return 0;
-}
 
 const deckWithCount = {
   language: true,
@@ -465,7 +452,7 @@ export class VocabularyService {
     );
 
     const correct = dto.grade >= 3;
-    const xpEarned = correct ? XP_PER_CORRECT_REVIEW + comboBonus(dto.combo ?? 0) : 0;
+    const pointsEarned = correct ? POINTS.VOCAB_CORRECT + vocabComboBonus(dto.combo ?? 0) : 0;
 
     const [updated] = await this.prisma.$transaction([
       this.prisma.vocabProgress.update({
@@ -492,10 +479,10 @@ export class VocabularyService {
       }),
     ]);
 
-    await this.users.trackActivity(userId, {
+    const totalPoints = await this.users.trackActivity(userId, {
       reviews: 1,
       correctReviews: correct ? 1 : 0,
-      xp: xpEarned,
+      xp: pointsEarned,
       minutes: Math.round((dto.durationMs ?? 0) / 60_000),
     });
 
@@ -506,7 +493,8 @@ export class VocabularyService {
       intervalDays: updated.intervalDays,
       easeFactor: Number(updated.easeFactor.toFixed(2)),
       correct,
-      xpEarned,
+      pointsEarned,
+      totalPoints,
     };
   }
 

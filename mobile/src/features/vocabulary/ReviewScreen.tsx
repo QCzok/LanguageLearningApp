@@ -8,8 +8,10 @@ import { Button, Caption, EmptyState, ErrorState, Loading, ProgressBar, Row, Scr
 import { vocabularyApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
+import { usePointsBatch } from '../../hooks/usePointsBatch';
 import { useActiveProfile } from '../../store/auth.store';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
+import { SpeakerIcon, SpeakerOffIcon } from '../workbook/BookIcons';
 import { Flashcard } from './Flashcard';
 import { FeedbackBar } from './FeedbackBar';
 import { PairsBoard, shuffled, splitIntoRounds } from './PairsBoard';
@@ -25,16 +27,16 @@ type Props = NativeStackScreenProps<VocabularyStackParamList, 'Review'>;
 interface SessionSummary {
   reviewed: number;
   correct: number;
-  xp: number;
+  points: number;
   combo: number;
   bestCombo: number;
   /** Karten, die in dieser Sitzung mindestens einmal falsch waren. */
   missed: number;
 }
 
-const EMPTY_SUMMARY: SessionSummary = { reviewed: 0, correct: 0, xp: 0, combo: 0, bestCombo: 0, missed: 0 };
+const EMPTY_SUMMARY: SessionSummary = { reviewed: 0, correct: 0, points: 0, combo: 0, bestCombo: 0, missed: 0 };
 
-/** Ab diesen Serien gibt es ein kurzes Lob – und serverseitig Bonus-XP. */
+/** Ab diesen Serien gibt es ein kurzes Lob – und serverseitig Bonuspunkte. */
 const COMBO_MILESTONES = [3, 5, 10, 15, 20, 30, 50];
 
 /** Karten je Sitzung. */
@@ -88,13 +90,14 @@ function stepSize(step: Step): number {
  * ans Ende zurück, bis es sitzt.
  *
  * Spielerisch wird es über die Serie: Jede richtige Antwort in Folge zählt
- * mit, ab drei gibt es Bonus-XP und eine kurze Einblendung, am Ende Sterne
+ * mit, ab drei gibt es Bonuspunkte und eine kurze Einblendung, am Ende Sterne
  * für die Trefferquote.
  */
 export default function ReviewScreen({ route, navigation }: Props) {
   const { mode, deckIds, mistakesOnly } = route.params;
   const { t, tVocabMode } = useTranslation();
   const queryClient = useQueryClient();
+  const pointsBatch = usePointsBatch();
   const profile = useActiveProfile();
   const learningLanguage = profile?.language.code;
   const { autoSpeak, setAutoSpeak } = useTrainerSettings();
@@ -142,9 +145,10 @@ export default function ReviewScreen({ route, navigation }: Props) {
   const card = step?.kind === 'card' ? step.card : undefined;
 
   const submit = useMutation({
-    mutationFn: vocabularyApi.review,
+    mutationFn: (body: Parameters<typeof vocabularyApi.review>[0]) =>
+      pointsBatch.track(vocabularyApi.review(body)),
     onSuccess: (result) => {
-      setSummary((prev) => ({ ...prev, xp: prev.xp + result.xpEarned }));
+      setSummary((prev) => ({ ...prev, points: prev.points + result.pointsEarned }));
     },
   });
 
@@ -233,10 +237,10 @@ export default function ReviewScreen({ route, navigation }: Props) {
     setSession((prev) => ({ ...prev, steps: nextSteps }));
 
     if (nextSteps.length === 0) {
+      pointsBatch.finish();
       void queryClient.invalidateQueries({ queryKey: ['decks'] });
       void queryClient.invalidateQueries({ queryKey: ['deck'] });
       void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     }
   }
 
@@ -259,7 +263,6 @@ export default function ReviewScreen({ route, navigation }: Props) {
     return (
       <Screen>
         <EmptyState
-          emoji={mistakesOnly ? '🎉' : '🗂️'}
           title={mistakesOnly ? t('trainerNoMistakesTitle') : t('vocabEmptyTitle')}
           description={mistakesOnly ? t('trainerNoMistakesBody') : t('trainerEmptyBody')}
           action={{ label: t('commonBack'), onPress: () => navigation.goBack() }}
@@ -306,15 +309,15 @@ export default function ReviewScreen({ route, navigation }: Props) {
         <View style={{ flex: 1 }} />
         {summary.combo >= 2 ? (
           <View style={comboPill}>
-            <Text style={comboText}>🔥 {summary.combo}</Text>
+            <Text style={comboText}>×{summary.combo}</Text>
           </View>
         ) : null}
-        <View style={xpPill}>
-          <Text style={xpText}>⚡ {summary.xp}</Text>
+        <View style={pointsPill}>
+          <Text style={pointsText}>{t('pointsEarned', { points: summary.points })}</Text>
         </View>
         <IconButton
           label={autoSpeak ? t('reviewSoundOff') : t('reviewSoundOn')}
-          icon={autoSpeak ? '🔊' : '🔇'}
+          icon={autoSpeak ? <SpeakerIcon color={colors.text} size={18} /> : <SpeakerOffIcon color={colors.textMuted} size={18} />}
           onPress={() => setAutoSpeak(!autoSpeak)}
         />
       </Row>
@@ -439,7 +442,7 @@ function IconButton({
   disabled,
 }: {
   label: string;
-  icon: string;
+  icon: React.ReactNode;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -452,7 +455,7 @@ function IconButton({
       onPress={onPress}
       style={({ pressed }) => [iconButton, (pressed || disabled) && { opacity: disabled ? 0.35 : 0.6 }]}
     >
-      <Text style={{ fontSize: 16 }}>{icon}</Text>
+      {icon}
     </Pressable>
   );
 }
@@ -468,7 +471,7 @@ function SpeakButton({ text, languageCode, big }: { text: string; languageCode?:
       onPress={() => void speakTerm(text, languageCode)}
       style={({ pressed }) => [big ? speakButtonBig : speakButton, pressed && { opacity: 0.6 }]}
     >
-      <Text style={{ fontSize: big ? 40 : 18 }}>🔊</Text>
+      <SpeakerIcon color={colors.primary} size={big ? 40 : 20} />
     </Pressable>
   );
 }
@@ -701,7 +704,7 @@ function ChoiceMode({
 // ---------------------------------------------------------- Abschluss
 
 /**
- * Das Ende einer Runde: Sterne für die Trefferquote, die längste Serie, XP –
+ * Das Ende einer Runde: Sterne für die Trefferquote, die längste Serie, Punkte –
  * und, wenn Fehler dabei waren, der direkte Weg, sie gleich auszubügeln.
  */
 function SessionEnd({
@@ -738,8 +741,8 @@ function SessionEnd({
 
         <Row gap={spacing.sm}>
           <StatTile value={`${accuracy}%`} label={t('reviewAccuracy')} />
-          <StatTile value={`+${summary.xp}`} label={t('reviewXp')} />
-          <StatTile value={`🔥 ${summary.bestCombo}`} label={t('reviewBestCombo')} />
+          <StatTile value={`+${summary.points}`} label={t('points')} />
+          <StatTile value={String(summary.bestCombo)} label={t('reviewBestCombo')} />
         </Row>
 
         <View style={{ gap: spacing.sm }}>
@@ -938,14 +941,14 @@ const comboText = {
   color: colors.warning,
 };
 
-const xpPill = {
+const pointsPill = {
   paddingHorizontal: spacing.sm,
   paddingVertical: 2,
   borderRadius: radius.full,
   backgroundColor: colors.premiumSoft,
 };
 
-const xpText = {
+const pointsText = {
   ...typography.label,
   color: colors.premium,
 };

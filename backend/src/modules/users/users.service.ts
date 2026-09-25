@@ -151,8 +151,12 @@ export class UsersService {
   }
 
   /**
-   * Schreibt Tagesaktivität fort und pflegt die Streak.
-   * Wird von Vokabeln, Bibliothek, Mediathek und Lernheft aufgerufen.
+   * Schreibt Tagesaktivität fort, pflegt die Streak und bucht Punkte.
+   * Wird von Vokabeln, Lektionen, Buch, Bibliothek, Mediathek und KI
+   * aufgerufen – `xp` ist die eine Punktewährung der App (siehe `POINTS`).
+   *
+   * @returns Punktestand nach der Buchung, damit der Aufrufer ihn als
+   *   `totalPoints` zurückgeben kann.
    */
   async trackActivity(
     userId: string,
@@ -164,10 +168,10 @@ export class UsersService {
       readingCount?: number;
       listeningCount?: number;
     },
-  ): Promise<void> {
+  ): Promise<number> {
     const today = startOfUtcDay();
 
-    await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await tx.dailyActivity.upsert({
         where: { userId_date: { userId, date: today } },
         create: {
@@ -197,15 +201,26 @@ export class UsersService {
 
       const streakDays = this.nextStreak(user.lastActivityDate, user.streakDays, today);
 
-      await tx.user.update({
+      const updated = await tx.user.update({
         where: { id: userId },
         data: {
           xp: { increment: delta.xp ?? 0 },
           lastActivityDate: today,
           streakDays,
         },
+        select: { xp: true },
       });
+      return updated.xp;
     });
+  }
+
+  /** Der aktuelle Punktestand – für Antworten, die selbst nichts gebucht haben. */
+  async totalPoints(userId: string): Promise<number> {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { xp: true },
+    });
+    return user.xp;
   }
 
   /** Gestern aktiv -> +1, heute schon aktiv -> unverändert, sonst Neustart bei 1. */

@@ -26,12 +26,12 @@ import {
   fontFamily,
   levelColors,
   radius,
-  readingLabel,
   shadow,
   spacing,
   typography,
 } from '../../theme';
 import { canRecognizeSpeech } from './SpeakingCard';
+import { ChevronRightIcon } from '../workbook/BookIcons';
 import { MODE_KEYS, TRAINER_MODES } from './trainerModes';
 import { SectionRule } from './TrainerParts';
 import type { VocabularyStackParamList } from '../../navigation/types';
@@ -68,7 +68,6 @@ export default function DeckListScreen({ navigation }: Props) {
   if (allDecks.length === 0) {
     return (
       <EmptyState
-        emoji="🗂️"
         title={t('vocabEmptyTitle')}
         description={t('vocabEmptyDescription')}
       />
@@ -107,7 +106,6 @@ export default function DeckListScreen({ navigation }: Props) {
               return (
                 <ModeTile
                   key={mode}
-                  icon={MODE_KEYS[mode].icon}
                   title={t(MODE_KEYS[mode].title)}
                   hint={unavailable ? t('trainerSpeakingUnavailable') : t(MODE_KEYS[mode].hint)}
                   wide={mode === 'MIX'}
@@ -127,14 +125,12 @@ export default function DeckListScreen({ navigation }: Props) {
 
 /** Eine Übungsart als Karteikarte – ein Tipp führt zum nächsten Schritt. */
 function ModeTile({
-  icon,
   title,
   hint,
   wide,
   disabled,
   onPress,
 }: {
-  icon: string;
   title: string;
   hint: string;
   /** Über die ganze Breite – für die letzte, allein stehende Karte. */
@@ -157,7 +153,6 @@ function ModeTile({
       ]}
     >
       <View style={[cardHeadRule, { backgroundColor: colors.primary }]} />
-      <Text style={{ fontSize: 28 }}>{icon}</Text>
       <Text style={tileTitle} numberOfLines={2}>
         {title}
       </Text>
@@ -165,7 +160,7 @@ function ModeTile({
         {hint}
       </Text>
       <View style={{ flex: 1 }} />
-      <Text style={[tileState, { color: colors.primary }]}>▶</Text>
+      <ChevronRightIcon color={colors.primary} size={18} />
     </Pressable>
   );
 }
@@ -258,11 +253,5 @@ const tileMeta = {
   fontFamily: fontFamily.regular,
   fontSize: 12,
   lineHeight: 16,
-  color: flashcard.inkSoft,
-};
-
-const tileState = {
-  ...readingLabel,
-  fontSize: 12,
   color: flashcard.inkSoft,
 };

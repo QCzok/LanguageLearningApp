@@ -13,12 +13,11 @@ export function SectionRule({ label }: { label: string }) {
 }
 
 /**
- * Eine Zeile zum Antippen in den Schritten 2 und 3: Symbol, Titel, Hinweis
+ * Eine Zeile zum Antippen in den Schritten 2 und 3: Titel, Hinweis
  * und rechts eine Zahl oder ein Häkchen. `warning` hebt die Wiederholer
  * hervor, solange es welche gibt.
  */
 export function OptionRow({
-  icon,
   title,
   hint,
   badge,
@@ -28,7 +27,6 @@ export function OptionRow({
   onPress,
   children,
 }: {
-  icon: string;
   title: string;
   hint?: string;
   /** Rechts im Kreis, etwa die Zahl der Fehler. */
@@ -61,7 +59,6 @@ export function OptionRow({
           {checked ? <Text style={checkmark}>✓</Text> : null}
         </View>
       ) : null}
-      <Text style={{ fontSize: 26 }}>{icon}</Text>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={rowTitle}>{title}</Text>
         {hint ? <Text style={rowHint}>{hint}</Text> : null}

@@ -4,6 +4,7 @@ import type { ReviewCardDto } from '@lingua/shared';
 import { Row } from '../../components';
 import { useTranslation } from '../../i18n';
 import { colors, flashcard, radius, spacing, typography } from '../../theme';
+import { SpeakerIcon } from '../workbook/BookIcons';
 import { FeedbackBar } from './FeedbackBar';
 import { Flashcard } from './Flashcard';
 import { speakTerm } from './speech';
@@ -279,7 +280,7 @@ function SpeakButton({ text, languageCode }: { text: string; languageCode?: stri
       onPress={() => void speakTerm(text, languageCode)}
       style={({ pressed }) => [speakButton, pressed && { opacity: 0.6 }]}
     >
-      <Text style={{ fontSize: 18 }}>🔊</Text>
+      <SpeakerIcon color={colors.primary} size={20} />
     </Pressable>
   );
 }

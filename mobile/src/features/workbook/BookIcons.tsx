@@ -218,3 +218,35 @@ export function SparkMark({ color, size = 18 }: IconProps) {
     </Svg>
   );
 }
+
+/** Lautsprecher – Wort vorlesen lassen. */
+export function SpeakerIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Path d="M4 9.5 L7.5 9.5 L12 5.5 L12 18.5 L7.5 14.5 L4 14.5 Z" stroke={color} {...STROKE} />
+      <Path d="M15.5 9 C16.6 10.4 16.6 13.6 15.5 15" stroke={color} {...STROKE} />
+      <Path d="M18.3 6.5 C20.6 9.3 20.6 14.7 18.3 17.5" stroke={color} {...STROKE} />
+    </Frame>
+  );
+}
+
+/** Lautsprecher, durchgestrichen – automatisches Vorlesen ist aus. */
+export function SpeakerOffIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Path d="M4 9.5 L7.5 9.5 L12 5.5 L12 18.5 L7.5 14.5 L4 14.5 Z" stroke={color} {...STROKE} />
+      <Path d="M15.5 9.5 L20.5 14.5 M20.5 9.5 L15.5 14.5" stroke={color} {...STROKE} />
+    </Frame>
+  );
+}
+
+/** Mikrofon – für die Sprechübung. */
+export function MicIcon({ color, size }: IconProps) {
+  return (
+    <Frame size={size}>
+      <Rect x={9} y={3.5} width={6} height={11} rx={3} stroke={color} {...STROKE} />
+      <Path d="M6 11.5 C6 15 8.7 17.5 12 17.5 C15.3 17.5 18 15 18 11.5" stroke={color} {...STROKE} />
+      <Path d="M12 17.5 L12 20.5" stroke={color} {...STROKE} />
+    </Frame>
+  );
+}

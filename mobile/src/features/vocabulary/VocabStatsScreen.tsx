@@ -112,7 +112,6 @@ export default function VocabStatsScreen() {
       </Card>
 
       <Card style={{ alignItems: 'center', gap: spacing.sm }}>
-        <Text style={{ fontSize: 34 }}>🔥</Text>
         <Title>{t('statsStreakDays', { count: data.streakDays })}</Title>
         <Caption>{t('statsStreakHint')}</Caption>
       </Card>

@@ -182,7 +182,6 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
           <View style={[headRule, { backgroundColor: accent }]} />
 
           <Row gap={spacing.md}>
-            <Text style={{ fontSize: 34 }}>{deck.iconEmoji}</Text>
             <View style={{ flex: 1, gap: 2 }}>
               <Text style={deckTitle}>{deck.title}</Text>
               {deck.description ? (
@@ -260,7 +259,7 @@ export default function DeckDetailScreen({ route, navigation }: Props) {
                 error={suggest.isError ? (suggest.error as Error).message : undefined}
               />
               <Button
-                label={`✨ ${t('vocabSuggestTranslation')}`}
+                label={t('vocabSuggestTranslation')}
                 variant="secondary"
                 loading={suggest.isPending}
                 disabled={term.trim().length < 1}

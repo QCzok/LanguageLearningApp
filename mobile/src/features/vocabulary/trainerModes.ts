@@ -27,14 +27,14 @@ export const TRAINER_MODES: TrainerMode[] = [
   'MIX',
 ];
 
-export const MODE_KEYS: Record<TrainerMode, { icon: string; title: TranslationKey; hint: TranslationKey }> = {
-  MULTIPLE_CHOICE: { icon: '🔘', title: 'trainerModeChoice', hint: 'trainerModeChoiceHint' },
-  TRANSLATE: { icon: '🔄', title: 'trainerModeTranslate', hint: 'trainerModeTranslateHint' },
-  MATCHING: { icon: '🧩', title: 'matchTitle', hint: 'matchTeaser' },
-  SPEAKING: { icon: '🎙️', title: 'trainerModeSpeaking', hint: 'trainerModeSpeakingHint' },
-  SENTENCE_ORDER: { icon: '📝', title: 'trainerModeSentence', hint: 'trainerModeSentenceHint' },
-  WORD_BUILD: { icon: '🔤', title: 'trainerModeWordBuild', hint: 'trainerModeWordBuildHint' },
-  MIX: { icon: '🔀', title: 'trainerModeMix', hint: 'trainerModeMixHint' },
+export const MODE_KEYS: Record<TrainerMode, { title: TranslationKey; hint: TranslationKey }> = {
+  MULTIPLE_CHOICE: { title: 'trainerModeChoice', hint: 'trainerModeChoiceHint' },
+  TRANSLATE: { title: 'trainerModeTranslate', hint: 'trainerModeTranslateHint' },
+  MATCHING: { title: 'matchTitle', hint: 'matchTeaser' },
+  SPEAKING: { title: 'trainerModeSpeaking', hint: 'trainerModeSpeakingHint' },
+  SENTENCE_ORDER: { title: 'trainerModeSentence', hint: 'trainerModeSentenceHint' },
+  WORD_BUILD: { title: 'trainerModeWordBuild', hint: 'trainerModeWordBuildHint' },
+  MIX: { title: 'trainerModeMix', hint: 'trainerModeMixHint' },
 };
 
 /**

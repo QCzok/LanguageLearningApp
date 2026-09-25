@@ -23,6 +23,7 @@ import { colors, spacing, typography } from '../../theme';
 import YoutubePlayer from './YoutubePlayer';
 import { formatDuration } from './VideoListScreen';
 import type { VideoStackParamList } from '../../navigation/types';
+import { awardPoints } from '../../store/points.store';
 
 type Props = NativeStackScreenProps<VideoStackParamList, 'VideoPlayer'>;
 
@@ -46,7 +47,8 @@ export default function VideoPlayerScreen({ route }: Props) {
   const saveProgress = useMutation({
     mutationFn: (payload: { positionSec: number; completed?: boolean; minutesWatched?: number }) =>
       videosApi.saveProgress(videoId, payload),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      awardPoints(result);
       // Die Liste zeigt denselben Balken – sie darf nicht veralten.
       void queryClient.invalidateQueries({ queryKey: ['videos'] });
     },

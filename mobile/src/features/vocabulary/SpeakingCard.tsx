@@ -5,6 +5,7 @@ import type { ReviewCardDto } from '@lingua/shared';
 import { Button, Row } from '../../components';
 import { useTranslation } from '../../i18n';
 import { colors, flashcard, spacing, typography } from '../../theme';
+import { MicIcon, SpeakerIcon } from '../workbook/BookIcons';
 import { checkAnswer } from './answerCheck';
 import { FeedbackBar } from './FeedbackBar';
 import { Flashcard } from './Flashcard';
@@ -169,7 +170,7 @@ export function SpeakingCard({
                 onPress={() => void speakTerm(card.item.term, languageCode)}
                 style={({ pressed }) => [speakButton, pressed && { opacity: 0.6 }]}
               >
-                <Text style={{ fontSize: 18 }}>🔊</Text>
+                <SpeakerIcon color={colors.primary} size={20} />
               </Pressable>
             </Row>
             {card.item.phonetic ? <Text style={cardMeta}>{card.item.phonetic}</Text> : null}
@@ -190,7 +191,7 @@ export function SpeakingCard({
               pressed && { transform: [{ scale: 0.96 }] },
             ]}
           >
-            <Text style={{ fontSize: 38 }}>🎙️</Text>
+            <MicIcon color={phase === 'listening' ? colors.danger : colors.primary} size={38} />
           </Pressable>
           <Text style={statusText}>
             {phase === 'listening'

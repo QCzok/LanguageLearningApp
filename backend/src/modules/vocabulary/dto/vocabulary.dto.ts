@@ -103,7 +103,7 @@ export class SubmitReviewDto {
   @Min(0)
   durationMs?: number;
 
-  @ApiPropertyOptional({ description: 'Richtige Antworten in Folge vor dieser Karte (Bonus-XP)' })
+  @ApiPropertyOptional({ description: 'Richtige Antworten in Folge vor dieser Karte (Bonuspunkte)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

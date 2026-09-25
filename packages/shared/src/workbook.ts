@@ -1,4 +1,5 @@
 import type { CefrLevel } from './cefr';
+import type { PointsAward } from './points';
 
 /**
  * Datenformat des Lehrwerks.
@@ -257,13 +258,12 @@ export interface BlockResult {
   explanationTranslations?: Partial<Record<TranslatableLanguage, string>>;
 }
 
-export interface UnitCheckResult {
+export interface UnitCheckResult extends PointsAward {
   unitId: string;
   results: BlockResult[];
   scorePercent: number;
   correctBlocks: number;
   totalBlocks: number;
-  xpEarned: number;
 }
 
 // -------------------------------------------------------------- Struktur

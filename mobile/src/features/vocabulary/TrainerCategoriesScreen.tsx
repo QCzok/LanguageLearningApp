@@ -74,7 +74,7 @@ export default function TrainerCategoriesScreen({ route, navigation }: Props) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm, paddingBottom: spacing.xl }}>
         <View style={{ gap: spacing.xs, marginBottom: spacing.sm }}>
-          <Caption>{`${MODE_KEYS[mode].icon} ${modeTitle}`}</Caption>
+          <Caption>{modeTitle}</Caption>
           <Title>{t('trainerPickCategoriesHeading')}</Title>
           <Row>
             <View style={{ flex: 1 }}>
@@ -93,7 +93,6 @@ export default function TrainerCategoriesScreen({ route, navigation }: Props) {
         {allDecks.map((deck) => (
           <OptionRow
             key={deck.id}
-            icon={deck.iconEmoji}
             title={deck.title}
             hint={t('vocabWordCount', { count: deck.itemCount })}
             checked={picked.has(deck.id)}

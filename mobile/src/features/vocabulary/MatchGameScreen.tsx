@@ -6,6 +6,7 @@ import type { ReviewCardDto } from '@lingua/shared';
 import { Button, Caption, EmptyState, ErrorState, Loading, ProgressBar, Row, Screen } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
 import { useTranslation } from '../../i18n';
+import { usePointsBatch } from '../../hooks/usePointsBatch';
 import { useActiveProfile } from '../../store/auth.store';
 import { colors, spacing, typography } from '../../theme';
 import { PAIRS_PER_ROUND, PairsBoard, splitIntoRounds } from './PairsBoard';
@@ -55,7 +56,11 @@ export default function MatchGameScreen({ route, navigation }: Props) {
     gcTime: 0,
   });
 
-  const submit = useMutation({ mutationFn: vocabularyApi.review });
+  const pointsBatch = usePointsBatch();
+  const submit = useMutation({
+    mutationFn: (body: Parameters<typeof vocabularyApi.review>[0]) =>
+      pointsBatch.track(vocabularyApi.review(body)),
+  });
 
   // Die Runden werden aus den geladenen Karten gebildet – neu bei jedem Laden.
   const [game, setGame] = useState<{ source?: ReviewCardDto[]; rounds: ReviewCardDto[][]; id: number }>({
@@ -119,10 +124,10 @@ export default function MatchGameScreen({ route, navigation }: Props) {
     const total = Date.now() - (startedAt ?? Date.now()) + mistakes * PENALTY_MS;
     setFinishedMs(total);
     setNewRecord(recordKey !== null && recordMatchTime(recordKey, total));
+    pointsBatch.finish();
     void queryClient.invalidateQueries({ queryKey: ['decks'] });
     void queryClient.invalidateQueries({ queryKey: ['deck'] });
     void queryClient.invalidateQueries({ queryKey: ['vocab-stats'] });
-    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   }
 
   if (isLoading || isRefetching) return <Loading label={t('reviewLoadingCards')} />;
@@ -132,7 +137,6 @@ export default function MatchGameScreen({ route, navigation }: Props) {
     return (
       <Screen>
         <EmptyState
-          emoji="🧩"
           title={t('matchTooFewTitle')}
           description={t('matchTooFewBody')}
           action={{ label: t('commonBack'), onPress: () => navigation.goBack() }}

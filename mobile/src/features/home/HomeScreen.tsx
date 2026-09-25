@@ -24,7 +24,7 @@ import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
 import { useAuthStore } from '../../store/auth.store';
-import { colors, radius, shadow, spacing, typography } from '../../theme';
+import { colors, fontFamily, radius, shadow, spacing, typography } from '../../theme';
 import { AiCover, LibraryShelfCover, NotebookCover, VideoCover, VocabCover } from './HomeCovers';
 import type { MainTabParamList, RootStackParamList } from '../../navigation/types';
 
@@ -168,14 +168,26 @@ export default function HomeScreen() {
           </Pressable>
         </Row>
 
-        {/* Eine schlanke Statuszeile statt drei einzelner Karten: Streak, XP
-            und Tagesziel sind Tageszahlen, keine eigenen Navigationsziele –
-            sie müssen nicht so viel Fläche beanspruchen wie die Kacheln. */}
+        {/* Eine schlanke Statuszeile statt drei einzelner Karten: Punkte,
+            Streak und Tagesziel sind Tageszahlen, keine eigenen
+            Navigationsziele. Die Punkte stehen vorn – es ist der eine Stand,
+            in den Vokabeln, Lernen, Lesen und Hören gleichermaßen einzahlen. */}
         <Card>
           <Row gap={spacing.lg}>
-            <StatBlock icon="🔥" value={data.user.streakDays} label={t('homeStatStreak')} />
+            <View style={{ flex: 1 }}>
+              <Text style={statLabel}>{t('points')}</Text>
+              <Row gap={spacing.sm} style={{ alignItems: 'baseline' }}>
+                <Text style={pointsValue}>{data.user.xp}</Text>
+                {data.pointsToday > 0 ? (
+                  <Text style={pointsToday}>{t('pointsToday', { points: data.pointsToday })}</Text>
+                ) : null}
+              </Row>
+            </View>
             <View style={statDivider} />
-            <StatBlock icon="⭐" value={data.user.xp} label={t('homeStatXp')} />
+            <View>
+              <Text style={statLabel}>{t('homeStatStreak')}</Text>
+              <Text style={typography.title}>{data.user.streakDays}</Text>
+            </View>
           </Row>
           <View style={{ gap: spacing.xs, paddingTop: spacing.md }}>
             <Row>
@@ -307,18 +319,6 @@ function Tile({ Cover, label, subtitle, accent, onPress }: Omit<TileSpec, 'key'>
   );
 }
 
-function StatBlock({ icon, value, label }: { icon: string; value: number; label: string }) {
-  return (
-    <Row gap={spacing.sm}>
-      <Text style={{ fontSize: 22 }}>{icon}</Text>
-      <View>
-        <Text style={typography.title}>{value}</Text>
-        <Caption>{label}</Caption>
-      </View>
-    </Row>
-  );
-}
-
 function ResumeRow({
   label,
   title,
@@ -402,6 +402,25 @@ const tileLabel = {
 const tileSubtitle = {
   ...typography.caption,
   fontWeight: '600' as const,
+};
+
+const statLabel = {
+  fontFamily: fontFamily.semiBold,
+  fontSize: 10,
+  letterSpacing: 1.2,
+  textTransform: 'uppercase' as const,
+  color: colors.textMuted,
+};
+
+const pointsValue = {
+  ...typography.display,
+  color: colors.primary,
+  fontVariant: ['tabular-nums' as const],
+};
+
+const pointsToday = {
+  ...typography.label,
+  color: colors.success,
 };
 
 const statDivider = {

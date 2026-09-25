@@ -1,4 +1,6 @@
 import type { CefrLevel } from './cefr';
+import { POINTS, pointsForImprovement } from './points';
+import type { PointsAward } from './points';
 import type {
   BlockResult,
   DialogueBlock,
@@ -63,18 +65,11 @@ export interface StudyLesson {
 // ------------------------------------------------------------------ Punkte
 
 /** Höchstpunktzahl einer Aufgabe; Teillösungen geben anteilig. */
-export const STUDY_POINTS_PER_EXERCISE = 10;
+export const STUDY_POINTS_PER_EXERCISE = POINTS.STUDY_EXERCISE;
 
-/**
- * Punkte für eine Antwort.
- *
- * Beim ersten Mal zählt das Ergebnis voll. Danach gibt es nur noch die
- * Verbesserung gegenüber der bisher besten Antwort – wer eine Aufgabe
- * wiederholt, kann sich steigern, aber nicht dieselben Punkte zweimal holen.
- */
+/** Punkte für eine Antwort – nur Verbesserungen zählen (siehe `pointsForImprovement`). */
 export function studyPointsFor(scorePercent: number, previousBest: number | null): number {
-  const toPoints = (percent: number) => Math.round((STUDY_POINTS_PER_EXERCISE * percent) / 100);
-  return Math.max(0, toPoints(scorePercent) - (previousBest === null ? 0 : toPoints(previousBest)));
+  return pointsForImprovement(STUDY_POINTS_PER_EXERCISE, scorePercent, previousBest);
 }
 
 // -------------------------------------------------------------------- DTOs
@@ -101,6 +96,7 @@ export interface StudyLevelSummaryDto {
 }
 
 export interface StudyOverviewDto {
+  /** Der gemeinsame Punktestand über alle Bereiche. */
   totalPoints: number;
   /** Das angezeigte Niveau. */
   level: CefrLevel;
@@ -137,10 +133,7 @@ export interface StudyLessonDto {
   nextLessonId: string | null;
 }
 
-export interface StudyAnswerResultDto {
+export interface StudyAnswerResultDto extends PointsAward {
   result: BlockResult;
-  pointsEarned: number;
   bestScore: number;
-  /** Punkte über alle Lektionen, nach dieser Antwort. */
-  totalPoints: number;
 }

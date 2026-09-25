@@ -119,7 +119,7 @@ export default function ProfileScreen() {
       <Row gap={spacing.md}>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{user.xp}</Text>
-          <Caption>XP</Caption>
+          <Caption>{t('points')}</Caption>
         </Card>
         <Card style={{ flex: 1, alignItems: 'center' }}>
           <Text style={typography.title}>{user.streakDays}</Text>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type {
@@ -31,7 +31,8 @@ import { ChevronRightIcon } from '../workbook/BookIcons';
 import { TranslateLayer } from '../translate/TranslateLayer';
 import { useTranslateHeaderButton } from '../translate/TranslateButton';
 import type { StudyStackParamList } from '../../navigation/types';
-import { KIND_ICON, KIND_LABEL } from './StudyHomeScreen';
+import { KIND_LABEL } from './StudyHomeScreen';
+import { awardPoints } from '../../store/points.store';
 
 type Props = NativeStackScreenProps<StudyStackParamList, 'StudyLesson'>;
 
@@ -53,7 +54,6 @@ const MAX_PASSAGE_LENGTH = 4000;
 export default function StudyLessonScreen({ route, navigation }: Props) {
   const { lessonId } = route.params;
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const translator = useTranslateHeaderButton(navigation);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -79,8 +79,7 @@ export default function StudyLessonScreen({ route, navigation }: Props) {
       studyApi.answer(lessonId, { blockId: input.block.id, answer: input.answer }),
     onSuccess: (result, input) => {
       setResults((previous) => ({ ...previous, [input.block.id]: result }));
-      void queryClient.invalidateQueries({ queryKey: ['study-overview'] });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      awardPoints(result);
     },
   });
 
@@ -135,7 +134,7 @@ export default function StudyLessonScreen({ route, navigation }: Props) {
           <ProgressBar value={(data.number / data.total) * 100} color={accent} height={6} />
         </View>
         <Text style={[pointsChip, { color: accent, borderColor: accent }]}>
-          {t('studyPointsEarned', { points: lessonPoints })}
+          {t('pointsEarned', { points: lessonPoints })}
         </Text>
       </View>
 
@@ -148,7 +147,7 @@ export default function StudyLessonScreen({ route, navigation }: Props) {
           <>
             <View style={[card, { borderTopColor: accent }]}>
               <CardLabel
-                text={`${t('studyLearn')} · ${KIND_ICON[data.kind]} ${t(KIND_LABEL[data.kind])}`}
+                text={`${t('studyLearn')} · ${t(KIND_LABEL[data.kind])}`}
                 color={accent}
               />
               <Text style={lessonTitle}>{data.title}</Text>
@@ -352,7 +351,7 @@ function PointsNote({
   if (entry.pointsEarned > 0) {
     return (
       <Text style={[pointsNote, { color: accent }]}>
-        {t('studyPointsEarned', { points: entry.pointsEarned })}
+        {t('pointsEarned', { points: entry.pointsEarned })}
       </Text>
     );
   }
@@ -395,7 +394,6 @@ function ResultCard({
           { borderTopColor: accent, alignItems: 'center', paddingVertical: spacing.xl },
         ]}
       >
-        <Text style={{ fontSize: 44 }}>{percent === 100 ? '🏆' : percent >= 50 ? '🎯' : '💪'}</Text>
         <Text style={lessonTitle}>{t('studyResultTitle')}</Text>
         <Text style={[resultScore, { color: accent }]}>{t('studyResultScore', { percent })}</Text>
         <Text style={[typography.body, { color: book.inkSoft }]}>
@@ -403,7 +401,7 @@ function ResultCard({
         </Text>
         {totalPoints !== undefined ? (
           <Text style={[typography.caption, { color: book.inkFaint }]}>
-            {totalPoints} {t('studyPoints')}
+            {totalPoints} {t('points')}
           </Text>
         ) : null}
         {!onNext ? (

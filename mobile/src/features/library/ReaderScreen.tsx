@@ -31,6 +31,7 @@ import { ReaderSettingsSheet, ReaderStatusLine, ReaderTopBar } from './ReaderChr
 import { ReaderSettingsProvider, useReaderSettings } from './ReaderSettings';
 import { TranslateLayer } from '../translate/TranslateLayer';
 import type { TranslateLayerHandle } from '../translate/TranslateLayer';
+import { awardPoints } from '../../store/points.store';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Reader'>;
 
@@ -107,7 +108,8 @@ function Reader({ route, navigation }: Props) {
   const saveProgress = useMutation({
     mutationFn: (payload: { progressPercent: number; minutesRead?: number }) =>
       libraryApi.saveProgress(contentId, payload),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      awardPoints(result);
       // Die Übersicht sortiert nach Lesestand („Weiterlesen“ ganz oben) und
       // holt ihn nicht mehr bei jedem Fokus nach. Entwertet wird nur die
       // *Liste*: Ihr Schlüssel trägt an zweiter Stelle das Filterobjekt, der
@@ -117,7 +119,6 @@ function Reader({ route, navigation }: Props) {
         predicate: (query) =>
           query.queryKey[0] === 'library' && typeof query.queryKey[1] === 'object',
       });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 

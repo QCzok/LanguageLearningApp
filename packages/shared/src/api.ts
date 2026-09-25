@@ -12,6 +12,7 @@ import type {
   VocabMode,
 } from './enums';
 import type { NotebookPageContent, PageBackground } from './notebook';
+import type { PointsAward } from './points';
 import type { TranslatableLanguage } from './workbook';
 
 /** Antwortform aller Listen-Endpunkte. */
@@ -240,18 +241,17 @@ export interface SubmitReviewInput {
   grade: 0 | 1 | 2 | 3 | 4 | 5;
   mode: VocabMode;
   durationMs?: number;
-  /** Richtige Antworten in Folge vor dieser Karte – bringt Bonus-XP. */
+  /** Richtige Antworten in Folge vor dieser Karte – bringt Bonuspunkte. */
   combo?: number;
 }
 
-export interface SubmitReviewResultDto {
+export interface SubmitReviewResultDto extends PointsAward {
   cardId: string;
   status: CardStatus;
   dueAt: string;
   intervalDays: number;
   easeFactor: number;
   correct: boolean;
-  xpEarned: number;
 }
 
 export interface VocabStatsDto {
@@ -361,11 +361,27 @@ export interface SubmitExercisesInput {
   answers: Array<{ exerciseId: string; selectedIndex?: number; text?: string }>;
 }
 
-export interface ExerciseResultDto {
+/** Antwort auf eine Lesestands-Meldung; Punkte gibt es beim ersten Mal zu Ende gelesen. */
+export interface ReadingProgressResultDto extends PointsAward {
+  progressPercent: number;
+  completedAt: string | null;
+}
+
+/** Antwort auf eine Abspielstands-Meldung; Punkte gibt es beim ersten Mal zu Ende gehört. */
+export interface VideoProgressResultDto extends PointsAward {
+  positionSec: number;
+  completed: boolean;
+}
+
+/** Eine reine Leseseite im Buch abgehakt. */
+export interface UnitCompleteResultDto extends PointsAward {
+  status: string;
+}
+
+export interface ExerciseResultDto extends PointsAward {
   score: number;
   total: number;
   scorePercent: number;
-  xpEarned: number;
   results: Array<{
     exerciseId: string;
     correct: boolean;
@@ -502,6 +518,8 @@ export interface DashboardDto {
   activeProfile: LearningProfileDto | null;
   dueCards: number;
   minutesToday: number;
+  /** Heute verdiente Punkte, über alle Bereiche. */
+  pointsToday: number;
   dailyGoalMinutes: number;
   weeklyActivity: Array<{ date: string; minutes: number; xp: number }>;
   continueReading: LibraryContentDto | null;

@@ -37,6 +37,7 @@ import { Choice, Cloze, Matching, Ordering, Writing } from './blocks/ExerciseBlo
 import type { StudyStackParamList } from '../../navigation/types';
 import { TranslateLayer } from '../translate/TranslateLayer';
 import { useTranslateHeaderButton } from '../translate/TranslateButton';
+import { awardPoints } from '../../store/points.store';
 
 type Props = NativeStackScreenProps<StudyStackParamList, 'Unit'>;
 
@@ -77,7 +78,7 @@ export default function UnitScreen({ route, navigation }: Props) {
   const [results, setResults] = useState<Record<string, BlockResult>>({});
   const [checkingBlock, setCheckingBlock] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
-  const [summary, setSummary] = useState<{ score: number; xp: number; correct: number; total: number } | null>(null);
+  const [summary, setSummary] = useState<{ score: number; points: number; correct: number; total: number } | null>(null);
 
   const [tool, setTool] = useState<ToolState>(DEFAULT_TOOL);
   const [notes, setNotes] = useState<NotebookPageContent | null>(null);
@@ -136,13 +137,13 @@ export default function UnitScreen({ route, navigation }: Props) {
       if (!blockIds) {
         setSummary({
           score: result.scorePercent,
-          xp: result.xpEarned,
+          points: result.pointsEarned,
           correct: result.correctBlocks,
           total: result.totalBlocks,
         });
         void queryClient.invalidateQueries({ queryKey: ['workbook-books'] });
         void queryClient.invalidateQueries({ queryKey: ['workbook-book'] });
-        void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        awardPoints(result);
       }
     },
     onError: (error: Error) => {
@@ -153,7 +154,8 @@ export default function UnitScreen({ route, navigation }: Props) {
 
   const complete = useMutation({
     mutationFn: () => workbookApi.complete(unitId),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      awardPoints(result);
       await queryClient.invalidateQueries({ queryKey: ['workbook-books'] });
       void queryClient.invalidateQueries({ queryKey: ['workbook-book'] });
       // Weiter im Kapitel statt zurück zur Übersicht – nur die letzte Seite
@@ -628,7 +630,7 @@ function SummaryModal({
   onClose,
   onNext,
 }: {
-  summary: { score: number; xp: number; correct: number; total: number } | null;
+  summary: { score: number; points: number; correct: number; total: number } | null;
   nextUnit: UnitSummaryDto | null;
   onClose: () => void;
   onNext: (unit: UnitSummaryDto) => void;
@@ -656,10 +658,10 @@ function SummaryModal({
             {t('pageSummaryCorrectOf', { correct: summary.correct, total: summary.total })}
           </Text>
 
-          {summary.xp > 0 ? (
-            <Text style={summaryXp}>+{summary.xp} XP</Text>
+          {summary.points > 0 ? (
+            <Text style={summaryPoints}>{t('pointsEarned', { points: summary.points })}</Text>
           ) : (
-            <Text style={progressNote}>{t('pageSummaryNoXp')}</Text>
+            <Text style={progressNote}>{t('pageSummaryNoPoints')}</Text>
           )}
 
           <View style={summaryRule} />
@@ -793,7 +795,7 @@ const summaryScore = {
   fontWeight: '700' as const,
 };
 
-const summaryXp = {
+const summaryPoints = {
   fontFamily: bookSans,
   fontSize: 15,
   fontWeight: '700' as const,

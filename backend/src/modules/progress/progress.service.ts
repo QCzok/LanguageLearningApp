@@ -63,6 +63,7 @@ export class ProgressService {
       activeProfile: profile ? this.users.toProfileDto(profile) : null,
       dueCards,
       minutesToday: byDate.get(toDateKey(today))?.minutes ?? 0,
+      pointsToday: byDate.get(toDateKey(today))?.xp ?? 0,
       dailyGoalMinutes: profile?.dailyGoalMinutes ?? 15,
       weeklyActivity,
       continueReading: reading,

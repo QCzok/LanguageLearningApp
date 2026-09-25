@@ -47,7 +47,7 @@ export class StudyService {
 
     const [progress, total] = await Promise.all([
       this.loadProgress(userId),
-      this.totalPoints(userId),
+      this.users.totalPoints(userId),
     ]);
 
     const summaries = (level ? (catalog[level] ?? []) : []).map((lesson, index) =>
@@ -133,11 +133,14 @@ export class StudyService {
       },
     });
 
-    // Punkte zählen auch als XP – Serie und Tagesziel sollen eine Lektion
-    // genauso sehen wie eine Buchseite.
-    if (pointsEarned > 0) await this.users.trackActivity(userId, { xp: pointsEarned });
+    // Dieselbe Punktewährung wie überall – Serie und Tagesziel sollen eine
+    // Lektion genauso sehen wie eine Buchseite.
+    const totalPoints =
+      pointsEarned > 0
+        ? await this.users.trackActivity(userId, { xp: pointsEarned })
+        : await this.users.totalPoints(userId);
 
-    return { result, pointsEarned, bestScore, totalPoints: await this.totalPoints(userId) };
+    return { result, pointsEarned, bestScore, totalPoints };
   }
 
   // --------------------------------------------------------------- Helfer
@@ -168,14 +171,6 @@ export class StudyService {
   private async loadProgress(userId: string): Promise<Map<string, ExerciseProgress>> {
     const rows = await this.prisma.studyLessonProgress.findMany({ where: { userId } });
     return new Map(rows.map((row) => [progressKey(row.lessonId, row.blockId), row]));
-  }
-
-  private async totalPoints(userId: string): Promise<number> {
-    const total = await this.prisma.studyLessonProgress.aggregate({
-      where: { userId },
-      _sum: { points: true },
-    });
-    return total._sum.points ?? 0;
   }
 }
 

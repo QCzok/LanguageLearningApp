@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import { Prisma, UnitStatus, WorkbookBook } from '@prisma/client';
 import {
+  POINTS,
+  pointsForImprovement,
   WORKBOOK_BOOKS,
   booksForLevel,
   countExercises,
@@ -19,6 +21,7 @@ import {
   type ExerciseBlock,
   type UnitAnswers,
   type UnitCheckResult,
+  type UnitCompleteResultDto,
   type UnitContent,
   type UnitDetailDto,
   type UnitSummaryDto,
@@ -31,8 +34,6 @@ import { CheckUnitDto, SaveAnnotationsDto, SaveAnswersDto } from './dto/workbook
 
 import { ERR } from '../../common/i18n/messages';
 
-/** XP für eine vollständig abgeschlossene Lerneinheit, skaliert mit dem Ergebnis. */
-const XP_PER_UNIT = 30;
 
 @Injectable()
 export class WorkbookService {
@@ -252,7 +253,7 @@ export class WorkbookService {
    * Bewertet einzelne Blöcke oder die ganze Einheit.
    *
    * Ohne `blockIds` gilt es als Abgabe: Der Gesamtwert wird gespeichert, die
-   * Einheit auf abgeschlossen gesetzt und XP vergeben. Mit `blockIds` ist es
+   * Einheit auf abgeschlossen gesetzt und Punkte vergeben. Mit `blockIds` ist es
    * eine Zwischenprüfung einzelner Aufgaben – die verändert den Status nicht.
    */
   async check(userId: string, unitId: string, dto: CheckUnitDto): Promise<UnitCheckResult> {
@@ -292,12 +293,15 @@ export class WorkbookService {
       results.reduce((sum, result) => sum + result.scorePercent, 0) / results.length,
     );
 
-    let xpEarned = 0;
+    let pointsEarned = 0;
+    let totalPoints: number;
 
     if (!isPartial) {
-      const alreadyCompleted = stored?.status === UnitStatus.COMPLETED;
-      // XP nur beim ersten Abschluss – Wiederholen soll nicht farmen.
-      xpEarned = alreadyCompleted ? 0 : Math.round((XP_PER_UNIT * scorePercent) / 100);
+      // Wie bei den Lektionen: beim ersten Abschluss das Ergebnis, danach nur
+      // die Verbesserung – Wiederholen soll sich lohnen, aber nicht farmen.
+      const previousBest =
+        stored?.status === UnitStatus.COMPLETED ? (stored.scorePercent ?? 0) : null;
+      pointsEarned = pointsForImprovement(POINTS.WORKBOOK_UNIT, scorePercent, previousBest);
 
       await this.prisma.unitProgress.upsert({
         where: { userId_unitId: { userId, unitId } },
@@ -312,13 +316,13 @@ export class WorkbookService {
         update: {
           status: UnitStatus.COMPLETED,
           answers: merged as unknown as Prisma.InputJsonValue,
-          scorePercent,
+          scorePercent: Math.max(scorePercent, stored?.scorePercent ?? 0),
           completedAt: stored?.completedAt ?? new Date(),
         },
       });
 
-      await this.users.trackActivity(userId, {
-        xp: xpEarned,
+      totalPoints = await this.users.trackActivity(userId, {
+        xp: pointsEarned,
         minutes: unit.estimatedMinutes,
       });
     } else {
@@ -332,6 +336,7 @@ export class WorkbookService {
         },
         update: { answers: merged as unknown as Prisma.InputJsonValue },
       });
+      totalPoints = await this.users.totalPoints(userId);
     }
 
     return {
@@ -340,19 +345,20 @@ export class WorkbookService {
       scorePercent,
       correctBlocks,
       totalBlocks: results.length,
-      xpEarned,
+      pointsEarned,
+      totalPoints,
     };
   }
 
   /** Reine Leseseiten enthalten keine Aufgaben – sie werden manuell abgehakt. */
-  async markComplete(userId: string, unitId: string): Promise<{ status: UnitStatus; xpEarned: number }> {
+  async markComplete(userId: string, unitId: string): Promise<UnitCompleteResultDto> {
     const unit = await this.prisma.chapterUnit.findUnique({ where: { id: unitId } });
     if (!unit) throw new NotFoundException(ERR['notfound.unit']);
 
     const stored = await this.prisma.unitProgress.findUnique({
       where: { userId_unitId: { userId, unitId } },
     });
-    const xpEarned = stored?.status === UnitStatus.COMPLETED ? 0 : 10;
+    const pointsEarned = stored?.status === UnitStatus.COMPLETED ? 0 : POINTS.WORKBOOK_READING_UNIT;
 
     await this.prisma.unitProgress.upsert({
       where: { userId_unitId: { userId, unitId } },
@@ -360,10 +366,11 @@ export class WorkbookService {
       update: { status: UnitStatus.COMPLETED, completedAt: stored?.completedAt ?? new Date() },
     });
 
-    if (xpEarned > 0) {
-      await this.users.trackActivity(userId, { xp: xpEarned, minutes: unit.estimatedMinutes });
-    }
-    return { status: UnitStatus.COMPLETED, xpEarned };
+    const totalPoints =
+      pointsEarned > 0
+        ? await this.users.trackActivity(userId, { xp: pointsEarned, minutes: unit.estimatedMinutes })
+        : await this.users.totalPoints(userId);
+    return { status: UnitStatus.COMPLETED, pointsEarned, totalPoints };
   }
 
   /** Setzt eine Einheit zurück, damit sie neu bearbeitet werden kann. */

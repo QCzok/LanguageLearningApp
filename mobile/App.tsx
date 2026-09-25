@@ -19,6 +19,7 @@ import { useAuthStore } from './src/store/auth.store';
 import { preloadImages } from './src/assets';
 import { colors } from './src/theme';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { PointsCelebration } from './src/components/PointsCelebration';
 
 export default function App() {
   const bootstrap = useAuthStore((state) => state.bootstrap);
@@ -71,6 +72,7 @@ export default function App() {
           <ErrorBoundary>
             <RootNavigator />
           </ErrorBoundary>
+          <PointsCelebration />
         </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

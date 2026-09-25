@@ -20,6 +20,7 @@ import type { LibraryStackParamList } from '../../navigation/types';
 import { ReadingSection } from './ReadingSection';
 import { TranslateLayer } from '../translate/TranslateLayer';
 import { useTranslateHeaderButton } from '../translate/TranslateButton';
+import { awardPoints } from '../../store/points.store';
 
 type Props = NativeStackScreenProps<LibraryStackParamList, 'Exercises'>;
 
@@ -62,7 +63,10 @@ export default function ExercisesScreen({ route, navigation }: Props) {
           text: texts[exercise.id],
         })),
       }),
-    onSuccess: setResult,
+    onSuccess: (next) => {
+      setResult(next);
+      awardPoints(next);
+    },
   });
 
   if (isLoading) return <Loading />;
@@ -241,7 +245,7 @@ export default function ExercisesScreen({ route, navigation }: Props) {
 /**
  * Das Ergebnis eines Durchgangs.
  *
- * Die Zahl steht groß und allein, daneben die verdienten XP; der Balken
+ * Die Zahl steht groß und allein, daneben die verdienten Punkte; der Balken
  * darunter zeigt, wie weit es zur Bestehensgrenze war. Die Farbe – Grün oder
  * Gelb – ist dieselbe wie überall in der App für „geschafft“ und „knapp“.
  */
@@ -261,7 +265,7 @@ function ResultBanner({ result, passed }: { result: ExerciseResultDto; passed: b
         <Text style={[resultScore, { color: tone.accent }]}>{result.score}</Text>
         <Text style={resultTotal}>{t('exercisesOfCorrect', { total: result.total })}</Text>
         <View style={{ flex: 1 }} />
-        <Text style={[resultXp, { color: tone.accent }]}>+{result.xpEarned} XP</Text>
+        <Text style={[resultPoints, { color: tone.accent }]}>{t('pointsEarned', { points: result.pointsEarned })}</Text>
       </View>
 
       <View style={resultTrack}>
@@ -411,7 +415,7 @@ const resultTotal = {
   paddingBottom: 6,
 };
 
-const resultXp = {
+const resultPoints = {
   fontFamily: fontFamily.bold,
   fontSize: 17,
   paddingBottom: 6,

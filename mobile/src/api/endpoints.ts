@@ -1,4 +1,7 @@
 import type {
+  ReadingProgressResultDto,
+  UnitCompleteResultDto,
+  VideoProgressResultDto,
   AiConversationDto,
   AiMessageDto,
   AiMessageSource,
@@ -147,7 +150,7 @@ export const vocabularyApi = {
     grade: number;
     mode: string;
     durationMs?: number;
-    /** Richtige Antworten in Folge vor dieser Karte – bringt Bonus-XP. */
+    /** Richtige Antworten in Folge vor dieser Karte – bringt Bonuspunkte. */
     combo?: number;
   }) => api.post<SubmitReviewResultDto>('/vocabulary/review', body).then((r) => r.data),
   stats: () => api.get<VocabStatsDto>('/vocabulary/stats').then((r) => r.data),
@@ -219,7 +222,7 @@ export const workbookApi = {
       .then((r) => r.data),
   complete: (id: string) =>
     api
-      .post<{ status: string; xpEarned: number }>(`/workbook/units/${id}/complete`)
+      .post<UnitCompleteResultDto>(`/workbook/units/${id}/complete`)
       .then((r) => r.data),
   reset: (id: string) => api.post(`/workbook/units/${id}/reset`),
 };
@@ -241,7 +244,7 @@ export const libraryApi = {
     api.get<Paginated<LibraryContentDto>>('/library', { params }).then((r) => r.data),
   detail: (id: string) => api.get<LibraryContentDto>(`/library/${id}`).then((r) => r.data),
   saveProgress: (id: string, body: { progressPercent: number; minutesRead?: number }) =>
-    api.put(`/library/${id}/progress`, body),
+    api.put<ReadingProgressResultDto>(`/library/${id}/progress`, body).then((r) => r.data),
   submitExercises: (
     id: string,
     body: { answers: Array<{ exerciseId: string; selectedIndex?: number; text?: string }> },
@@ -260,7 +263,7 @@ export const videosApi = {
   saveProgress: (
     id: string,
     body: { positionSec: number; completed?: boolean; minutesWatched?: number },
-  ) => api.put(`/videos/${id}/progress`, body),
+  ) => api.put<VideoProgressResultDto>(`/videos/${id}/progress`, body).then((r) => r.data),
 };
 
 export const aiApi = {
