@@ -13,7 +13,7 @@
  * Deckung (weiche Kante) und – mit größerem Weichzeichnungsradius und Versatz –
  * auch gleich der Schlagschatten.
  *
- * Aufruf:  node scripts/render-home-covers.mjs
+ * Aufruf:  node scripts/render-home-covers.mjs [Namensfilter]
  */
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -3310,6 +3310,637 @@ function renderSceneGenericBook(WIDTH, HEIGHT) {
   return canvas;
 }
 
+// ------------------------------------------------- Szene: Übungsarten
+
+/**
+ * Die Kacheln auf der ersten Seite des Vokabeltrainers – eine je Übungsart
+ * (`mobile/src/features/vocabulary/trainerModes.ts`). Gleiche Technik wie die
+ * Startseite, jede Übungsart in eigener Farbe, damit man sie im Raster
+ * auseinanderhält: Auswahl blau, Paare türkis, Sprechen rosé, Satzbau
+ * bernstein, Wortbau grün, Mix indigo.
+ */
+
+/**
+ * Eine Karte oder Kachel mit zweilagigem Schatten und Licht von links oben.
+ * Gibt die neue Farbe, die Koordinaten im Kartensystem und die Deckung
+ * zurück, damit der Aufrufer den Inhalt der Karte darauf malen kann.
+ */
+function drawTile(col, x, y, S, aa, t) {
+  const angle = ((t.deg ?? 0) * Math.PI) / 180;
+  const lift = t.lift ?? 1;
+  for (const [offset, blur, strength] of [
+    [0.024 * S * lift, 0.055 * S * lift, 0.26],
+    [0.006 * S * lift, 0.015 * S * lift, 0.26 / lift],
+  ]) {
+    const [sx, sy] = toLocal(x, y - offset, t.cx, t.cy, angle);
+    const sd = sdRoundRect(sx, sy, t.hw, t.hh, t.r);
+    col = mixColor(col, t.shadow, smoothstep(blur, -blur * 0.2, sd) * strength);
+  }
+  const [lx, ly] = toLocal(x, y, t.cx, t.cy, angle);
+  const d = sdRoundRect(lx, ly, t.hw, t.hh, t.r);
+  const cov = smoothstep(aa, -aa, d);
+  if (cov > 0) {
+    const lightT = clamp((lx / t.hw) * 0.3 + (ly / t.hh) * 0.45 + 0.5, 0, 1);
+    let face = mixColor(t.light, t.dark, lightT);
+    face = mixColor(face, t.edge ?? t.dark, smoothstep(2.6, 0.4, Math.abs(d)) * 0.55);
+    col = mixColor(col, face, cov);
+  }
+  return { col, lx, ly, cov };
+}
+
+/** Pille (Balken mit runden Enden) um `cx`/`cy` im Kartensystem. */
+const sdPill = (lx, ly, cx, cy, hw, hh) => sdRoundRect(lx - cx, ly - cy, hw, hh, hh);
+
+/** Häkchen aus zwei Strichen, `size` ist die halbe Breite. */
+function sdCheck(lx, ly, cx, cy, size) {
+  return Math.min(
+    sdSegment(lx, ly, cx - size * 0.62, cy + size * 0.02, cx - size * 0.15, cy + size * 0.48),
+    sdSegment(lx, ly, cx - size * 0.15, cy + size * 0.48, cx + size * 0.66, cy - size * 0.45),
+  );
+}
+
+/** Lichtpfütze, Unschärfekreise und Vignette – der gemeinsame Abschluss. */
+function finishTrainerScene(col, nx, ny, W, H, vignette, bokeh) {
+  for (const [bx, by, br, ba] of bokeh) {
+    const dist = Math.hypot(nx - bx, (ny - by) * (H / W));
+    col = mixColor(col, [255, 255, 255], smoothstep(br, br * 0.1, dist) * ba);
+  }
+  const vig = Math.hypot(nx - 0.5, (ny - 0.5) * 0.8);
+  return mixColor(col, vignette, smoothstep(0.34, 0.8, vig) * 0.17);
+}
+
+/**
+ * Auswahl: links die Fragekarte mit dem Wort, rechts drei Antworten – die
+ * mittlere grün mit Häkchen.
+ */
+function renderTrainerChoice(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const BLUE = [37, 99, 235];
+  const SOFT = [186, 201, 226];
+  const GREEN = [22, 163, 74];
+  const SHADOW_BLUE = [44, 70, 118];
+  const paper = { light: [255, 255, 255], dark: [221, 230, 245], edge: [150, 176, 216], shadow: SHADOW_BLUE };
+
+  const question = { ...paper, cx: 0.33 * WIDTH, cy: 0.5 * HEIGHT, hw: 0.26 * S, hh: 0.3 * S, r: 0.03 * S, deg: -4 };
+  const answers = [0.25, 0.5, 0.75].map((fy, idx) => ({
+    ...paper,
+    ...(idx === 1 ? { light: [236, 252, 242], dark: [200, 236, 214], edge: [74, 184, 118] } : {}),
+    cx: (0.7 + (idx === 1 ? 0.025 : 0)) * WIDTH,
+    cy: fy * HEIGHT,
+    hw: 0.24 * S,
+    hh: 0.075 * S,
+    r: 0.075 * S,
+    deg: [-2, 1.5, -1][idx],
+    lift: idx === 1 ? 1.5 : 1,
+    correct: idx === 1,
+    bar: [0.13, 0.1, 0.15][idx],
+  }));
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [234, 242, 255], [158, 189, 234], 0.28, 0.16, 0.26);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.16 + ((ny - 0.5) ** 2) / 0.14));
+      col = mixColor(col, [255, 255, 255], pool * 0.28);
+
+      // Fragekarte: Sprachmarke, das Wort, zwei ruhige Zeilen.
+      let tile = drawTile(col, x, y, S, aa, question);
+      col = tile.col;
+      if (tile.cov > 0) {
+        const { lx, ly, cov } = tile;
+        const tagD = sdRoundRect(lx + 0.19 * S, ly + 0.22 * S, 0.028 * S, 0.028 * S, 0.009 * S);
+        col = mixColor(col, [216, 230, 252], smoothstep(aa, -aa, tagD) * cov);
+        const tagInner = sdRoundRect(lx + 0.19 * S, ly + 0.22 * S, 0.011 * S, 0.011 * S, 0.004 * S);
+        col = mixColor(col, BLUE, smoothstep(aa, -aa, tagInner) * cov * 0.9);
+        col = mixColor(col, BLUE, smoothstep(aa, -aa, sdPill(lx, ly, -0.03 * S, -0.03 * S, 0.17 * S, 0.022 * S)) * cov);
+        col = mixColor(col, SOFT, smoothstep(aa, -aa, sdPill(lx, ly, -0.07 * S, 0.06 * S, 0.13 * S, 0.012 * S)) * cov);
+        col = mixColor(col, SOFT, smoothstep(aa, -aa, sdPill(lx, ly, -0.11 * S, 0.11 * S, 0.09 * S, 0.012 * S)) * cov);
+        col = mixColor(col, [208, 220, 238], smoothstep(aa, -aa, sdPill(lx, ly, 0, 0.22 * S, 0.2 * S, 0.01 * S)) * cov);
+        col = mixColor(col, [59, 130, 246], smoothstep(aa, -aa, sdPill(lx, ly, -0.09 * S, 0.22 * S, 0.11 * S, 0.01 * S)) * cov);
+      }
+
+      // Antworten: Kreis links, Wortbalken daneben.
+      for (const answer of answers) {
+        tile = drawTile(col, x, y, S, aa, answer);
+        col = tile.col;
+        if (tile.cov <= 0) continue;
+        const { lx, ly, cov } = tile;
+        const dotX = -answer.hw + 0.075 * S;
+        const dot = Math.hypot(lx - dotX, ly) - 0.036 * S;
+        if (answer.correct) {
+          col = mixColor(col, GREEN, smoothstep(aa, -aa, dot) * cov);
+          const check = sdCheck(lx, ly, dotX, 0, 0.022 * S) - 0.0065 * S;
+          col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, check) * cov);
+          col = mixColor(col, GREEN, smoothstep(aa, -aa, sdPill(lx, ly, dotX + 0.065 * S + answer.bar * S, 0, answer.bar * S, 0.017 * S)) * cov);
+        } else {
+          col = mixColor(col, [168, 188, 222], smoothstep(aa, -aa, Math.abs(dot) - 0.005 * S) * cov);
+          col = mixColor(col, SOFT, smoothstep(aa, -aa, sdPill(lx, ly, dotX + 0.065 * S + answer.bar * S, 0, answer.bar * S, 0.017 * S)) * cov);
+        }
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [56, 82, 128], [
+        [0.9, 0.12, 0.07, 0.24],
+        [0.08, 0.86, 0.05, 0.16],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
+/**
+ * Paare: zwei Spalten kleiner Karten, drei farbige Fäden verbinden, was
+ * zusammengehört.
+ */
+function renderTrainerMatching(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const SHADOW_TEAL = [24, 84, 82];
+  const paper = { light: [255, 255, 255], dark: [218, 238, 236], edge: [128, 196, 190], shadow: SHADOW_TEAL };
+  const PAIR = [
+    [13, 148, 136],
+    [234, 150, 32],
+    [225, 82, 104],
+  ];
+  const rows = [0.24, 0.5, 0.76];
+  // Linke Karte `k` gehört zur rechten Karte `LINKS[k]`.
+  const LINKS = [1, 2, 0];
+
+  const card = (side, row) => ({
+    ...paper,
+    cx: (side === 0 ? 0.29 : 0.71) * WIDTH,
+    cy: rows[row] * HEIGHT,
+    hw: 0.2 * S,
+    hh: 0.08 * S,
+    r: 0.022 * S,
+    deg: side === 0 ? [-2, 1.5, -1][row] : [1.5, -2, 2][row],
+  });
+  const left = rows.map((_, row) => card(0, row));
+  const right = rows.map((_, row) => card(1, row));
+  const knobL = left.map((c) => [c.cx + c.hw, c.cy]);
+  const knobR = right.map((c) => [c.cx - c.hw, c.cy]);
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [222, 246, 243], [148, 212, 204], 0.28, 0.16, 0.26);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.16 + ((ny - 0.5) ** 2) / 0.14));
+      col = mixColor(col, [255, 255, 255], pool * 0.28);
+
+      // Fäden zuerst – die Karten liegen darüber.
+      for (let k = 0; k < 3; k += 1) {
+        const [ax, ay] = knobL[k];
+        const [bx, by] = knobR[LINKS[k]];
+        const d = sdSegment(x, y, ax, ay, bx, by);
+        col = mixColor(col, SHADOW_TEAL, smoothstep(0.02 * S, 0, d - 0.004 * S) * 0.12);
+        col = mixColor(col, PAIR[k], smoothstep(aa, -aa, d - 0.0075 * S));
+      }
+
+      for (let side = 0; side < 2; side += 1) {
+        for (let row = 0; row < 3; row += 1) {
+          const c = side === 0 ? left[row] : right[row];
+          const pair = side === 0 ? row : LINKS.indexOf(row);
+          const tile = drawTile(col, x, y, S, aa, c);
+          col = tile.col;
+          if (tile.cov <= 0) continue;
+          const { lx, ly, cov } = tile;
+          // Links das Wort in der Farbe des Paars, rechts die Übersetzung.
+          const barW = [0.11, 0.13, 0.09][row] * S;
+          const barX = side === 0 ? -c.hw + 0.05 * S + barW : c.hw - 0.05 * S - barW;
+          const barCol = side === 0 ? PAIR[pair] : mixColor(PAIR[pair], [255, 255, 255], 0.45);
+          col = mixColor(col, barCol, smoothstep(aa, -aa, sdPill(lx, ly, barX, 0, barW, 0.02 * S)) * cov);
+        }
+      }
+
+      // Anschlusspunkte an den Kartenkanten.
+      for (let k = 0; k < 3; k += 1) {
+        for (const [px, py] of [knobL[k], knobR[LINKS[k]]]) {
+          const d = Math.hypot(x - px, y - py);
+          col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, d - 0.024 * S));
+          col = mixColor(col, PAIR[k], smoothstep(aa, -aa, d - 0.016 * S));
+        }
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [20, 70, 68], [
+        [0.9, 0.1, 0.065, 0.22],
+        [0.1, 0.9, 0.05, 0.16],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
+/** Sprechen: ein Mikrofon auf dem Ständer, zu beiden Seiten Schallbögen. */
+function renderTrainerSpeaking(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const ROSE = [225, 29, 72];
+  const ROSE_DARK = [150, 18, 50];
+  const METAL_LIGHT = [236, 238, 244];
+  const METAL_DARK = [120, 128, 146];
+
+  const cx = 0.5 * WIDTH;
+  const headCy = 0.4 * HEIGHT;
+  const headHw = 0.085 * S;
+  const headHh = 0.145 * S;
+  const holderR = 0.135 * S;
+  const holderCy = headCy + 0.03 * S;
+  const stemTop = holderCy + holderR;
+  const stemBottom = 0.84 * HEIGHT;
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [254, 236, 240], [240, 170, 186], 0.28, 0.16, 0.26);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.08 + ((ny - 0.45) ** 2) / 0.14));
+      col = mixColor(col, [255, 255, 255], pool * 0.35);
+
+      // Schallbögen: Ringabschnitte links und rechts, nach außen blasser.
+      const dx = x - cx;
+      const dy = y - headCy;
+      const r = Math.hypot(dx, dy);
+      const spread = Math.abs(Math.atan2(dy, Math.abs(dx)));
+      const arcMask = smoothstep(0.62, 0.5, spread);
+      for (const [radius, alpha] of [
+        [0.235 * S, 0.9],
+        [0.315 * S, 0.62],
+        [0.395 * S, 0.36],
+      ]) {
+        const d = Math.abs(r - radius) - 0.011 * S;
+        col = mixColor(col, ROSE, smoothstep(aa, -aa, d) * arcMask * alpha);
+      }
+
+      // Bügel (untere Hälfte eines Rings), Säule und Standfuß.
+      const ringD = Math.abs(Math.hypot(x - cx, y - holderCy) - holderR) - 0.012 * S;
+      const holderD = y >= holderCy ? ringD : Math.max(ringD, (holderCy - y) - 0.0);
+      const stemD = sdRoundRect(x - cx, y - (stemTop + stemBottom) / 2, 0.012 * S, (stemBottom - stemTop) / 2, 0.006 * S);
+      const baseD = sdRoundRect(x - cx, y - stemBottom, 0.12 * S, 0.018 * S, 0.018 * S);
+      const standD = Math.min(holderD, stemD, baseD);
+      const headD = sdRoundRect(x - cx, y - headCy, headHw, headHh, headHw);
+
+      const shadowD = Math.min(standD, headD);
+      col = mixColor(col, [110, 30, 52], smoothstep(0.05 * S, -0.012 * S, shadowD - 0.004 * S) * 0.22);
+
+      const metalT = smoothstep(-0.012 * S, 0.012 * S, x - cx + 0.004 * S);
+      col = mixColor(col, mixColor(METAL_LIGHT, METAL_DARK, metalT), smoothstep(aa, -aa, standD));
+      const baseShade = smoothstep(-0.12 * S, 0.12 * S, x - cx);
+      col = mixColor(col, mixColor([214, 218, 228], [110, 118, 136], baseShade), smoothstep(aa, -aa, baseD));
+
+      // Kopf: runde Kapsel, von links angeleuchtet, mit Gitterrillen.
+      const headCov = smoothstep(aa, -aa, headD);
+      if (headCov > 0) {
+        const u = (x - cx) / headHw;
+        let headCol = mixColor(mixColor(ROSE, [255, 255, 255], 0.2), ROSE_DARK, smoothstep(-0.9, 1, u));
+        headCol = mixColor(headCol, [255, 214, 224], smoothstep(-0.25, -0.65, u) * smoothstep(-1, -0.8, u) * 0.7);
+        const gy = y - (headCy - headHh * 0.55);
+        if (gy > 0 && gy < headHh * 0.95) {
+          const groove = Math.abs(((gy / (0.032 * S)) % 1) - 0.5);
+          headCol = mixColor(headCol, ROSE_DARK, smoothstep(0.12, 0.04, groove) * 0.35);
+        }
+        col = mixColor(col, headCol, headCov);
+        // Metallring zwischen Gitter und Griff.
+        const bandD = sdRoundRect(x - cx, y - (headCy + headHh * 0.55), headHw * 1.02, 0.009 * S, 0.004 * S);
+        col = mixColor(col, mixColor(METAL_LIGHT, METAL_DARK, smoothstep(-1, 1, u)), smoothstep(aa, -aa, bandD) * headCov);
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [110, 30, 52], [
+        [0.1, 0.14, 0.06, 0.22],
+        [0.9, 0.86, 0.05, 0.16],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
+/**
+ * Satzbau: Wortkacheln auf einer Leiste, eine Lücke im Satz – die fehlende
+ * Kachel schwebt darüber und ist auf dem Weg hinein.
+ */
+function renderTrainerSentence(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const AMBER = [217, 119, 6];
+  const AMBER_SOFT = [240, 196, 128];
+  const SHADOW_AMBER = [120, 70, 20];
+  const paper = { light: [255, 255, 255], dark: [245, 232, 212], edge: [222, 180, 120], shadow: SHADOW_AMBER };
+
+  const widths = [0.17, 0.24, 0.2, 0.15];
+  const gap = 0.035 * S;
+  const total = widths.reduce((sum, w) => sum + w * S, 0) + gap * (widths.length - 1);
+  const rowY = 0.66 * HEIGHT;
+  const tileHh = 0.07 * S;
+  let cursor = (WIDTH - total) / 2;
+  const slots = widths.map((w) => {
+    const slot = { cx: cursor + (w * S) / 2, hw: (w * S) / 2 };
+    cursor += w * S + gap;
+    return slot;
+  });
+  const EMPTY = 2;
+  const placed = slots.map((s, idx) => ({ ...paper, cx: s.cx, cy: rowY, hw: s.hw, hh: tileHh, r: 0.02 * S, idx }));
+  const flying = {
+    ...paper,
+    light: [255, 250, 240],
+    edge: AMBER,
+    cx: slots[EMPTY].cx + 0.05 * S,
+    cy: 0.27 * HEIGHT,
+    hw: slots[EMPTY].hw,
+    hh: tileHh,
+    r: 0.02 * S,
+    deg: -7,
+    lift: 2.2,
+  };
+  const railD = (x, y) => sdRoundRect(x - WIDTH / 2, y - (rowY + tileHh + 0.03 * S), total / 2 + 0.04 * S, 0.012 * S, 0.012 * S);
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [255, 245, 226], [240, 196, 132], 0.28, 0.16, 0.26);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.16 + ((ny - 0.55) ** 2) / 0.14));
+      col = mixColor(col, [255, 255, 255], pool * 0.28);
+
+      // Leiste unter dem Satz.
+      col = mixColor(col, SHADOW_AMBER, smoothstep(0.03 * S, -0.005 * S, railD(x, y - 0.01 * S)) * 0.18);
+      col = mixColor(col, mixColor([226, 170, 98], [176, 112, 40], smoothstep(-1, 1, (y - rowY - tileHh - 0.03 * S) / (0.012 * S))), smoothstep(aa, -aa, railD(x, y)));
+
+      // Lücke: vertieft, mit gestricheltem Rand.
+      {
+        const s = slots[EMPTY];
+        const d = sdRoundRect(x - s.cx, y - rowY, s.hw, tileHh, 0.02 * S);
+        col = mixColor(col, SHADOW_AMBER, smoothstep(aa, -aa, d) * 0.1);
+        const along = (Math.atan2(y - rowY, x - s.cx) + Math.PI) * 18;
+        const dash = smoothstep(0.1, -0.1, Math.sin(along));
+        col = mixColor(col, AMBER, smoothstep(aa, -aa, Math.abs(d) - 0.004 * S) * dash * 0.8);
+      }
+
+      for (const tileSpec of placed) {
+        if (tileSpec.idx === EMPTY) continue;
+        const tile = drawTile(col, x, y, S, aa, tileSpec);
+        col = tile.col;
+        if (tile.cov <= 0) continue;
+        const { lx, ly, cov } = tile;
+        const barHw = tileSpec.hw - 0.045 * S;
+        const barCol = tileSpec.idx === 0 ? AMBER : AMBER_SOFT;
+        col = mixColor(col, barCol, smoothstep(aa, -aa, sdPill(lx, ly, 0, 0, barHw, 0.018 * S)) * cov);
+      }
+
+      // Punkt am Satzende.
+      {
+        const last = slots[slots.length - 1];
+        const d = Math.hypot(x - (last.cx + last.hw + 0.03 * S), y - (rowY + 0.03 * S)) - 0.014 * S;
+        col = mixColor(col, AMBER, smoothstep(aa, -aa, d));
+      }
+
+      // Weg der schwebenden Kachel in die Lücke: gestrichelter Bogen.
+      {
+        const ax = flying.cx - 0.02 * S;
+        const ay = flying.cy + tileHh + 0.04 * S;
+        const bx = slots[EMPTY].cx;
+        const by = rowY - tileHh - 0.035 * S;
+        const d = dashCoverage(x, y, ax, ay, bx, by, 0.022 * S, 0.016 * S, 0.006 * S, aa);
+        col = mixColor(col, AMBER, d * 0.85);
+        const ang = Math.atan2(by - ay, bx - ax);
+        const hx = Math.cos(ang);
+        const hy = Math.sin(ang);
+        const tip = [bx + hx * 0.01 * S, by + hy * 0.01 * S];
+        const back = [bx - hx * 0.03 * S, by - hy * 0.03 * S];
+        const headD = sdTriangle(x, y, tip, [back[0] - hy * 0.022 * S, back[1] + hx * 0.022 * S], [back[0] + hy * 0.022 * S, back[1] - hx * 0.022 * S]);
+        col = mixColor(col, AMBER, smoothstep(aa, -aa, headD) * 0.85);
+      }
+
+      {
+        const tile = drawTile(col, x, y, S, aa, flying);
+        col = tile.col;
+        if (tile.cov > 0) {
+          const { lx, ly, cov } = tile;
+          col = mixColor(col, AMBER, smoothstep(aa, -aa, sdPill(lx, ly, 0, 0, flying.hw - 0.045 * S, 0.018 * S)) * cov);
+        }
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [120, 70, 20], [
+        [0.88, 0.13, 0.07, 0.24],
+        [0.1, 0.18, 0.045, 0.16],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
+/**
+ * Buchstaben als Strichzeichnung im Einheitsquadrat (-1..1); `O` ist ein Ring.
+ * Nur, was die Wortbau-Kachel braucht.
+ */
+const LETTERS = {
+  H: [[-0.55, -0.75, -0.55, 0.75], [0.55, -0.75, 0.55, 0.75], [-0.55, 0, 0.55, 0]],
+  A: [[-0.65, 0.75, 0, -0.75], [0, -0.75, 0.65, 0.75], [-0.38, 0.22, 0.38, 0.22]],
+  L: [[-0.45, -0.75, -0.45, 0.75], [-0.45, 0.75, 0.55, 0.75]],
+  O: 'ring',
+};
+
+function sdLetter(u, v, letter) {
+  const shape = LETTERS[letter];
+  if (shape === 'ring') return Math.abs(Math.hypot(u / 0.8, v) - 0.75) * 0.8;
+  let d = Infinity;
+  for (const [ax, ay, bx, by] of shape) d = Math.min(d, sdSegment(u, v, ax, ay, bx, by));
+  return d;
+}
+
+/**
+ * Wortbau: fünf Felder für H-A-L-L-O, drei schon belegt; die beiden L liegen
+ * noch lose darüber.
+ */
+function renderTrainerWordBuild(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const GREEN = [21, 128, 61];
+  const SHADOW_GREEN = [26, 84, 48];
+  const cream = { light: [255, 253, 244], dark: [236, 226, 198], edge: [196, 180, 140], shadow: SHADOW_GREEN };
+
+  const word = ['H', 'A', 'L', 'L', 'O'];
+  const filled = [true, true, false, false, true];
+  const size = 0.085 * S;
+  const step = size * 2 + 0.035 * S;
+  const rowY = 0.67 * HEIGHT;
+  const startX = WIDTH / 2 - step * 2;
+  const slots = word.map((letter, k) => ({ letter, cx: startX + k * step, cy: rowY, filled: filled[k] }));
+  const loose = [
+    { ...cream, letter: 'L', cx: 0.4 * WIDTH, cy: 0.26 * HEIGHT, deg: -10, lift: 2 },
+    { ...cream, letter: 'L', cx: 0.57 * WIDTH, cy: 0.3 * HEIGHT, deg: 8, lift: 2 },
+  ].map((t) => ({ ...t, hw: size, hh: size, r: 0.02 * S }));
+
+  const letterInk = (col, lx, ly, letter, cov) => {
+    const d = sdLetter(lx / (size * 0.62), ly / (size * 0.62), letter) * size * 0.62 - 0.012 * S;
+    return mixColor(col, GREEN, smoothstep(aa, -aa, d) * cov);
+  };
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [230, 248, 236], [150, 212, 170], 0.28, 0.16, 0.26);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.16 + ((ny - 0.55) ** 2) / 0.14));
+      col = mixColor(col, [255, 255, 255], pool * 0.28);
+
+      for (const slot of slots) {
+        if (slot.filled) {
+          const tile = drawTile(col, x, y, S, aa, { ...cream, cx: slot.cx, cy: slot.cy, hw: size, hh: size, r: 0.02 * S });
+          col = tile.col;
+          if (tile.cov > 0) col = letterInk(col, tile.lx, tile.ly, slot.letter, tile.cov);
+        } else {
+          // Leeres Feld: in die Fläche eingelassen, oben ein Innenschatten.
+          const d = sdRoundRect(x - slot.cx, y - slot.cy, size, size, 0.02 * S);
+          const inside = smoothstep(aa, -aa, d);
+          col = mixColor(col, SHADOW_GREEN, inside * 0.14);
+          const inner = sdRoundRect(x - slot.cx, y - slot.cy - 0.012 * S, size, size, 0.02 * S);
+          col = mixColor(col, SHADOW_GREEN, inside * smoothstep(-0.02 * S, 0.002 * S, inner) * 0.18);
+          col = mixColor(col, [255, 255, 255], smoothstep(aa, -aa, Math.abs(d) - 0.003 * S) * 0.35);
+        }
+      }
+
+      for (const t of loose) {
+        const tile = drawTile(col, x, y, S, aa, t);
+        col = tile.col;
+        if (tile.cov > 0) col = letterInk(col, tile.lx, tile.ly, t.letter, tile.cov);
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [26, 84, 48], [
+        [0.88, 0.14, 0.07, 0.24],
+        [0.12, 0.2, 0.05, 0.18],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
+/**
+ * Mix: ein Fächer aus fünf Karten, jede mit dem Motiv einer Übungsart in
+ * deren Farbe. Breitformat, weil die Kachel über die ganze Zeile geht.
+ */
+function renderTrainerMix(WIDTH, HEIGHT) {
+  const canvas = new Canvas(WIDTH, HEIGHT);
+  const S = HEIGHT;
+  const aa = 1.1;
+
+  const SHADOW_INDIGO = [50, 46, 120];
+  const paper = { light: [255, 255, 255], dark: [226, 226, 244], edge: [166, 166, 214], shadow: SHADOW_INDIGO };
+  const MODES = [
+    { accent: [37, 99, 235], motif: 'choice' },
+    { accent: [13, 148, 136], motif: 'match' },
+    { accent: [225, 29, 72], motif: 'speak' },
+    { accent: [217, 119, 6], motif: 'sentence' },
+    { accent: [22, 163, 74], motif: 'word' },
+  ];
+  const R = 1.15 * S;
+  const pivotX = WIDTH / 2;
+  const pivotY = 0.47 * HEIGHT + R;
+  const cards = MODES.map((m, k) => {
+    const deg = (k - 2) * 15;
+    const a = (deg * Math.PI) / 180;
+    return { ...paper, ...m, cx: pivotX + R * Math.sin(a), cy: pivotY - R * Math.cos(a), hw: 0.14 * S, hh: 0.2 * S, r: 0.022 * S, deg };
+  });
+
+  const motif = (col, lx, ly, card, cov) => {
+    const A = card.accent;
+    const soft = mixColor(A, [255, 255, 255], 0.55);
+    const fill = (d, c, alpha = 1) => mixColor(col, c, smoothstep(aa, -aa, d) * cov * alpha);
+    // Farbige Kopflinie wie auf den Karteikarten der App.
+    col = fill(sdPill(lx, ly, 0, -card.hh + 0.035 * S, card.hw - 0.035 * S, 0.004 * S), A);
+    switch (card.motif) {
+      case 'choice':
+        col = fill(sdPill(lx, ly, 0, -0.07 * S, 0.08 * S, 0.016 * S), A);
+        for (const [oy, c] of [[0.0, soft], [0.055, [22, 163, 74]], [0.11, soft]]) {
+          col = fill(sdPill(lx, ly, 0, oy * S, 0.085 * S, 0.018 * S), c);
+        }
+        break;
+      case 'match':
+        for (const [ay, by] of [[-0.06, 0.04], [0.1, -0.02]]) {
+          col = fill(sdSegment(lx, ly, -0.06 * S, ay * S, 0.06 * S, by * S) - 0.005 * S, A);
+          col = fill(Math.hypot(lx + 0.06 * S, ly - ay * S) - 0.017 * S, A);
+          col = fill(Math.hypot(lx - 0.06 * S, ly - by * S) - 0.017 * S, soft);
+        }
+        break;
+      case 'speak': {
+        col = fill(sdRoundRect(lx, ly + 0.03 * S, 0.035 * S, 0.06 * S, 0.035 * S), A);
+        const ring = Math.abs(Math.hypot(lx, ly + 0.01 * S) - 0.06 * S) - 0.006 * S;
+        col = fill(ly > -0.01 * S ? ring : Infinity, soft);
+        col = fill(sdSegment(lx, ly, 0, 0.05 * S, 0, 0.1 * S) - 0.006 * S, soft);
+        col = fill(sdPill(lx, ly, 0, 0.105 * S, 0.035 * S, 0.007 * S), soft);
+        break;
+      }
+      case 'sentence':
+        col = fill(sdPill(lx, ly, -0.035 * S, -0.05 * S, 0.05 * S, 0.02 * S), A, 0.9);
+        for (const [ox, oy, hw] of [[-0.065, 0.04, 0.035], [0.045, 0.04, 0.05], [-0.02, 0.1, 0.075]]) {
+          col = fill(sdPill(lx, ly, ox * S, oy * S, hw * S, 0.018 * S), soft);
+        }
+        break;
+      case 'word':
+        for (const [ox, oy, on] of [[-0.065, -0.03, 1], [0, -0.03, 1], [0.065, -0.03, 0], [-0.032, 0.06, 1], [0.032, 0.06, 0]]) {
+          const d = sdRoundRect(lx - ox * S, ly - oy * S, 0.026 * S, 0.026 * S, 0.006 * S);
+          col = fill(d, on ? A : soft, on ? 1 : 0.8);
+        }
+        break;
+      default:
+        break;
+    }
+    return col;
+  };
+
+  for (let y = 0; y < HEIGHT; y += 1) {
+    for (let x = 0; x < WIDTH; x += 1) {
+      const i = (y * WIDTH + x) * 3;
+      const nx = x / WIDTH;
+      const ny = y / HEIGHT;
+
+      let col = paintBackdrop(nx, ny, [238, 237, 255], [176, 174, 238], 0.3, 0.16, 0.2);
+      const pool = Math.exp(-(((nx - 0.5) ** 2) / 0.06 + ((ny - 0.5) ** 2) / 0.16));
+      col = mixColor(col, [255, 255, 255], pool * 0.32);
+
+      for (const card of cards) {
+        const tile = drawTile(col, x, y, S, aa, card);
+        col = tile.col;
+        if (tile.cov > 0) col = motif(col, tile.lx, tile.ly, card, tile.cov);
+      }
+
+      col = finishTrainerScene(col, nx, ny, WIDTH, HEIGHT, [50, 46, 120], [
+        [0.9, 0.18, 0.05, 0.24],
+        [0.07, 0.24, 0.04, 0.2],
+        [0.16, 0.85, 0.03, 0.14],
+        [0.83, 0.82, 0.035, 0.14],
+      ]);
+      canvas.blend(i, col, 1);
+    }
+  }
+  return canvas;
+}
+
 // ---------------------------------------------------------------------- Start
 
 const COVERS = [
@@ -3355,9 +3986,22 @@ const COVERS = [
   { file: 'mobile/assets/covers/scene-living-room.png', width: 720, height: 450, render: renderSceneLivingRoom },
   { file: 'mobile/assets/covers/scene-fiesta-lights.png', width: 720, height: 450, render: renderSceneFiestaLights },
   { file: 'mobile/assets/covers/scene-generic-book.png', width: 720, height: 450, render: renderSceneGenericBook },
+  // Übungsarten im Vokabeltrainer: 16:9 wie die Startseite, der Mix läuft
+  // über die ganze Zeile und bekommt deshalb 8:3.
+  { file: 'mobile/assets/covers/trainer-choice.png', width: 768, height: 432, render: renderTrainerChoice },
+  { file: 'mobile/assets/covers/trainer-matching.png', width: 768, height: 432, render: renderTrainerMatching },
+  { file: 'mobile/assets/covers/trainer-speaking.png', width: 768, height: 432, render: renderTrainerSpeaking },
+  { file: 'mobile/assets/covers/trainer-sentence.png', width: 768, height: 432, render: renderTrainerSentence },
+  { file: 'mobile/assets/covers/trainer-word-build.png', width: 768, height: 432, render: renderTrainerWordBuild },
+  { file: 'mobile/assets/covers/trainer-mix.png', width: 1152, height: 432, render: renderTrainerMix },
 ];
 
+// Optional: nur Dateien rendern, deren Name den Filter enthält –
+// `node scripts/render-home-covers.mjs trainer`.
+const filter = process.argv[2];
+
 for (const cover of COVERS) {
+  if (filter && !cover.file.includes(filter)) continue;
   const target = resolve(ROOT, cover.file);
   const bytes = writePng(cover.render(cover.width, cover.height), target);
   const name = cover.file.split('/').pop();

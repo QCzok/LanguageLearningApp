@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +16,14 @@ import {
   Title,
 } from '../../components';
 import { vocabularyApi } from '../../api/endpoints';
+import {
+  trainerChoiceCover,
+  trainerMatchingCover,
+  trainerMixCover,
+  trainerSentenceCover,
+  trainerSpeakingCover,
+  trainerWordBuildCover,
+} from '../../assets';
 import { CACHE } from '../../api/query-client';
 import { useTranslation } from '../../i18n';
 import type { TranslationKey } from '../../i18n';
@@ -31,8 +39,8 @@ import {
   typography,
 } from '../../theme';
 import { canRecognizeSpeech } from './SpeakingCard';
-import { ChevronRightIcon } from '../workbook/BookIcons';
 import { MODE_KEYS, TRAINER_MODES } from './trainerModes';
+import type { TrainerMode } from './trainerModes';
 import { SectionRule } from './TrainerParts';
 import type { VocabularyStackParamList } from '../../navigation/types';
 
@@ -108,6 +116,7 @@ export default function DeckListScreen({ navigation }: Props) {
                   key={mode}
                   title={t(MODE_KEYS[mode].title)}
                   hint={unavailable ? t('trainerSpeakingUnavailable') : t(MODE_KEYS[mode].hint)}
+                  cover={MODE_COVERS[mode]}
                   wide={mode === 'MIX'}
                   disabled={wordCount === 0 || unavailable}
                   onPress={() => navigation.navigate('TrainerScope', { mode })}
@@ -123,16 +132,35 @@ export default function DeckListScreen({ navigation }: Props) {
 
 // ---------------------------------------------------------------- Bausteine
 
-/** Eine Übungsart als Karteikarte – ein Tipp führt zum nächsten Schritt. */
+/**
+ * Bild je Übungsart – gerenderte PNGs wie die Kacheln der Startseite, erzeugt
+ * von `scripts/render-home-covers.mjs`. Der Mix steht allein in seiner Zeile
+ * und hat deshalb ein Breitbild (8:3).
+ */
+const MODE_COVERS: Record<TrainerMode, number> = {
+  MULTIPLE_CHOICE: trainerChoiceCover,
+  MATCHING: trainerMatchingCover,
+  SPEAKING: trainerSpeakingCover,
+  SENTENCE_ORDER: trainerSentenceCover,
+  WORD_BUILD: trainerWordBuildCover,
+  MIX: trainerMixCover,
+};
+
+/**
+ * Eine Übungsart als Kachel mit Bild oben, wie auf der Startseite – ein Tipp
+ * führt zum nächsten Schritt.
+ */
 function ModeTile({
   title,
   hint,
+  cover,
   wide,
   disabled,
   onPress,
 }: {
   title: string;
   hint: string;
+  cover: number;
   /** Über die ganze Breite – für die letzte, allein stehende Karte. */
   wide?: boolean;
   disabled?: boolean;
@@ -147,20 +175,29 @@ function ModeTile({
       onPress={onPress}
       style={({ pressed }) => [
         tile,
-        wide && { maxWidth: '100%' as const, minHeight: 0 },
+        wide && { maxWidth: '100%' as const },
         disabled && { opacity: 0.45 },
         pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
       ]}
     >
-      <View style={[cardHeadRule, { backgroundColor: colors.primary }]} />
-      <Text style={tileTitle} numberOfLines={2}>
-        {title}
-      </Text>
-      <Text style={tileMeta} numberOfLines={3}>
-        {hint}
-      </Text>
-      <View style={{ flex: 1 }} />
-      <ChevronRightIcon color={colors.primary} size={18} />
+      <View style={[tileCover, { aspectRatio: wide ? 8 / 3 : 16 / 9 }]}>
+        <Image
+          source={cover}
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
+          // Wie auf der Startseite: kein Einblenden, sonst wirkt es wie Nachladen.
+          fadeDuration={0}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+      <View style={tileBody}>
+        <Text style={tileTitle} numberOfLines={2}>
+          {title}
+        </Text>
+        <Text style={tileMeta} numberOfLines={3}>
+          {hint}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -221,25 +258,27 @@ const tileGrid = {
   gap: spacing.md,
 };
 
-/** Die Karteikarte selbst: Karton, scharfer Rand, farbige Kopflinie. */
+/** Die Karteikarte selbst: Karton, scharfer Rand, oben das Bild. */
 const tile = {
   flexBasis: '47%' as const,
   flexGrow: 1,
   maxWidth: '47%' as const,
-  minHeight: 150,
-  gap: spacing.xs,
-  padding: spacing.md,
   borderRadius: radius.md,
   backgroundColor: flashcard.paper,
   borderWidth: 1,
   borderColor: flashcard.edge,
+  overflow: 'hidden' as const,
   ...shadow.card,
 };
 
-const cardHeadRule = {
-  height: 2,
-  borderRadius: 1,
-  marginBottom: spacing.xs,
+const tileCover = {
+  width: '100%' as const,
+  backgroundColor: colors.surfaceAlt,
+};
+
+const tileBody = {
+  gap: spacing.xs,
+  padding: spacing.md,
 };
 
 const tileTitle = {

@@ -45,6 +45,12 @@ import sceneTrainPlatform from '../assets/covers/scene-train-platform.png';
 import sceneLivingRoom from '../assets/covers/scene-living-room.png';
 import sceneFiestaLights from '../assets/covers/scene-fiesta-lights.png';
 import sceneGenericBook from '../assets/covers/scene-generic-book.png';
+import trainerChoiceCover from '../assets/covers/trainer-choice.png';
+import trainerMatchingCover from '../assets/covers/trainer-matching.png';
+import trainerSpeakingCover from '../assets/covers/trainer-speaking.png';
+import trainerSentenceCover from '../assets/covers/trainer-sentence.png';
+import trainerWordBuildCover from '../assets/covers/trainer-word-build.png';
+import trainerMixCover from '../assets/covers/trainer-mix.png';
 
 export {
   vocabularyCover,
@@ -85,6 +91,12 @@ export {
   sceneLivingRoom,
   sceneFiestaLights,
   sceneGenericBook,
+  trainerChoiceCover,
+  trainerMatchingCover,
+  trainerSpeakingCover,
+  trainerSentenceCover,
+  trainerWordBuildCover,
+  trainerMixCover,
 };
 
 /**
